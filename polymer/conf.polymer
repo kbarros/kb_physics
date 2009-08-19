@@ -33,7 +33,7 @@ fix		2 all langevin 1.2 1.2 10.0 699483 # < ID group-ID langevin Tstart Tstop da
 timestep	0.003
 thermo		100				# output thermodynamic quantities every 1000 steps
 dump		1 all atom 100 dump.polymer	# < ID group-ID style every_N_timesteps file args >
-dump_modify	1 image yes scale no
+# dump_modify	1 image yes scale no
 
 run		50000
 
