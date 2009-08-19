@@ -1,0 +1,42 @@
+# polymer simulation
+
+units		lj
+boundary	p p p
+dimension	3
+
+atom_style	full
+neighbor	0.3 bin
+neigh_modify	delay 5
+
+read_data	data.polymer		# load volume dimensions, masses, atoms, and bonds
+
+pair_style	lj/cut/coul/long 1.12246204830937 5 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
+pair_coeff	* * 1.0 1.0		# < atom_type1 atom_type2 epsilon sigma [ LJ_cutoff coulomb_cutoff ] >
+pair_modify	shift yes		# LJ interactions shifted to zero
+kspace_style	ewald 1.0e-4		# desired accuracy
+# LAMMPS coulombic energy is (q1 q2) / (\eps r)
+# bjerrum length is (\lambda_B = 3)
+# temperature is (k T = 1.2)
+# so dielectric is (1 / (1.2 * 3))
+dielectric	0.2777777777777
+
+bond_style	fene
+bond_coeff	* 7 2 0 0		# < bond_type K R0 fene_epsilon fene_sigma >
+special_bonds	lj/coul 1.0 1.0 1.0  	# turn on regular interactions between all monomers (even bonded ones)
+
+# apply newtons equations
+fix		1 all nve
+fix		2 all langevin 1.2 1.2 10.0 699483 # < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
+#fix		3 all setforce NULL NULL 0.0	   # enforce 2d
+
+# run
+timestep	0.003
+thermo		100				# output thermodynamic quantities every 1000 steps
+dump		1 all atom 100 dump.polymer	# < ID group-ID style every_N_timesteps file args >
+dump_modify	1 image yes scale no
+
+run		50000
+
+# Run without indenter
+# unfix           4
+# run		30000
