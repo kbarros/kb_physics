@@ -10,7 +10,7 @@ neigh_modify	delay 5
 
 read_data	data.polymer		# load volume dimensions, masses, atoms, and bonds
 
-pair_style	lj/cut/coul/long 1.12246204830937 5 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
+pair_style	lj/cut/coul/long 1.12246204830937 12 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
 pair_coeff	* * 1.0 1.0		# < atom_type1 atom_type2 epsilon sigma [ LJ_cutoff coulomb_cutoff ] >
 pair_modify	shift yes		# LJ interactions shifted to zero
 kspace_style	ewald 1.0e-4		# desired accuracy
@@ -33,6 +33,7 @@ fix		2 all langevin 1.2 1.2 10.0 699483 # < ID group-ID langevin Tstart Tstop da
 timestep	0.003
 thermo		100				# output thermodynamic quantities every 1000 steps
 dump		1 all atom 100 dump.polymer	# < ID group-ID style every_N_timesteps file args >
+dump_modify	1 image yes
 # dump_modify	1 image yes scale no
 
 run		50000

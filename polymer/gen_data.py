@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
-N = 8
-L = 12.5992104989487 # 2000^(1/3)
+N = 16
+rho = 0.008
+L = (N / rho)**(1./3.) # approx 12.6
+
 
 header = ("""LAMMPS FENE chain data file
  
@@ -39,12 +41,17 @@ def wrap_coordinate(x):
 
 def atom_position(i):
     mx = 1
-    my = (i / L)
-    mz = (i / L**2)
+    my = (1 / L)
+    mz = (1 / L**2)
     x = L/2. + i*mx
     y = L/2. + i*my
     z = L/2. + i*mz
     return (x,y,z)
+
+
+def atom_str(atom_id, molecule_id, atom_type, charge):
+    (x,ix), (y,iy), (z,iz) = map(wrap_coordinate, atom_position(atom_id))
+    return "  %d  %d  %d  %f  %f  %f  %f  %d  %d  %d\n" % (atom_id, molecule_id, atom_type, charge, x, y, z, ix, iy, iz)
 
 
 atoms = "Atoms\n  # atom_id, molecule_id, atom_type, charge, x, y, z, wind_x, wind_y, wind_z \n"
@@ -54,16 +61,14 @@ for i in range(N):
     molecule_id = 1
     atom_type = 1
     charge = -1
-    (x,ix), (y,iy), (z,iz) = map(wrap_coordinate, atom_position(atom_id))
-    atoms += ("  %d  %d  %d  %f  %f  %f  %f  %d  %d  %d\n" % (atom_id, molecule_id, atom_type, charge, x, y, z, ix, iy, iz))
+    atoms += atom_str(atom_id, molecule_id, atom_type, charge)
 # create ions
 for i in range(N):
     atom_id = N+(i+1)
     molecule_id = 2
     atom_type = 2
     charge = 1
-    x,y,z = atom_position(atom_id)
-    atoms += ("  %d  %d  %d  %f  %f  %f  %f  0  0  0\n" % (atom_id, molecule_id, atom_type, charge, x, y, z))
+    atoms += atom_str(atom_id, molecule_id, atom_type, charge)
 atoms += "\n"
 
 
