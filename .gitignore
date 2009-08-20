@@ -1,2 +1,6 @@
 *.o
 *.dat
+.#*
+
+# executables in subdirectories
+chain_analysis/chain_analysis
