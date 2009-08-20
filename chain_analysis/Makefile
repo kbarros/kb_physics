@@ -13,17 +13,17 @@ LDFLAGS = -lm
 
 OBJECTS  = alloc2d.o alloc3d.o matrix59_3.o
 
-PROGRAMS = matrix
+PROGRAMS = chain_analysis
 
-default: matrix
+default: chain_analysis
 
 all: $(PROGRAMS)
 
 %.o : %.c
 	$(CC) $(CFLAGS) $(OPT) -c $<
 
-matrix: $(OBJECTS)
-	$(CC) -o matrix $(CFLAGS) $(OPT) $(OBJECTS) $(LDFLAGS)
+chain_analysis: $(OBJECTS)
+	$(CC) -o chain_analysis $(CFLAGS) $(OPT) $(OBJECTS) $(LDFLAGS)
 
 ### NO CHANGES BELOW THIS LINE ###
 
