@@ -477,21 +477,20 @@ int readconfig(double **positions, int nchains, int chainlength)
 			/*printf("I want to read atom %d. I actually read atom no. %d\n", current_atom, i);*/
 		}
 	}
-/*remove the function to read surface from dump file*/
-
-	/*for(surface=0; surface<(natoms-nchains*chainlength); surface++)
-	{
-	    fscanf(fp, "%d %d %lg %lg %lg %d %d %d\n", 
-		   &surfaceatomno, &surftype, &surfx, &surfy, &surfz, &surfdummy[0], &surfdummy[1], &surfdummy[2]);
+	
+	/* read all extra atoms */
+	int  ion;
+	for(ion=0; ion<(natoms-nchains*chainlength); ion++) {
+	    current_atom=nchains*chainlength+ion;
 	    
-		printf("%d\n", atomtype);
-	    if (surftype==atomtype)
-	      {
-		  printf("Wrong input no. of chains or chainlength!\n");
-		  exit(EXIT_FAILURE);
-	      }
+	    double atom_pos[3];
+	    i = readatom(atom_pos, xbox, ybox, zbox, &atomtype);
+	    
+	    if (current_atom+1 != i) {
+		fprintf(stderr, "Unordered dump file");
+	    }
+	}
 
-	}*/
 	return(0);
 }
 
@@ -515,9 +514,9 @@ int readheader(int *timestep, int *natoms, double box[3][2], int nchains, int ch
 	}
 	fscanf(fp, "%d\n", natoms);
 
-	if (*natoms != (nchains*chainlength))
+	if (*natoms < (nchains*chainlength))
 	{
-	    printf("Wrong chainlength or no_chains!\n");
+	    printf("%d atom(s) cannot fit into %d chain(s) of length %d!\n", *natoms, nchains, chainlength);
 	    exit(0);
 	}
 
@@ -532,8 +531,9 @@ int readheader(int *timestep, int *natoms, double box[3][2], int nchains, int ch
 	}
 	
 	fgets(line, 1024, fp);
-	if ( strcmp(line, "ITEM: ATOMS\n") != 0)
+	if ( strcmp(line, "ITEM: ATOMS id type x y z ix iy iz\n") != 0)
 	{
+	    printf("line was %s\n", line);
 		return(-4);
 	}
 	
