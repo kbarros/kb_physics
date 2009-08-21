@@ -1,2 +1,0 @@
-./gen_data.py > data.polymer
-time ~/Lammps/lammps-17Apr09/src/lmp_suse_linux < conf.polymer
