@@ -5,15 +5,16 @@ import os
 
 N = 16 # chain length
 Ns = 1 # salt molecules
-Z = 1 # salt valency
+Z = 3 # salt valency
 rho = 0.008 # monomer density
 L = (N / rho)**(1./3.) # linear system size
 
-simsteps = 50000
-dumpevery = 100
+equilibsteps = 100000
+simsteps     = 10000000
+dumpevery = 500
 num_dumps = simsteps / dumpevery
 
-dirname = "N%d.Ns%d.Z%d.rho%s##" % (N, N, Z, str(rho))
+dirname = "N%d.Ns%d.Z%d.rho%s##" % (N, Ns, Z, str(rho))
 confname = "conf.dat"
 dataname = "data.dat"
 chaincfgname = "chaincfg.dat"
@@ -76,13 +77,19 @@ fix		2 all langevin 1.2 1.2 10.0 699483 # < ID group-ID langevin Tstart Tstop da
 
 # run
 timestep	0.003
-thermo		%(dumpevery)s				# output thermodynamic quantities every 1000 steps
-dump		1 all atom %(dumpevery)s %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
+thermo		%(dumpevery)d				# output thermodynamic quantities every 1000 steps
+
+run		%(equilibsteps)d
+
+dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
 #dump_modify	1 image yes
 dump_modify	1 image yes scale no
 
-run		%(simsteps)s
-""" % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps, 'dumpevery':dumpevery})
+dump		2 all custom %(dumpevery)d veldump.dat vx vy vz
+
+run		%(simsteps)d
+""" % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
+       'equilibsteps':equilibsteps, 'dumpevery':dumpevery})
 
 
 
@@ -91,6 +98,8 @@ run		%(simsteps)s
 #
 
 def generate_data_file():
+    natoms = N + N + Ns + Z*Ns # monomers, counterions, salt counterions, salt coions
+    
     header = (
 """LAMMPS FENE chain data file
 
@@ -100,7 +109,7 @@ def generate_data_file():
            0  dihedrals
            0  impropers
 
-           2  atom types
+           4  atom types
            1  bond types
            0  angle types
            0  dihedral types
@@ -110,13 +119,15 @@ def generate_data_file():
  %(lmin)f  %(lmax)f ylo yhi
  %(lmin)f  %(lmax)f zlo zhi
 
-""" % {'natoms':2*N, 'nbonds':(N-1), 'lmin':0, 'lmax':L})
+""" % {'natoms':natoms, 'nbonds':(N-1), 'lmin':0, 'lmax':L})
     
     masses = (
 """Masses
   #
   1  1.0
   2  1.0
+  3  1.0
+  4  1.0
 
 """)
     
@@ -137,19 +148,35 @@ def generate_data_file():
         return "  %d  %d  %d  %f  %f  %f  %f  %d  %d  %d\n" % (atom_id, molecule_id, atom_type, charge, x, y, z, ix, iy, iz)
     
     atoms = "Atoms\n  # atom_id, molecule_id, atom_type, charge, x, y, z, wind_x, wind_y, wind_z \n"
+    
+    atom_id = 0
     # create polymer chain
     for i in range(N):
-        atom_id = i+1
+        atom_id += 1
         molecule_id = 1
         atom_type = 1
         charge = -1
         atoms += atom_str(atom_id, molecule_id, atom_type, charge)
     # create ions
     for i in range(N):
-        atom_id = N+(i+1)
+        atom_id += 1
         molecule_id = 2
         atom_type = 2
         charge = 1
+        atoms += atom_str(atom_id, molecule_id, atom_type, charge)
+    # create salt counterions
+    for i in range(Ns):
+        atom_id += 1
+        molecule_id = 2
+        atom_type = 3
+        charge = Z
+        atoms += atom_str(atom_id, molecule_id, atom_type, charge)
+    # create salt coions
+    for i in range(Z*Ns):
+        atom_id += 1
+        molecule_id = 2
+        atom_type = 4
+        charge = -1
         atoms += atom_str(atom_id, molecule_id, atom_type, charge)
     atoms += "\n"
     
