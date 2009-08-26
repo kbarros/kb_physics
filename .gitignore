@@ -5,4 +5,4 @@
 .DS_Store
 
 # executables in subdirectories
-chain_analysis/chain_analysis
+*/chain_analysis/chain_analysis
