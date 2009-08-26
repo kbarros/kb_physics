@@ -3,18 +3,18 @@
 import os
 
 
-N = 16 # chain length
+N = 64 # chain length
 Ns = 1 # salt molecules
 Z = 3 # salt valency
 rho = 0.008 # monomer density
 L = (N / rho)**(1./3.) # linear system size
 
 equilibsteps = 100000
-simsteps     = 10000000
+simsteps     = 50000000
 dumpevery = 500
 num_dumps = simsteps / dumpevery
 
-dirname = "N%d.Ns%d.Z%d.rho%s##" % (N, Ns, Z, str(rho))
+dirname = "/home/kbarros/scratch/polymer/N%d.Ns%d.Z%d.rho%s" % (N, Ns, Z, str(rho))
 confname = "conf.dat"
 dataname = "data.dat"
 chaincfgname = "chaincfg.dat"
@@ -229,6 +229,7 @@ generic_analyzer analysis.dat 8
 
 def build_sim_dir():
     root = mknewdir(dirname) + "/"
+    print "creating directory:\n " + root
     
     with open(root + confname, 'w') as f:
         f.write(generate_conf_file())
@@ -238,8 +239,11 @@ def build_sim_dir():
     
     with open(root + chaincfgname, 'w') as f:
         f.write(generate_chain_config_file())
-
+    
     with open(root + cmdsname, 'w') as f:
         f.write(generate_cmds_file())
+    
+    os.system('ln -fsn %s link##' % root)
+
 
 build_sim_dir()

@@ -25,6 +25,8 @@ dumpname = "dump.dat"
 analysisname = "analysis.dat"
 
 
+# This arrangement of points was acquired from [1]
+# [1] R. H. Hardin, N. J. A. Sloane and W. D. Smith, Tables of putatively optimal packings on the sphere, published electronically at http://www.research.att.com/~njas/packings/
 def load_sphere_packing():
     # combine list items into groups of size n
     def grouper(n, iterable, padvalue=None):
@@ -250,7 +252,7 @@ generic_analyzer analysis.dat 8
 
 def build_sim_dir():
     root = mknewdir(dirname) + "/"
-    print "creating directory:\npushd " + root
+    print "creating directory:\n " + root
     
     with open(root + confname, 'w') as f:
         f.write(generate_conf_file())
@@ -263,5 +265,7 @@ def build_sim_dir():
 
     with open(root + cmdsname, 'w') as f:
         f.write(generate_cmds_file())
+    
+    os.system('ln -f -s %s link##' % root)
 
 build_sim_dir()
