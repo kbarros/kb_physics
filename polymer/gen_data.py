@@ -2,16 +2,16 @@
 
 import os
 
-
-N = 64 # chain length
-Ns = 1 # salt molecules
-Z = 3 # salt valency
+dt = 0.003
+N = 32 # chain length
+Ns = 8 # salt molecules
+Z = 4 # salt valency
 rho = 0.008 # monomer density
 L = (N / rho)**(1./3.) # linear system size
 
 equilibsteps = 100000
 simsteps     = 50000000
-dumpevery = 500
+dumpevery = 10000
 num_dumps = simsteps / dumpevery
 
 dirname = "/home/kbarros/scratch/polymer/N%d.Ns%d.Z%d.rho%s" % (N, Ns, Z, str(rho))
@@ -76,7 +76,7 @@ fix		2 all langevin 1.2 1.2 10.0 699483 # < ID group-ID langevin Tstart Tstop da
 #fix		3 all setforce NULL NULL 0.0	   # enforce 2d
 
 # run
-timestep	0.003
+timestep	%(dt)f
 thermo		%(dumpevery)d				# output thermodynamic quantities every 1000 steps
 
 run		%(equilibsteps)d
@@ -89,7 +89,7 @@ dump		2 all custom %(dumpevery)d veldump.dat vx vy vz
 
 run		%(simsteps)d
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
-       'equilibsteps':equilibsteps, 'dumpevery':dumpevery})
+       'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'dt':dt})
 
 
 
@@ -136,8 +136,8 @@ def generate_data_file():
     
     def atom_position(i):
         mx = 1
-        my = (1 / L)
-        mz = (1 / L**2)
+        my = (4 / L)
+        mz = (4 / L**2)
         x = L/2. + i*mx
         y = L/2. + i*my
         z = L/2. + i*mz
