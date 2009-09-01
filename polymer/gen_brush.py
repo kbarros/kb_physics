@@ -4,6 +4,7 @@ import os
 from itertools import *
 
 
+dt = 0.003
 N = 4 # chain length // 30
 f = 4 # number of chains // 40
 Ns = 1 # salt molecules // ??
@@ -92,12 +93,13 @@ group		nongraft subtract all graft
 
 # apply newtons equations
 fix		1 all nve
-fix		2 all langevin 1.2 1.2 10.0 699483 # < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
-fix		3 graft setforce 0.0 0.0 0.0	   # graft atoms don't move
+fix		2 all langevin 1.2 1.2 10.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
+fix		3 graft setforce 0.0 0.0 0.0		# graft atoms don't move
 fix		4 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
+fix_modify	4 energy yes				# include globe energy
 
 # run
-timestep	0.003
+timestep	%(dt)f
 thermo		%(dumpevery)d				# output thermodynamic quantities every 1000 steps
 
 run		%(equilibsteps)d
@@ -110,7 +112,7 @@ dump		2 all custom %(dumpevery)d veldump.dat vx vy vz
 
 run		%(simsteps)d
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
-       'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'R':R})
+       'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'R':R, 'dt':dt})
 
 
 
@@ -155,8 +157,8 @@ def generate_data_file():
     
     def atom_position(i):
         mx = 1
-        my = (1 / L)
-        mz = (1 / L**2)
+        my = (4 / L)
+        mz = (4 / L**2)
         x = i*mx
         y = i*my
         z = i*mz
@@ -184,21 +186,21 @@ def generate_data_file():
     for i in range(f*N):
         atom_id += 1
         molecule_id = -1
-        atom_type = 2
+        atom_type = 3
         charge = 1
         atoms += atom_str(atom_position(atom_id), atom_id, molecule_id, atom_type, charge)
     # create salt counterions
     for i in range(Ns):
         atom_id += 1
         molecule_id = -1
-        atom_type = 3
+        atom_type = 4
         charge = Z
         atoms += atom_str(atom_position(atom_id), atom_id, molecule_id, atom_type, charge)
     # create salt coions
     for i in range(Z*Ns):
         atom_id += 1
         molecule_id = -1
-        atom_type = 4
+        atom_type = 5
         charge = -1
         atoms += atom_str(atom_position(atom_id), atom_id, molecule_id, atom_type, charge)
     atoms += "\n"
@@ -266,6 +268,6 @@ def build_sim_dir():
     with open(root + cmdsname, 'w') as f:
         f.write(generate_cmds_file())
     
-    os.system('ln -f -s %s link##' % root)
+    os.system('ln -fsn %s link##' % root)
 
 build_sim_dir()

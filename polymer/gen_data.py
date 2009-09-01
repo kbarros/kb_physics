@@ -15,7 +15,7 @@ dumpevery = 10000
 num_dumps = simsteps / dumpevery
 
 dirname = "/home/kbarros/scratch/polymer/N%d.Ns%d.Z%d.rho%s" % (N, Ns, Z, str(rho))
-confname = "conf.dat"
+confname = "in.dat"
 dataname = "data.dat"
 chaincfgname = "chaincfg.dat"
 cmdsname = "cmds.dat"
