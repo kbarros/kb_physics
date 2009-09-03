@@ -122,14 +122,13 @@ special_bonds	lj/coul 1.0 1.0 1.0  	# turn on regular interactions between all m
 group		graft type 1
 group		nongraft subtract all graft
 
-# apply newtons equations
-fix		1 nongraft nve
+fix		1 nongraft nve				# apply newtons equations
 fix		2 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
 fix_modify	2 energy yes				# include globe energy
 
-# run
 timestep	%(dt)f
 thermo		%(dumpevery)d				# steps between output of thermodynamic quantities 
+restart		%(restart_freq)d restart.*.dat
 
 # dump data in format for visualization by xmovie
 # dump		1 all atom 200 movie.dat		# < ID group-ID style every_N_timesteps file args >
@@ -145,10 +144,8 @@ dump_modify	1 image yes scale no
 # run the simulation with langevin dynamics for performance & robustness
 fix		4 nongraft langevin %(T)f %(T)f 10.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
 run		%(simsteps)d
-
-# write_restart restart.equil.dat
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
-       'equilibsteps':equilibsteps, 'dumpevery':dumpevery,
+       'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'restart_freq':20*dumpevery,
        'ewald_accuracy':ewald_accuracy, 'T':T, 'R':R, 'dt':dt})
 
 
