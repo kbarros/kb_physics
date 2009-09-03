@@ -4,20 +4,43 @@ import os
 from itertools import *
 
 
+# -----------------------------------------------------------------
+# Simulation configuration
+#
+
 dt = 0.003
-N = 4 # chain length // 30
-f = 4 # number of chains // 40
-Ns = 1 # salt molecules // ??
+ewald_accuracy = 1e-5
+
+N = 30 # chain length // 30
+f = 40 # number of chains // 40
+Ns = 10 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
-L = 2.5*(R+N) # linear system size // 160
+L = 160 # linear system size // 160
 
 equilibsteps = 0 # 100000
-simsteps     = 10000 # 10000000
-dumpevery = 50
+simsteps     = 100000 # 10000000
+dumpevery = 100
 num_dumps = simsteps / dumpevery
 
-dirname = "/home/kbarros/scratch/peb/N%d.Ns%d.Z%d.L%d" % (N, Ns, Z, L)
+salt_free = True # if True, only counterions (no salt coions)
+if not salt_free:
+    n_monomers = f*N
+    n_counterions = f*N
+    n_salt_counterions = Ns
+    n_salt_coions = Z*Ns
+else:
+    n_monomers = f*N
+    n_counterions = f*N - Z*Ns
+    n_salt_counterions = Ns
+    n_salt_coions = 0
+
+if not salt_free:
+    dirname = "/home/kbarros/scratch/peb/N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
+else:
+    phi = n_salt_counterions / n_counterions
+    dirname = "/home/kbarros/scratch/peb/N%d.f%d.phi%f.Z%d.L%d" % (N, f, phi, Z, L)    
+
 confname = "in.dat"
 dataname = "data.dat"
 chaincfgname = "chaincfg.dat"
@@ -26,8 +49,12 @@ dumpname = "dump.dat"
 analysisname = "analysis.dat"
 
 
+# ------------------------------------------------------------------
+
 # This arrangement of points was acquired from [1]
-# [1] R. H. Hardin, N. J. A. Sloane and W. D. Smith, Tables of putatively optimal packings on the sphere, published electronically at http://www.research.att.com/~njas/packings/
+# [1] R. H. Hardin, N. J. A. Sloane and W. D. Smith, Tables of putatively
+# optimal packings on the sphere, published electronically at
+# http://www.research.att.com/~njas/packings/
 def load_sphere_packing():
     # combine list items into groups of size n
     def grouper(n, iterable, padvalue=None):
@@ -70,14 +97,15 @@ dimension	3
 
 atom_style	full
 neighbor	0.3 bin
-neigh_modify	delay 5
+neigh_modify	delay 5 page 500000 one 10000 # defaults: page 100000 one 2000
 
 read_data	%(dataname)s		# load volume dimensions, masses, atoms, and bonds
+# read_restart	restart.equil.dat
 
-pair_style	lj/cut/coul/long 1.12246204830937 12 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
+pair_style	lj/cut/coul/long 1.12246204830937 35 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
 pair_coeff	* * 1.0 1.0		# < atom_type1 atom_type2 epsilon sigma [ LJ_cutoff coulomb_cutoff ] >
 pair_modify	shift yes		# LJ interactions shifted to zero
-kspace_style	ewald 1.0e-4		# desired accuracy
+kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 # LAMMPS coulombic energy is (q1 q2) / (\eps r)
 # bjerrum length is (\lambda_B = 3)
 # temperature is (k T = 1.2)
@@ -93,7 +121,7 @@ group		nongraft subtract all graft
 
 # apply newtons equations
 fix		1 all nve
-fix		2 all langevin 1.2 1.2 10.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
+fix		2 all langevin 1.2 1.2 2.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
 fix		3 graft setforce 0.0 0.0 0.0		# graft atoms don't move
 fix		4 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
 fix_modify	4 energy yes				# include globe energy
@@ -108,11 +136,12 @@ dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timest
 dump_modify	1 image yes
 #dump_modify	1 image yes scale no
 
-dump		2 all custom %(dumpevery)d veldump.dat vx vy vz
-
 run		%(simsteps)d
+
+# write_restart restart.equil.dat
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
-       'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'R':R, 'dt':dt})
+       'equilibsteps':equilibsteps, 'dumpevery':dumpevery,
+       'ewald_accuracy':ewald_accuracy, 'R':R, 'dt':dt})
 
 
 
@@ -121,8 +150,8 @@ run		%(simsteps)d
 #
 
 def generate_data_file():
-    natoms = f*N + f*N + Ns + Z*Ns # monomers, counterions, salt counterions, salt coions
-     
+    natoms = n_monomers + n_counterions + n_salt_counterions + n_salt_coions
+    
     header = (
 """LAMMPS FENE chain data file
 
@@ -149,16 +178,17 @@ def generate_data_file():
   #
   1  1.0 # grafted monomers
   2  1.0 # monomers
-  3  1.0 # ions
+  3  1.0 # counterions
   4  1.0 # salt counterions
   5  1.0 # salt coions
 
 """)
     
     def atom_position(i):
-        mx = 1
-        my = (4 / L)
-        mz = (4 / L**2)
+        d = 8.0
+        mx = d
+        my = d*d / L
+        mz = d*d*d / L**2
         x = i*mx
         y = i*my
         z = i*mz
@@ -174,7 +204,7 @@ def generate_data_file():
     
     atom_id = 0
     
-    # create polymer chain
+    # create polymer chain with f*N monomers
     for chain in range(f):
         for i in range(N):
             atom_id += 1
@@ -182,22 +212,22 @@ def generate_data_file():
             atom_type = 1 if i == 0 else 2
             charge = -1
             atoms += atom_str(polymer_position(chain, i), atom_id, molecule_id, atom_type, charge)
-    # create ions
-    for i in range(f*N):
+    # create counter ions
+    for i in n_counterions:
         atom_id += 1
         molecule_id = -1
         atom_type = 3
         charge = 1
         atoms += atom_str(atom_position(atom_id), atom_id, molecule_id, atom_type, charge)
     # create salt counterions
-    for i in range(Ns):
+    for i in n_salt_counterions:
         atom_id += 1
         molecule_id = -1
         atom_type = 4
         charge = Z
         atoms += atom_str(atom_position(atom_id), atom_id, molecule_id, atom_type, charge)
     # create salt coions
-    for i in range(Z*Ns):
+    for i in n_salt_coions:
         atom_id += 1
         molecule_id = -1
         atom_type = 5
