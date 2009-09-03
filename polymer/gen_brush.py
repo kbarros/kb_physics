@@ -130,18 +130,20 @@ fix_modify	2 energy yes				# include globe energy
 
 # run
 timestep	%(dt)f
-thermo		%(dumpevery)d				# output thermodynamic quantities every 1000 steps
+thermo		%(dumpevery)d				# steps between output of thermodynamic quantities 
 
-# run the simulation with a temperature fix for stability
+# dump data in format for visualization by xmovie
+# dump		1 all atom 200 movie.dat		# < ID group-ID style every_N_timesteps file args >
 
-dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
-dump_modify	1 image yes
-#dump_modify	1 image yes scale no
-
+# equilibrate the simulation with a temp/rescale for stability
 fix		3 all temp/rescale 1 %(T)f %(T)f 0.05 1	# N Tstart Tstop window fraction
 run		%(equilibsteps)d
 unfix		3
 
+dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
+dump_modify	1 image yes scale no
+
+# run the simulation with langevin dynamics for performance & robustness
 fix		4 nongraft langevin %(T)f %(T)f 10.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
 run		%(simsteps)d
 
