@@ -16,7 +16,7 @@ ewald_accuracy = 1e-5
 
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 10 # salt molecules
+Ns = 100 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
@@ -27,7 +27,7 @@ simsteps     = 1000000
 dumpevery = 5000
 num_dumps = simsteps / dumpevery
 
-salt_free = False # if True, only counterions (no salt coions)
+salt_free = True # if True, only counterions (no salt coions)
 if not salt_free:
     n_monomers = f*N
     n_counterions = f*N
@@ -39,11 +39,9 @@ else:
     n_salt_counterions = Ns
     n_salt_coions = 0
 
-if not salt_free:
-    dirname = "/home/kbarros/scratch/peb/N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
-else:
-    phi = n_salt_counterions / n_counterions
-    dirname = "/home/kbarros/scratch/peb/N%d.f%d.phi%f.Z%d.L%d" % (N, f, phi, Z, L)    
+dirname = "/home/kbarros/scratch/peb/N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
+if salt_free:
+    dirname += ".sf"
 
 confname = "in.dat"
 dataname = "data.dat"
