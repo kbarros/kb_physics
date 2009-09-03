@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# TODO: don't hardcode Bjerrum length
+
+
 import os
 from itertools import *
 
@@ -17,13 +20,14 @@ Ns = 10 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
+T = 1.2 # temperature // 1.2
 
-equilibsteps = 0 # 100000
-simsteps     = 100000 # 10000000
-dumpevery = 100
+equilibsteps = 100000
+simsteps     = 1000000
+dumpevery = 5000
 num_dumps = simsteps / dumpevery
 
-salt_free = True # if True, only counterions (no salt coions)
+salt_free = False # if True, only counterions (no salt coions)
 if not salt_free:
     n_monomers = f*N
     n_counterions = f*N
@@ -120,28 +124,31 @@ group		graft type 1
 group		nongraft subtract all graft
 
 # apply newtons equations
-fix		1 all nve
-fix		2 all langevin 1.2 1.2 2.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
-fix		3 graft setforce 0.0 0.0 0.0		# graft atoms don't move
-fix		4 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
-fix_modify	4 energy yes				# include globe energy
+fix		1 nongraft nve
+fix		2 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
+fix_modify	2 energy yes				# include globe energy
 
 # run
 timestep	%(dt)f
 thermo		%(dumpevery)d				# output thermodynamic quantities every 1000 steps
 
-run		%(equilibsteps)d
+# run the simulation with a temperature fix for stability
 
 dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
 dump_modify	1 image yes
 #dump_modify	1 image yes scale no
 
+fix		3 all temp/rescale 1 %(T)f %(T)f 0.05 1	# N Tstart Tstop window fraction
+run		%(equilibsteps)d
+unfix		3
+
+fix		4 nongraft langevin %(T)f %(T)f 10.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
 run		%(simsteps)d
 
 # write_restart restart.equil.dat
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
        'equilibsteps':equilibsteps, 'dumpevery':dumpevery,
-       'ewald_accuracy':ewald_accuracy, 'R':R, 'dt':dt})
+       'ewald_accuracy':ewald_accuracy, 'T':T, 'R':R, 'dt':dt})
 
 
 
@@ -213,21 +220,21 @@ def generate_data_file():
             charge = -1
             atoms += atom_str(polymer_position(chain, i), atom_id, molecule_id, atom_type, charge)
     # create counter ions
-    for i in n_counterions:
+    for i in range(n_counterions):
         atom_id += 1
         molecule_id = -1
         atom_type = 3
         charge = 1
         atoms += atom_str(atom_position(atom_id), atom_id, molecule_id, atom_type, charge)
     # create salt counterions
-    for i in n_salt_counterions:
+    for i in range(n_salt_counterions):
         atom_id += 1
         molecule_id = -1
         atom_type = 4
         charge = Z
         atoms += atom_str(atom_position(atom_id), atom_id, molecule_id, atom_type, charge)
     # create salt coions
-    for i in n_salt_coions:
+    for i in range(n_salt_coions):
         atom_id += 1
         molecule_id = -1
         atom_type = 5
