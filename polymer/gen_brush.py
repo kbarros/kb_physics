@@ -16,7 +16,7 @@ ewald_accuracy = 1e-5
 
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 100 # salt molecules
+Ns = 240 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
@@ -41,6 +41,7 @@ else:
 
 dirname = "/home/kbarros/scratch/peb/N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
 if salt_free:
+    print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
     dirname += ".sf"
 
 confname = "in.dat"
@@ -104,7 +105,7 @@ neigh_modify	delay 5 page 500000 one 10000 # defaults: page 100000 one 2000
 read_data	%(dataname)s		# load volume dimensions, masses, atoms, and bonds
 # read_restart	restart.equil.dat
 
-pair_style	lj/cut/coul/long 1.12246204830937 35 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
+pair_style	lj/cut/coul/long 1.12246204830937 25 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
 pair_coeff	* * 1.0 1.0		# < atom_type1 atom_type2 epsilon sigma [ LJ_cutoff coulomb_cutoff ] >
 pair_modify	shift yes		# LJ interactions shifted to zero
 kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
