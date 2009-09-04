@@ -321,8 +321,8 @@ hostname
 echo 'hello world'
 
 cd %(dirname)s 
-%(lammps)s < in.dat > job.log 2> job.err
-""" % (dirname, lammps))
+%(lammps)s < %(confname)s > job.log 2> job.err
+""" % {'dirname':dirname, 'lammps':lammps, 'confname':confname})
 
 
 
