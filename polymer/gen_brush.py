@@ -318,8 +318,6 @@ def generate_pbs_file():
 
 hostname
 
-echo 'hello world'
-
 cd %(dirname)s 
 %(lammps)s < %(confname)s > job.log 2> job.err
 """ % {'dirname':dirname, 'lammps':lammps, 'confname':confname})
