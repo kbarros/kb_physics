@@ -10,17 +10,23 @@ from itertools import *
 #
 
 # TODO: don't hardcode Bjerrum length
+#
+# note: for Jusufi's parameters, energy of single chain with N=2 is
+# 1.21375, where there is a single FENE bond, coloumbic interaction,
+# and double LJ repulsion at r=1.
+#
 
 dt = 0.003
 ewald_accuracy = 1e-5
 
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 240 # salt molecules
+Ns = 60 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
 T = 1.2 # temperature // 1.2
+
 
 equilibsteps = 100000
 simsteps     = 1000000
