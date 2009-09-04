@@ -301,8 +301,8 @@ def generate_pbs_file():
 #PBS -M kbarros@northwestern.edu
 
 # ### direct stderr and stdout to files
-#PBS -e jobtest.err
-#PBS -o jobtest.log
+# #PBS -e jobtest.err
+# #PBS -o jobtest.log
 
 # ### maximum cpu time
 #PBS -l cput=100:00:00
@@ -315,8 +315,6 @@ def generate_pbs_file():
 
 # ### the shell that interprets the job script
 #PBS -S /bin/bash
-
-hostname
 
 cd %(dirname)s 
 %(lammps)s < %(confname)s > job.log 2> job.err
