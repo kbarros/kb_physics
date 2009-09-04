@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-# TODO: don't hardcode Bjerrum length
-
 
 import os
 from itertools import *
@@ -10,6 +8,8 @@ from itertools import *
 # -----------------------------------------------------------------
 # Simulation configuration
 #
+
+# TODO: don't hardcode Bjerrum length
 
 dt = 0.003
 ewald_accuracy = 1e-5
@@ -42,6 +42,7 @@ else:
 dirname = "/home/kbarros/scratch/peb/N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
 if salt_free:
     dirname += ".sf"
+lammps = "/home/kbarros/Lammps/current/src/lmp_suse_linux"
 
 confname = "in.dat"
 dataname = "data.dat"
@@ -49,10 +50,11 @@ chaincfgname = "chaincfg.dat"
 cmdsname = "cmds.dat"
 dumpname = "dump.dat"
 analysisname = "analysis.dat"
+pbsname = "job.pbs"
+
 
 
 # ------------------------------------------------------------------
-
 # This arrangement of points was acquired from [1]
 # [1] R. H. Hardin, N. J. A. Sloane and W. D. Smith, Tables of putatively
 # optimal packings on the sphere, published electronically at
@@ -281,6 +283,47 @@ generic_analyzer analysis.dat 8
 """ % confname)
 
 
+# -----------------------------------------------------------------
+# Generate PBS file
+#
+
+def generate_pbs_file():
+    return (
+"""
+# ### AUTOMATICALLY GENERATED BATCH FILE
+
+# ### name of job
+#PBS -N test240
+
+# ### mail for begin/end/abort
+#PBS -m bea
+#PBS -M kbarros@northwestern.edu
+
+# ### direct stderr and stdout to files
+#PBS -e jobtest.err
+#PBS -o jobtest.log
+
+# ### maximum cpu time
+#PBS -l cput=100:00:00
+
+# ### number of nodes and processors per node
+#PBS -l nodes=1:ppn=1
+
+# ### indicates that job should not rerun if it fails
+# #PBS -r n
+
+# ### the shell that interprets the job script
+#PBS -S /bin/bash
+
+hostname
+
+echo 'hello world'
+
+cd %(dirname)s 
+%(lammps)s < in.dat > job.log 2> job.err
+""" % (dirname, lammps))
+
+
 
 # -----------------------------------------------------------------
 # Build a new simulation directory
@@ -301,6 +344,9 @@ def build_sim_dir():
 
     with open(root + cmdsname, 'w') as f:
         f.write(generate_cmds_file())
+    
+    with open(root + pbsname, 'w') as f:
+        f.write(generate_pbs_file())
     
     os.system('ln -fsn %s link##' % root)
 
