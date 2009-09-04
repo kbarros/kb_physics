@@ -9,7 +9,9 @@ from itertools import *
 # Simulation configuration
 #
 
-# TODO: don't hardcode Bjerrum length
+# TODO:
+#   don't hardcode Bjerrum length
+#   reduce dt to 0.002 to match Jusufi
 #
 # note: for Jusufi's parameters, energy of single chain with N=2 is
 # 1.21375, where there is a single FENE bond, coloumbic interaction,
