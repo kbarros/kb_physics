@@ -39,10 +39,11 @@ else:
     n_salt_counterions = Ns
     n_salt_coions = 0
 
-dirname = "/home/kbarros/scratch/peb/N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
+jobname = "N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
 if salt_free:
     print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
-    dirname += ".sf"
+    jobname += ".sf"
+dirname = "/home/kbarros/scratch/peb/" + jobname
 lammps = "/home/kbarros/Lammps/current/src/lmp_suse_linux"
 
 confname = "in.dat"
@@ -294,15 +295,11 @@ def generate_pbs_file():
 # ### AUTOMATICALLY GENERATED BATCH FILE
 
 # ### name of job
-#PBS -N test240
+#PBS -N %(jobname)s
 
 # ### mail for begin/end/abort
 #PBS -m bea
 #PBS -M kbarros@northwestern.edu
-
-# ### direct stderr and stdout to files
-# #PBS -e jobtest.err
-# #PBS -o jobtest.log
 
 # ### maximum cpu time
 #PBS -l cput=100:00:00
@@ -318,7 +315,7 @@ def generate_pbs_file():
 
 cd %(dirname)s 
 %(lammps)s < %(confname)s > job.log 2> job.err
-""" % {'dirname':dirname, 'lammps':lammps, 'confname':confname})
+""" % {'jobname':jobname, 'dirname':dirname, 'lammps':lammps, 'confname':confname})
 
 
 
