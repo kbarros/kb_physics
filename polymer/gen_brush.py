@@ -1,8 +1,23 @@
 #!/usr/bin/python
 
-
 import os
 from itertools import *
+from math import *
+
+
+# -----------------------------------------------------------------
+# Create a new directory, with a possible suffix for uniqueness.
+# Return the name of the newly created directory.
+#
+
+def mknewdir(newdir):
+    if os.path.exists(newdir):
+        suffix = 1
+        while os.path.exists(newdir+"-"+str(suffix)):
+            suffix += 1
+        newdir += "-"+str(suffix)
+    os.mkdir(newdir)
+    return newdir
 
 
 # -----------------------------------------------------------------
@@ -24,14 +39,14 @@ ewald_accuracy = 1e-5
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
 Ns = 60 # salt molecules
-Z = 3 # salt valency // 1 through 4
+Z = 4 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
 T = 1.2 # temperature // 1.2
 
 
-equilibsteps = 100000
-simsteps     = 1000000
+equilibsteps = int(5e5)
+simsteps     = int(1e7)
 dumpevery = 5000
 num_dumps = simsteps / dumpevery
 
@@ -46,12 +61,14 @@ else:
     n_counterions = f*N - Z*Ns
     n_salt_counterions = Ns
     n_salt_coions = 0
+print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
 
-jobname = "N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
-if salt_free:
-    print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
-    jobname += ".sf"
-dirname = "/home/kbarros/scratch/peb/" + jobname
+# jobname = "N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
+# if salt_free:
+#     jobname += ".sf"
+jobname = "Ns%d.Z%d.1e%d" % (Ns, Z, round(log10(simsteps)))
+dirname = mknewdir("/home/kbarros/scratch/peb/"+jobname)
+print "Creating directory:\n " + dirname
 lammps = "/home/kbarros/Lammps/current/src/lmp_suse_linux"
 
 confname = "in.dat"
@@ -80,21 +97,6 @@ def load_sphere_packing():
         return [tuple(e) for e in grouper(3, coords)]
 
 sphere_packing = load_sphere_packing()
-
-
-# -----------------------------------------------------------------
-# Create a new directory, with a possible suffix for uniqueness.
-# Return the name of the newly created directory.
-#
-
-def mknewdir(newdir):
-    if os.path.exists(newdir):
-        suffix = 1
-        while os.path.exists(newdir+"-"+str(suffix)):
-            suffix += 1
-        newdir += "-"+str(suffix)
-    os.mkdir(newdir)
-    return newdir
 
 
 # -----------------------------------------------------------------
@@ -310,7 +312,7 @@ def generate_pbs_file():
 #PBS -M kbarros@northwestern.edu
 
 # ### maximum cpu time
-#PBS -l cput=100:00:00
+#PBS -l cput=500:00:00
 
 # ### number of nodes and processors per node
 #PBS -l nodes=1:ppn=1
@@ -318,11 +320,21 @@ def generate_pbs_file():
 # ### indicates that job should not rerun if it fails
 # #PBS -r n
 
+# ### stdin and stderr merged as stderr
+#PBS -j eo
+
+# ### write stderr to file
+#PBS -e %(dirname)s/log.err
+
 # ### the shell that interprets the job script
 #PBS -S /bin/bash
 
 cd %(dirname)s 
-%(lammps)s < %(confname)s > job.log 2> job.err
+%(lammps)s < %(confname)s > lammps.out
+scp -r %(dirname)s achilles.ms.northwestern.edu:%(dirname)s
+if [ $? -eq 0 ] ; then
+touch COMPLETED
+fi
 """ % {'jobname':jobname, 'dirname':dirname, 'lammps':lammps, 'confname':confname})
 
 
@@ -331,25 +343,24 @@ cd %(dirname)s
 # Build a new simulation directory
 #
 
-def build_sim_dir():
-    root = mknewdir(dirname) + "/"
-    print "creating directory:\n " + root
+def build_dir():
+    root = dirname + "/"
     
     with open(root + confname, 'w') as f:
         f.write(generate_conf_file())
-    
+        
     with open(root + dataname, 'w') as f:
         f.write(generate_data_file())
-    
+        
     with open(root + chaincfgname, 'w') as f:
         f.write(generate_chain_config_file())
-
+        
     with open(root + cmdsname, 'w') as f:
         f.write(generate_cmds_file())
-    
+        
     with open(root + pbsname, 'w') as f:
         f.write(generate_pbs_file())
-    
+        
     os.system('ln -fsn %s link##' % root)
 
-build_sim_dir()
+build_dir()
