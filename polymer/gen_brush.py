@@ -38,8 +38,8 @@ ewald_accuracy = 1e-5
 
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 60 # salt molecules
-Z = 4 # salt valency // 1 through 4
+Ns = 300 # salt molecules
+Z = 2 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
 T = 1.2 # temperature // 1.2
@@ -125,7 +125,7 @@ kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 # LAMMPS coulombic energy is (q1 q2) / (\eps r)
 # bjerrum length is (\lambda_B = 3)
 # temperature is (k T = 1.2)
-# so dielectric is (1 / (1.2 * 3))
+# so dielectric \eps is (1 / (1.2 * 3))
 dielectric	0.2777777777777
 
 bond_style	fene
@@ -273,12 +273,17 @@ def generate_data_file():
 
 def generate_chain_config_file():
     return (
-"""dumpname       = %s
+"""
+dumpname       = %s
 timesteps      = %d
 maxdeltat      = 1
 chainlength    = %d
 no_chains      = %d
+ad_condition_z = 1 
+compute_msd    = 0 
 outputfile     = %s
+adsorb         = adsorb.dat 
+msdout         = msd.dat
 """ % (dumpname, num_dumps, N, f, analysisname))
 
 
