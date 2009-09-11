@@ -36,10 +36,10 @@ def mknewdir(newdir):
 dt = 0.003
 ewald_accuracy = 1e-5
 
-N = 30 # chain length // 30
+N = 18 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 300 # salt molecules
-Z = 2 # salt valency // 1 through 4
+Ns = 0 # salt molecules
+Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
 T = 1.2 # temperature // 1.2
@@ -47,7 +47,7 @@ T = 1.2 # temperature // 1.2
 
 equilibsteps = int(5e5)
 simsteps     = int(1e7)
-dumpevery = 5000
+dumpevery = 500
 num_dumps = simsteps / dumpevery
 
 salt_free = True # if True, only counterions (no salt coions)
@@ -61,14 +61,22 @@ else:
     n_counterions = f*N - Z*Ns
     n_salt_counterions = Ns
     n_salt_coions = 0
-print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
+
+
+if n_counterions < 0:
+    print "Too many multivalent ions"
+    exit()
+elif n_counterions == 0:
+    print "Phi ratio: inf"
+else:
+    print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
 
 # jobname = "N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
 # if salt_free:
 #     jobname += ".sf"
-jobname = "Ns%d.Z%d.1e%d" % (Ns, Z, round(log10(simsteps)))
+jobname = "N%d.Ns%d.Z%d.1e%d" % (N, Ns, Z, round(log10(simsteps)))
 dirname = mknewdir("/home/kbarros/scratch/peb/"+jobname)
-print "Creating directory:\n " + dirname
+print "Created directory:\n " + dirname
 lammps = "/home/kbarros/Lammps/current/src/lmp_suse_linux"
 
 confname = "in.dat"
@@ -127,6 +135,13 @@ kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 # temperature is (k T = 1.2)
 # so dielectric \eps is (1 / (1.2 * 3))
 dielectric	0.2777777777777
+
+#### change pair style with the following commands
+# pair_style	lj/cut 1.12246204830937 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
+# pair_coeff	* * 1.0 1.0		# epsilon sigma
+# pair_modify	shift yes		# LJ interactions shifted to zero
+# kspace_style	none
+
 
 bond_style	fene
 bond_coeff	* 7 2 0 0		# < bond_type K R0 fene_epsilon fene_sigma >
@@ -336,7 +351,7 @@ def generate_pbs_file():
 
 cd %(dirname)s 
 %(lammps)s < %(confname)s > lammps.out
-scp -r %(dirname)s achilles.ms.northwestern.edu:%(dirname)s
+scp -r %(dirname)s achilles.ms.northwestern.edu:%(dirname)s-mino
 if [ $? -eq 0 ] ; then
 touch COMPLETED
 fi
