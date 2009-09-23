@@ -36,7 +36,7 @@ def mknewdir(newdir):
 dt = 0.003
 ewald_accuracy = 1e-5
 
-N = 18 # chain length // 30
+N = 30 # chain length // 30
 f = 40 # number of chains // 40
 Ns = 0 # salt molecules
 Z = 3 # salt valency // 1 through 4
