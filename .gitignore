@@ -6,3 +6,9 @@
 
 # executables in subdirectories
 */chain_analysis/chain_analysis
+
+# SBT dirs
+target/
+lib_managed/
+src_managed/
+scitools/project/boot/

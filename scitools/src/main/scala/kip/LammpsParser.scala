@@ -59,6 +59,10 @@ object Util {
     	writer.write(s);
     	writer.close();
     }
+    
+    def plot(a: Array[Double]) {
+	scikit.util.Commands.plot(a)
+    }
 }
 
 import Util._
