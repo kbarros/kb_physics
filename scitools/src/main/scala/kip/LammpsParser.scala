@@ -44,12 +44,13 @@ object Util {
 	accumulator
     }
     
-    def formatDataInColumns(desc: String, vs: Seq[Array[Double]]) = {
+    def formatDataInColumns(kvs: (String, Array[Double])*) = {
 	val sb = new StringBuffer()
-	sb.append(desc + "\n")
-	for (i <- 0 until vs(0).size) {
-	    vs.foreach {v => sb.append(v(i)+" ")}
-	    sb.append("\n")
+
+	val (descs, vals) = List.unzip(kvs)
+	sb.append("# " + descs.mkString(" ") + "\n")
+	for (i <- 0 until vals(0).size) {
+	    sb.append(vals.map{_(i)}.mkString(" ")+"\n")
 	}
 	sb.toString()
     }
@@ -166,11 +167,11 @@ object LammpsParser {
 	val Array(ylo:Double,yhi) = lines.next.split("\\s").map(_.toDouble)
 	val Array(zlo:Double,zhi) = lines.next.split("\\s").map(_.toDouble)
 	
+	// read list of atoms
 	val descLine = lines.next
 	if (!descLine.startsWith("ITEM: ATOMS "))
 	    throw new Exception("Failure to parse 'ITEMS: ATOMS'")
 	val descs = descLine.split("\\s").drop(2)
-	
 	val cols = new Array[Array[Double]](descs.length, natoms)
 	for (atom <- 0 until natoms) {
 	    val vs = lines.next.split("\\s")
@@ -180,13 +181,13 @@ object LammpsParser {
 	    }
 	}
 	
+	// build snapshot object
 	val ss = new Snapshot(time, natoms)
 	ss.lo = Vec3(xlo, ylo, zlo)
 	ss.hi = Vec3(xhi, yhi, zhi)
-	
 	for ((d,c) <- descs zip cols) {
 	    d match {
-		case "id" => () // ss.id = c // redundant information, using Fortran indexing convention
+		case "id" => ss.id = c // atom index, using Fortran indexing convention
 		case "type" => ss.typ = c
 		case "x" => ss.x = c
 		case "y" => ss.y = c
@@ -199,7 +200,16 @@ object LammpsParser {
 		case "vz" => ss.vz = c
 	    }
 	}
-
+	
+	// wrap particle positions according to image indices (ix, iy, iz)
+	if (ss.ix != null) {
+	    for (i <- 0 until ss.x.length) {
+		ss.x(i) += ss.ix(i)*(xhi-xlo)
+		ss.y(i) += ss.iy(i)*(yhi-ylo)
+		ss.z(i) += ss.iz(i)*(zhi-zlo)
+	    }
+	}
+	
 	ss
     }
     
