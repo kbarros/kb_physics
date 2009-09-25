@@ -21,19 +21,39 @@ object PEB {
 	}
     }
     
+    def centerOfMass(s: Snapshot, elems: Seq[Int]) = {
+	var xAcc = 0.
+	var yAcc = 0.
+	var zAcc = 0.
+	for (i <- elems) {
+	    xAcc += s.x(i)
+	    yAcc += s.y(i)
+	    zAcc += s.z(i)
+	}
+	val n = elems.length
+	Vec3(xAcc/n, yAcc/n, zAcc/n)
+    }
+    
+    def radiusOfGyrationSquared(s: Snapshot, elems: Seq[Int]) = {
+	val cm = centerOfMass(s, elems)
+	
+	var x2Acc = 0.
+	var y2Acc = 0.
+	var z2Acc = 0.
+	for (i <- elems) {
+	    x2Acc += sqr(s.x(i)-cm.x) 
+	    y2Acc += sqr(s.y(i)-cm.y) 
+	    z2Acc += sqr(s.z(i)-cm.z)
+	}
+	val n = elems.length
+	(x2Acc/n, y2Acc/n, z2Acc/n)		
+    }
+    
     // calculate radius of gyration for entire brush
     def entireRg2(snaps: Seq[Snapshot], mols: Seq[Seq[Int]]): Seq[Double] = {
 	for (s <- snaps) yield {
-	    // calculate mean radius of gyration for polymers
-	    /*
-	     val rgp2 = average (mols.map {m =>	
-	     val (x2, y2, z2) = s.radiusOfGyrationSquared(m)
-	     x2+y2+z2
-	     })
-	     */
-	    
-	    val (rgx2, rgy2, rgz2) = s.radiusOfGyrationSquared(mols.toList.flatten[Int])
-	    rgx2 + rgy2 + rgz2	    
+	    val (rgx2, rgy2, rgz2) = radiusOfGyrationSquared(s, mols.toList.flatten[Int])
+	    rgx2 + rgy2 + rgz2
 	}
     }
     
@@ -54,7 +74,7 @@ object PEB {
     def brushLen2(snaps: Seq[Snapshot], coreRadius: Double, mols: Seq[Seq[Int]]): Seq[Double] = {
 	for (s <- snaps) yield {
 	    // cm for entire brush
-	    val brushCm = s.centerOfMass(mols.toList.flatten[Int]) 
+	    val brushCm = centerOfMass(s, mols.toList.flatten[Int]) 
 	    
 	    // calculate mean center to end distance squared
 	    val rce2 = average(mols.map {m =>
