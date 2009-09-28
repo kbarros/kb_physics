@@ -1,79 +1,16 @@
 package kip
 
-import java.lang.Math._
-import java.io.{BufferedWriter, FileWriter}
 import scala.io.Source
 import scala.collection.mutable.ArrayBuffer
 import scikit._
-
-
-object Util {
-    final def printTime[A](fn: => A) = {
-	val begin = System.currentTimeMillis
-	print ("Begin timing... ")
-	val ret = fn
-	val end = System.currentTimeMillis
-	println("done. Execution time: " + (end-begin)/1000. + "s")
-	ret
-    }
-    
-    final def sqr(x: Double) =
-	x*x
-    
-    def average(vs: Seq[Double]) =
-	vs.reduceLeft(_+_) / vs.length
-    
-    def trace[A](str: String, v: A) = {
-	println(str + v)
-	v
-    }
-    
-    def fft1d_continuous(a: Array[Double], L:Double) = {
-	import scikit.numerics.fft.FFT1D
-	import scikit.dataset.Accumulator
-
-	val accumulator = new Accumulator()
-	
-	val fft = new FFT1D(a.length)
-	fft.setLength(L)
-	fft.transform(a, new FFT1D.MapFn() {
-	    def apply(k:Double, re:Double, im:Double) {
-		accumulator.accum(k, re*re+im*im)
-	    }
-	})
-	accumulator
-    }
-    
-    def formatDataInColumns(kvs: (String, Array[Double])*) = {
-	val sb = new StringBuffer()
-
-	val (descs, vals) = List.unzip(kvs)
-	sb.append("# " + descs.mkString(" ") + "\n")
-	for (i <- 0 until vals(0).size) {
-	    sb.append(vals.map{_(i)}.mkString(" ")+"\n")
-	}
-	sb.toString()
-    }
-
-    def writeStringToFile(s: String, fn: String) {
-	val writer = new BufferedWriter(new FileWriter(fn))
-    	writer.write(s);
-    	writer.close();
-    }
-    
-    def plot(a: Array[Double]) {
-	scikit.util.Commands.plot(a)
-    }
-}
-
 import Util._
+
 
 
 case class Vec3(x: Double, y: Double, z: Double) {
     final def distance2(that: Vec3) =
 	sqr(x-that.x) + sqr(y-that.y) + sqr(z-that.z) 
 }
-
 
 
 class Snapshot(val time: Double, val natoms: Int) {	
@@ -92,37 +29,12 @@ class Snapshot(val time: Double, val natoms: Int) {
     var vy : Array[Double] = null
     var vz : Array[Double] = null
     
+    var temperature = Double.NaN
+    var energy = Double.NaN
+    var pressure = Double.NaN
     
     def getPoint(i: Int) = 
 	Vec3(x(i), y(i), z(i))
-    
-    def centerOfMass(elems: Seq[Int]) = {
-	var xAcc = 0.
-	var yAcc = 0.
-	var zAcc = 0.
-	for (i <- elems) {
-	    xAcc += x(i)
-	    yAcc += y(i)
-	    zAcc += z(i)
-	}
-	val n = elems.length
-	Vec3(xAcc/n, yAcc/n, zAcc/n)
-    }
-    
-    def radiusOfGyrationSquared(elems: Seq[Int]) = {
-	val cm = centerOfMass(elems)
-	
-	var x2Acc = 0.
-	var y2Acc = 0.
-	var z2Acc = 0.
-	for (i <- elems) {
-	    x2Acc += sqr(x(i)-cm.x) 
-	    y2Acc += sqr(y(i)-cm.y) 
-	    z2Acc += sqr(z(i)-cm.z)
-	}
-	val n = elems.length
-	(x2Acc/n, y2Acc/n, z2Acc/n)		
-    }
 }
 
 
@@ -150,12 +62,12 @@ object LammpsParser {
     }
     */
     
-    def matchLine(line: String, str: String) {
-	if (line != str)
-	    throw new Exception("Failure to parse '"+str+"'")
-    }
-    
     def readSnapshot(lines: Iterator[String]) = {
+	def matchLine(line: String, str: String) {
+	    if (line != str)
+		throw new Exception("Failure to parse '"+str+"'")
+	}
+	
 	matchLine(lines.next, "ITEM: TIMESTEP\n")
 	val time = lines.next.toDouble
 	
@@ -214,40 +126,53 @@ object LammpsParser {
     }
     
     def readLammpsDumpPartial(fname: String, maxSnapshots: Int) = {
-	val src = Source.fromFile(fname)
-	val lines = src.getLines
-	
+	val lines = Source.fromFile(fname).getLines
 	val snaps = new ArrayBuffer[Snapshot]
 	while (lines.hasNext && snaps.length < maxSnapshots) {
 	    snaps.append(readSnapshot(lines))
 	    if (snaps.length % 1000 == 0)
 		System.err.println("Reading snapshot "+snaps.length)
 	}
-	
 	snaps
     }
     
     def readLammpsDump(fname: String) = {
 	readLammpsDumpPartial(fname, Integer.MAX_VALUE)
     }
-    
-    def writeVelocities(snaps: Seq[Snapshot]) {
-	val sb = new StringBuffer
-	sb.append("# time ")
-	for (i <- 0 until snaps(0).natoms) {
-	    sb.append("atom"+i+" ")
-	}
-	sb.append("\n")
+
+/*    
+    def readLammpsThermo(fname: String, snaps: Seq[Snapshot]) {
+	val lines = Source.fromFile(fname).getLines
+	val snaps = new ArrayBuffer[Snapshot]
 	
-	for (ss <- snaps) {
-	    sb.append (ss.time + " ")
-	    for (vx <- ss.vx) {
-		sb.append(vx + " ")
+	var desc = None
+	def nextThermoLine = {
+	    // parse until next descriptor
+	    if (desc == None) {
+		match (lines.find(_.startsWith("Step "))) {
+		    case None => return None
+		    case Some(d) => desc = d
+		}
 	    }
-	    sb.append("\n")
+	    
+	    if (!lines.hasNext)
+		return None
 	}
 	
-	writeStringToFile(sb.toString, "/Users/kbarros/Desktop/blah.dat")
+	for (s <- snaps) {
+	    parse
+	}
+	var idx = 0
+	while (idx < runIndex) {
+	    if ()
+	}
+	while (lines.hasNext) {
+	    snaps.append(readSnapshot(lines))
+	    if (snaps.length % 1000 == 0)
+		System.err.println("Reading snapshot "+snaps.length)
+	}
+	snaps
     }
+    */
 }
 
