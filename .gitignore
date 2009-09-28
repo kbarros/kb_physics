@@ -12,3 +12,8 @@ target/
 lib_managed/
 src_managed/
 scitools/project/boot/
+
+# Eclipse dirs
+workspace/Scikit/bin/*
+workspace/JavaSims/bin/*
+workspace/.metadata/
