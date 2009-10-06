@@ -39,7 +39,8 @@ def mknewdir(newdir):
 #
 
 dt = 0.003
-ewald_accuracy = 1e-5
+ewald_accuracy = 1e-4
+ewald_cutoff = 20 # tunable parameter for performance
 
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
@@ -51,20 +52,22 @@ T = 1.2 # temperature // 1.2
 
 equilibsteps = int(5e5)
 simsteps     = int(1e7)
-dumpevery = 500
+dumpevery = 2000
 num_dumps = simsteps / dumpevery
 
-salt_free = True # if True, only counterions (no salt coions)
-if not salt_free:
-    n_monomers = f*N
-    n_counterions = f*N
-    n_salt_counterions = Ns
-    n_salt_coions = Z*Ns
-else:
+sim_hours = 5000
+
+salt_free = False # if True, only counterions (no salt coions)
+if salt_free:
     n_monomers = f*N
     n_counterions = f*N - Z*Ns
     n_salt_counterions = Ns
     n_salt_coions = 0
+else:
+    n_monomers = f*N
+    n_counterions = f*N
+    n_salt_counterions = Ns
+    n_salt_coions = Z*Ns
 
 
 if n_counterions < 0:
@@ -75,10 +78,10 @@ elif n_counterions == 0:
 else:
     print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
 
-# jobname = "N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
-# if salt_free:
-#     jobname += ".sf"
-jobname = "N%d.Ns%d.Z%d.1e%d" % (N, Ns, Z, round(log10(simsteps)))
+if not salt_free:
+    jobname = "N%d.Nz%d.Z%d.a%d" % (N, Ns, Z, -round(log10(ewald_accuracy)))
+else:
+    jobname = "N%d.Ns%d.Z%d.a%d" % (N, Ns, Z, -round(log10(ewald_accuracy)))
 dirname = mknewdir("/home/kbarros/scratch/peb/"+jobname)
 print "Created directory:\n " + dirname
 lammps = "/home/kbarros/installs/Lammps/current/src/lmp_suse_linux"
@@ -130,7 +133,7 @@ neigh_modify	delay 5 page 500000 one 10000 # defaults: page 100000 one 2000
 read_data	%(dataname)s		# load volume dimensions, masses, atoms, and bonds
 # read_restart	restart.equil.dat
 
-pair_style	lj/cut/coul/long 1.12246204830937 25 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
+pair_style	lj/cut/coul/long 1.12246204830937 %(ewald_cutoff)f # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
 pair_coeff	* * 1.0 1.0		# < atom_type1 atom_type2 epsilon sigma [ LJ_cutoff coulomb_cutoff ] >
 pair_modify	shift yes		# LJ interactions shifted to zero
 kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
@@ -178,8 +181,7 @@ fix		4 nongraft langevin %(T)f %(T)f 10.0 699483	# < ID group-ID langevin Tstart
 run		%(simsteps)d
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
        'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'restart_freq':20*dumpevery,
-       'ewald_accuracy':ewald_accuracy, 'T':T, 'R':R, 'dt':dt})
-
+       'ewald_accuracy':ewald_accuracy, 'ewald_cutoff':ewald_cutoff, 'T':T, 'R':R, 'dt':dt})
 
 
 # -----------------------------------------------------------------
@@ -357,7 +359,7 @@ def generate_pbs_file():
 #PBS -M kbarros@northwestern.edu
 
 # ### maximum cpu time
-#PBS -l cput=500:00:00
+#PBS -l cput=%(sim_hours)d:00:00
 
 # ### number of nodes and processors per node
 #PBS -l nodes=1:ppn=1
@@ -380,7 +382,7 @@ ssh minotaur scp -r %(dirname)s achilles.ms.northwestern.edu:%(dirname)s-mino
 if [ $? -eq 0 ] ; then
 touch COMPLETED
 fi
-""" % {'jobname':jobname, 'dirname':dirname, 'lammps':lammps, 'confname':confname})
+""" % {'jobname':jobname, 'sim_hours':sim_hours, 'dirname':dirname, 'lammps':lammps, 'confname':confname})
 
 
 
