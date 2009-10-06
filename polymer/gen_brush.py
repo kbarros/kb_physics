@@ -41,10 +41,11 @@ def mknewdir(newdir):
 dt = 0.003
 ewald_accuracy = 1e-4
 ewald_cutoff = 20 # tunable parameter for performance
+ion_separation = 2.0
 
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 0 # salt molecules
+Ns = 300 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
 L = 160 # linear system size // 160
@@ -78,7 +79,7 @@ elif n_counterions == 0:
 else:
     print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
 
-if not salt_free:
+if salt_free:
     jobname = "N%d.Nz%d.Z%d.a%d" % (N, Ns, Z, -round(log10(ewald_accuracy)))
 else:
     jobname = "N%d.Ns%d.Z%d.a%d" % (N, Ns, Z, -round(log10(ewald_accuracy)))
@@ -227,7 +228,7 @@ def generate_data_file():
         return (x % L, x / L) # todo: handle negative winding numbers
     
     def atom_position(i):
-        d = 8.0
+        d = ion_separation
         mx = d
         my = d*d / L
         mz = d*d*d / L**2
