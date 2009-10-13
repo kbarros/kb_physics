@@ -31,7 +31,7 @@ def mknewdir(newdir):
 #   and double LJ repulsion at r=1.
 #
 # 2)  to test against pai-yi's data, the following changes are necessary:
-#   N=16, f=1, L=12.5992, salt_free=False, coulomb_cutoff=12, globe_epsilon=0
+#   ewald_cutoff=10, N=16, f=1, Ns=??, L=12.5992, salt_free=False, globe_epsilon=0
 #
 
 ewald_accuracy = 1e-4
@@ -166,12 +166,12 @@ kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 # so dielectric \eps is (1 / (1.2 * 3))
 dielectric	0.2777777777777
 
-# EQUILIBRATE WITH TEMPERATURE RESCALING
+### EQUILIBRATE WITH TEMPERATURE RESCALING
 fix		5 all temp/rescale 1 %(T)f %(T)f 0.05 1	# N Tstart Tstop window fraction
 run		%(equilibsteps)d
 unfix		5
 
-# PRODUCTION RUN WITH LANGEVIN DYNAMICS
+### PRODUCTION RUN WITH LANGEVIN DYNAMICS
 dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
 dump_modify	1 image yes scale no
 fix		6 nongraft langevin %(T)f %(T)f 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
@@ -352,8 +352,8 @@ def generate_pbs_file():
 # ### name of job
 #PBS -N %(jobname)s
 
-# ### mail for begin/end/abort
-#PBS -m bea
+# ### mail on end/abort
+#PBS -m ea
 #PBS -M kbarros@northwestern.edu
 
 # ### maximum cpu time
