@@ -86,18 +86,27 @@ object PEB {
 	}
     }
 
+    // a note about error propagation
+    // (from http://en.wikipedia.org/wiki/Propagation_of_uncertainty)
+    //
+    // given (x = a +- e) and (y = c x) => (y = c a +- c e)
+    // given (x = a +- e) and (y = x^c) => (y = a^c +- c e (a^c / a)
+    //
+    
     def go(chainLength: Int, numChains: Int, coreRadius: Double) {
 	val mols = molecules(chainLength, numChains)
-	val snaps = LammpsParser.readLammpsDumpPartial("dump.dat", 2000)
+	val snaps = LammpsParser.readLammpsDump("dump.dat")
 
 	val times = snaps.map(_.time)
 	val rg2s = entireRg2(snaps, mols)
 	val ee2s = endToEnd2(snaps, mols)
 	val brushLen2s = PEB.brushLen2(snaps, coreRadius, mols)
-
+	val relBrushLens = brushLen2s.map(sqrt(_) / chainLength);
+	
 	val formatted = formatDataInColumns(("time", times.toArray),
 					    ("Rg^2", rg2s.toArray),
 					    ("L^2", brushLen2s.toArray),
+					    ("L", relBrushLens.toArray),
 					    ("Re^2", ee2s.toArray))
 	writeStringToFile(formatted, "gyr.dat")
 

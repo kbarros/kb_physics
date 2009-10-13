@@ -139,8 +139,7 @@ object LammpsParser {
     def readLammpsDump(fname: String) = {
 	readLammpsDumpPartial(fname, Integer.MAX_VALUE)
     }
-
-/*    
+/*
     def readLammpsThermo(fname: String, snaps: Seq[Snapshot]) {
 	val lines = Source.fromFile(fname).getLines
 	val snaps = new ArrayBuffer[Snapshot]
