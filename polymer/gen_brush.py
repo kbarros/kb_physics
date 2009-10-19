@@ -24,47 +24,47 @@ def mknewdir(newdir):
 # Simulation configuration
 #
 
-# TODO:
-#   don't hardcode Bjerrum length
-#   reduce dt to 0.002 to match Jusufi
 #
-# note: for Jusufi's parameters, energy of single chain with N=2 is
-# 1.21375, where there is a single FENE bond, coloumbic interaction,
-# and double LJ repulsion at r=1.
+# NOTES:
+# 1)  for Jusufi's parameters, energy of single chain with N=2 is
+#   1.21375, where there is a single FENE bond, coloumbic interaction,
+#   and double LJ repulsion at r=1.
 #
-
-# NOTE:
-#   to test against pai-yi's data, the following changes are necessary:
-#     N=16, f=1, L=12.5992, salt_free=False, coulomb_cutoff=12, globe_epsilon=0
+# 2)  to test against pai-yi's data, the following changes are necessary:
+#   ewald_cutoff=10, N=16, f=1, Ns=??, L=12.5992, salt_free=False, globe_epsilon=0
 #
 
-dt = 0.003
-ewald_accuracy = 1e-5
+ewald_accuracy = 1e-4
+ewald_cutoff = 10 # tunable parameter for performance
+ion_separation = 1.0
 
-N = 30 # chain length // 30
+dt = 0.003 # time step // 0.002
+N = 15 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 0 # salt molecules
+Ns = 100 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
-L = 160 # linear system size // 160
+L = 40.5 # linear system size // 160
 T = 1.2 # temperature // 1.2
 
 equilibsteps = int(5e5)
 simsteps     = int(1e7)
-dumpevery = 500
+dumpevery = 2000
 num_dumps = simsteps / dumpevery
 
-salt_free = True # if True, only counterions (no salt coions)
-if not salt_free:
-    n_monomers = f*N
-    n_counterions = f*N
-    n_salt_counterions = Ns
-    n_salt_coions = Z*Ns
-else:
+sim_hours = 5000
+
+salt_free = False # if True, only counterions (no salt coions)
+if salt_free:
     n_monomers = f*N
     n_counterions = f*N - Z*Ns
     n_salt_counterions = Ns
     n_salt_coions = 0
+else:
+    n_monomers = f*N
+    n_counterions = f*N
+    n_salt_counterions = Ns
+    n_salt_coions = Z*Ns
 
 
 if n_counterions < 0:
@@ -75,10 +75,10 @@ elif n_counterions == 0:
 else:
     print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
 
-# jobname = "N%d.f%d.Ns%d.Z%d.L%d" % (N, f, Ns, Z, L)
-# if salt_free:
-#     jobname += ".sf"
-jobname = "N%d.Ns%d.Z%d.1e%d" % (N, Ns, Z, round(log10(simsteps)))
+if salt_free:
+    jobname = "L%d.N%d.Nz%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
+else:
+    jobname = "L%d.N%d.Ns%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
 dirname = mknewdir("/home/kbarros/scratch/peb/"+jobname)
 print "Created directory:\n " + dirname
 lammps = "/home/kbarros/installs/Lammps/current/src/lmp_suse_linux"
@@ -129,8 +129,34 @@ neigh_modify	delay 5 page 500000 one 10000 # defaults: page 100000 one 2000
 
 read_data	%(dataname)s		# load volume dimensions, masses, atoms, and bonds
 # read_restart	restart.equil.dat
+restart		%(restart_freq)d restart/restart.*.dat
+thermo		%(dumpevery)d		# steps between output of thermodynamic quantities 
 
-pair_style	lj/cut/coul/long 1.12246204830937 25 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
+### BONDS
+bond_style	fene
+bond_coeff	* 7 2 0 0		# < bond_type K R0 fene_epsilon fene_sigma >
+special_bonds	lj/coul 1.0 1.0 1.0  	# turn on regular interactions between all monomers (even bonded ones)
+timestep	%(dt)f                  # FENE bonds are bottleneck for dt
+
+### ADD GLOBE
+group		graft type 1
+group		nongraft subtract all graft
+fix		1 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
+fix_modify	1 energy yes		# include globe energy
+
+### SET INTEGRATION METHOD
+fix		2 nongraft nve		# apply newtons equations to ungrafted atoms
+fix		3 graft nve/noforce	# zero velocities of grafted atoms
+
+#### SOFT DYNAMICS TO SPREAD ATOMS
+pair_style	soft 1.0			# < cutoff  >
+pair_coeff	* * 0.0 60.0 			# < Astart Astop >
+fix		4 nongraft langevin %(T)f %(T)f 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
+run		%(soft_equilibsteps)d
+unfix		4
+
+### SWITCH TO COULOMB/LJ INTERACTIONS
+pair_style	lj/cut/coul/long 1.12246204830937 %(ewald_cutoff)f # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
 pair_coeff	* * 1.0 1.0		# < atom_type1 atom_type2 epsilon sigma [ LJ_cutoff coulomb_cutoff ] >
 pair_modify	shift yes		# LJ interactions shifted to zero
 kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
@@ -140,46 +166,20 @@ kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 # so dielectric \eps is (1 / (1.2 * 3))
 dielectric	0.2777777777777
 
-#### change pair style with the following commands
-# pair_style	lj/cut 1.12246204830937 # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
-# pair_coeff	* * 1.0 1.0		# epsilon sigma
-# pair_modify	shift yes		# LJ interactions shifted to zero
-# kspace_style	none
-
-
-bond_style	fene
-bond_coeff	* 7 2 0 0		# < bond_type K R0 fene_epsilon fene_sigma >
-special_bonds	lj/coul 1.0 1.0 1.0  	# turn on regular interactions between all monomers (even bonded ones)
-
-group		graft type 1
-group		nongraft subtract all graft
-
-fix		1 nongraft nve				# apply newtons equations
-fix		2 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
-fix_modify	2 energy yes				# include globe energy
-
-timestep	%(dt)f
-thermo		%(dumpevery)d				# steps between output of thermodynamic quantities 
-restart		%(restart_freq)d restart/restart.*.dat
-
-# dump data in format for visualization by xmovie
-# dump		1 all atom 200 movie.dat		# < ID group-ID style every_N_timesteps file args >
-
-# equilibrate the simulation with a temp/rescale for stability
-fix		3 all temp/rescale 1 %(T)f %(T)f 0.05 1	# N Tstart Tstop window fraction
+### EQUILIBRATE WITH TEMPERATURE RESCALING
+fix		5 all temp/rescale 1 %(T)f %(T)f 0.05 1	# N Tstart Tstop window fraction
 run		%(equilibsteps)d
-unfix		3
+unfix		5
 
-dump		2 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
-dump_modify	2 image yes scale no
-
-# run the simulation with langevin dynamics for performance & robustness
-fix		4 nongraft langevin %(T)f %(T)f 10.0 699483	# < ID group-ID langevin Tstart Tstop damp seed [keyword values ... ] >
+### PRODUCTION RUN WITH LANGEVIN DYNAMICS
+dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
+dump_modify	1 image yes scale no
+fix		6 nongraft langevin %(T)f %(T)f 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
 run		%(simsteps)d
+unfix		6
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
-       'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'restart_freq':20*dumpevery,
-       'ewald_accuracy':ewald_accuracy, 'T':T, 'R':R, 'dt':dt})
-
+       'soft_equilibsteps':equilibsteps, 'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'restart_freq':20*dumpevery,
+       'ewald_accuracy':ewald_accuracy, 'ewald_cutoff':ewald_cutoff, 'T':T, 'R':R, 'dt':dt})
 
 
 # -----------------------------------------------------------------
@@ -225,7 +225,7 @@ def generate_data_file():
         return (x % L, x / L) # todo: handle negative winding numbers
     
     def atom_position(i):
-        d = 8.0
+        d = ion_separation
         mx = d
         my = d*d / L
         mz = d*d*d / L**2
@@ -352,12 +352,12 @@ def generate_pbs_file():
 # ### name of job
 #PBS -N %(jobname)s
 
-# ### mail for begin/end/abort
-#PBS -m bea
+# ### mail on end/abort
+#PBS -m ea
 #PBS -M kbarros@northwestern.edu
 
 # ### maximum cpu time
-#PBS -l cput=500:00:00
+#PBS -l cput=%(sim_hours)d:00:00
 
 # ### number of nodes and processors per node
 #PBS -l nodes=1:ppn=1
@@ -380,7 +380,7 @@ ssh minotaur scp -r %(dirname)s achilles.ms.northwestern.edu:%(dirname)s-mino
 if [ $? -eq 0 ] ; then
 touch COMPLETED
 fi
-""" % {'jobname':jobname, 'dirname':dirname, 'lammps':lammps, 'confname':confname})
+""" % {'jobname':jobname, 'sim_hours':sim_hours, 'dirname':dirname, 'lammps':lammps, 'confname':confname})
 
 
 
@@ -411,6 +411,7 @@ def build_dir():
     with open(root + pbsname, 'w') as f:
         f.write(generate_pbs_file())
         
+    os.system('cp ' + os.path.realpath(__file__) + ' ' + root + 'generation.py')
     os.system('ln -fsn %s link##' % root)
 
 build_dir()

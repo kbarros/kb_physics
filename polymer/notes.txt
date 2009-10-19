@@ -1,0 +1,35 @@
+------- OCT 12 -------
+
+BRUSH DATA:
+
+got data for brush runs with N15.Ns?.Z3.a4.  stored in scratch/peb/run5.  results for radius of gyration are:
+
+Ns	Rg2
+100	108.57 +- 0.05
+200	78.51 +- 0.04   ** neutrality
+400	78.64 +- 0.04
+
+density of salt molecules is Ns / 160^3:
+
+Ns	density
+100	2e-5
+200	5e-5
+400	1e-4
+
+charge neutral occurs at Ns=200  (40 chains, each of length 15, salt valency 3) with density 5e-5
+
+in the case of pai-yi's simulations of a single chain, neutrality occurs at  density of approximately 3e-3
+
+for comparison,
+
+CHAIN DATA:
+
+L100.N16.Ns?.Z3.a4 stored in scratch/peb/medium
+
+Ns	Rg2
+6	4.4949330205 +/-     0.0129817078  ** closest to neutrality
+8	4.4917312481 +/-     0.0135274671
+16	4.5308529742 +/-     0.0150271588
+
+salt molecule density at neutrality is 6/100^3=6e-6
+
