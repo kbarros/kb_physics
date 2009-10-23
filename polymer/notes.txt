@@ -1,35 +1,91 @@
-------- OCT 12 -------
+======= OCT 12 =======
+(revised oct 22)
 
-BRUSH DATA:
 
-got data for brush runs with N15.Ns?.Z3.a4.  stored in scratch/peb/run5.  results for radius of gyration are:
+*** RUN 5 ****
 
-Ns	Rg2
-100	108.57 +- 0.05
-200	78.51 +- 0.04   ** neutrality
-400	78.64 +- 0.04
+BRUSH DATA for peb/run5/N15.Ns?.Z3.a4
 
-density of salt molecules is Ns / 160^3:
+Ns	Rg2			density (salt molecules)
+100	108.57 +- 0.05		2e-5
+200**	78.51 +- 0.04		5e-5			 ** neutralization
+400	78.64 +- 0.04		1e-4
 
-Ns	density
-100	2e-5
-200	5e-5
-400	1e-4
+neutralization point (40 chains, each of length 15, salt valency 3).
+density of salt molecules is Ns / 160^3.
 
-charge neutral occurs at Ns=200  (40 chains, each of length 15, salt valency 3) with density 5e-5
+Pai-Yi single chain simulations, L=12.5992 : neutrality occurs at density 3e-3 
 
-in the case of pai-yi's simulations of a single chain, neutrality occurs at  density of approximately 3e-3
+# Cs	Rg^2 +- err	density
+1	7.91  0.03	5e-4
+2	6.19  0.03	1e-3
+3	5.35  0.03	1.5e-3
+4	4.98  0.04	2e-3
+5**	4.86  0.03	2.5e-3		** neutralization = 5.333
+8	5.06  0.03	4e-3
+16	5.47  0.03	8e-3
+32	5.83  0.03	1.6e-2
+64	6.14  0.03	3.2e-2
 
-for comparison,
 
-CHAIN DATA:
 
-L100.N16.Ns?.Z3.a4 stored in scratch/peb/medium
+for comparison, SINGLE CHAIN data: /peb/chain_test/medium/L100.N16.Ns?.Z3.a4 
 
-Ns	Rg2
-6	4.4949330205 +/-     0.0129817078  ** closest to neutrality
-8	4.4917312481 +/-     0.0135274671
-16	4.5308529742 +/-     0.0150271588
+Ns	Rg2			density (salt molecules)
+6**	4.495 +/- 0.013 	6e-6			 ** neutralization = 5.333
+8	4.492 +/- 0.014		8e-6
+16	4.531 +/- 0.015		2e-5
 
-salt molecule density at neutrality is 6/100^3=6e-6
+density of salt molecules is Ns / 100^3
+
+
+======= OCT 13 =======
+(revised oct 22)
+
+Add a bunch of features to gen_brush script, but a quick calculation shows that I didn't disturb agreement with Pai-Yi's data.
+
+Submitted long runs with much higher salt concentrations (L41.N15...)
+
+
+======= OCT 22 =======
+
+Here I provide a recap of previous runs.
+
+
+*** RUN 5 ***
+
+BRUSH DATA for peb/run5/N30.Ns?
+(N=30, L=160)
+
+Ns	Rg2			density
+200	205.20 +/- 0.15		5e-5
+300	149.5 +/- 0.2		7e-5
+400**	101.31 +/- 0.14		1e-4			** neutralization
+800	101.82 +/- 0.11		2e-4
+
+density = Ns / 160^3 = Ns * 2.44e-7
+
+NOTE:
+for Ns=200,300,400, must throw away first 3 MILLION steps while Rg2 relaxes
+for Ns=800, must through away first 1.5 MILLION
+
+NOTE: this code does not use soft potential equilibration
+
+
+*** RUN 6 ***
+
+BRUSH DATA for peb/run6/L41.N15.Ns?
+
+Ns	Rg2			density
+50	118.54 +/- 0.04		7.5e-4
+100	101.93 +/- 0.04		1.5e-3
+200**	82.385 +/- 0.04		3e-3			** neutralization
+400	84.37 +/- 0.05		6e-3
+800	87.85 +/- 0.07		12e-3
+
+density of salt molecules = Ns / 40.5^3 = Ns * 1.5e-5
+(interesting note: at Ns=800 about 100 independent samples in 10^7 steps)
+
+small reexpansion visible
+
 
