@@ -27,8 +27,16 @@ def mknewdir(newdir):
 #
 # NOTES:
 # 1)  for Jusufi's parameters, energy of single chain with N=2 is
-#   1.21375, where there is a single FENE bond, coloumbic interaction,
-#   and double LJ repulsion at r=1.
+#   1.21375, where there is a single FENE bond, coloumbic attraction,
+#   and double LJ repulsion, all at r=1
+#   more details :
+#    * total electrostatic energy is -1/\eps = -3.6  (per particle is -1.8)
+#    * total double LJ repulsion energy is 2  (per particle is 1) --- LJ shift is +1
+#
+#   virial contribution to pressure is (1/3V) ( < r_ij F_ij > + < U_coul > )
+#     where < r_ij F_ij > = LJ_force = 24   (note: globe forces don't contribute to virial!)
+#           < U_coul > = -3.6
+#     (note: sum runs over pairwise interactions with i<j)
 #
 # 2)  to test against pai-yi's data, the following changes are necessary:
 #   ewald_cutoff=10, N=16, f=1, Ns=??, L=12.5992, salt_free=False, globe_epsilon=0
@@ -36,20 +44,23 @@ def mknewdir(newdir):
 
 ewald_accuracy = 1e-4
 ewald_cutoff = 10 # tunable parameter for performance
-ion_separation = 1.0
+packing_distance = 1.0 # separation of ions when initially packed
 
 dt = 0.003 # time step // 0.002
-N = 15 # chain length // 30
+N = 30 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 100 # salt molecules
+Ns = 50 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
-L = 40.5 # linear system size // 160
+L = 53 # linear system size // 160
 T = 1.2 # temperature // 1.2
+bjerrum = 3.0 # bjerrum length // 3.0
+monomer_radius = 1.0 # LJ repulsion of monomers // 1.0
+ion_radius = 0.5 # LJ repulsion of ions // 1.0
 
 equilibsteps = int(5e5)
 simsteps     = int(1e7)
-dumpevery = 2000
+dumpevery = 10000
 num_dumps = simsteps / dumpevery
 
 sim_hours = 5000
@@ -78,7 +89,7 @@ else:
 if salt_free:
     jobname = "L%d.N%d.Nz%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
 else:
-    jobname = "L%d.N%d.Ns%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
+    jobname = "L%d.Ns%04d.r8" % (round(L), Ns) # -round(log10(ewald_accuracy))
 dirname = mknewdir("/home/kbarros/scratch/peb/"+jobname)
 print "Created directory:\n " + dirname
 lammps = "/home/kbarros/installs/Lammps/current/src/lmp_suse_linux"
@@ -138,15 +149,19 @@ bond_coeff	* 7 2 0 0		# < bond_type K R0 fene_epsilon fene_sigma >
 special_bonds	lj/coul 1.0 1.0 1.0  	# turn on regular interactions between all monomers (even bonded ones)
 timestep	%(dt)f                  # FENE bonds are bottleneck for dt
 
-### ADD GLOBE
+### DEFINE GROUPS
 group		graft type 1
 group		nongraft subtract all graft
+group		monomers type 1 2
+group		ions subtract all monomers
+
+### ADD GLOBE
 fix		1 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
 fix_modify	1 energy yes		# include globe energy
 
 ### SET INTEGRATION METHOD
 fix		2 nongraft nve		# apply newtons equations to ungrafted atoms
-fix		3 graft nve/noforce	# zero velocities of grafted atoms
+fix		3 graft nve/noforce	# zero velocities of grafted atoms while retaining force information
 
 #### SOFT DYNAMICS TO SPREAD ATOMS
 pair_style	soft 1.0			# < cutoff  >
@@ -156,15 +171,18 @@ run		%(soft_equilibsteps)d
 unfix		4
 
 ### SWITCH TO COULOMB/LJ INTERACTIONS
-pair_style	lj/cut/coul/long 1.12246204830937 %(ewald_cutoff)f # LJ_cutoff=2^{1/6}  [ coulomb_cutoff ]
-pair_coeff	* * 1.0 1.0		# < atom_type1 atom_type2 epsilon sigma [ LJ_cutoff coulomb_cutoff ] >
+pair_style	lj/cut/coul/long 1.12246204830937 %(ewald_cutoff)f # < LJ_cutoff=2^{1/6} coulomb_cutoff >
+pair_coeff	monomers monomers 1.0 %(sigma_mm)	# < atom_type1 atom_type2 epsilon sigma >
+pair_coeff	monomers ions 1.0 %(sigma_mi)	# < atom_type1 atom_type2 epsilon sigma >
+pair_coeff	ions ions 1.0 %(sigma_ii)	# < atom_type1 atom_type2 epsilon sigma >
+
 pair_modify	shift yes		# LJ interactions shifted to zero
 kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 # LAMMPS coulombic energy is (q1 q2) / (\eps r)
-# bjerrum length is (\lambda_B = 3)
-# temperature is (k T = 1.2)
-# so dielectric \eps is (1 / (1.2 * 3))
-dielectric	0.2777777777777
+# bjerrum length is (\lambda_B = %(bjerrum)f)
+# temperature is (k T = %(T)f)
+# dielectric is (1 / k T \lambda_B)
+dielectric	%(dielectric)f
 
 ### EQUILIBRATE WITH TEMPERATURE RESCALING
 fix		5 all temp/rescale 1 %(T)f %(T)f 0.05 1	# N Tstart Tstop window fraction
@@ -172,14 +190,15 @@ run		%(equilibsteps)d
 unfix		5
 
 ### PRODUCTION RUN WITH LANGEVIN DYNAMICS
-dump		1 all atom %(dumpevery)d %(dumpname)s	# < ID group-ID style every_N_timesteps file args >
-dump_modify	1 image yes scale no
+dump		1 all custom %(dumpevery)d %(dumpname)s id type x y z ix iy iz vx vy vz
 fix		6 nongraft langevin %(T)f %(T)f 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
 run		%(simsteps)d
 unfix		6
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
        'soft_equilibsteps':equilibsteps, 'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'restart_freq':20*dumpevery,
-       'ewald_accuracy':ewald_accuracy, 'ewald_cutoff':ewald_cutoff, 'T':T, 'R':R, 'dt':dt})
+       'ewald_accuracy':ewald_accuracy, 'ewald_cutoff':ewald_cutoff, 'T':T, 'R':R, 'dt':dt, 'bjerrum':bjerrum,
+       'dielectric':1.0/(T * bjerrum),
+       'sigma_mm':monomer_diameter, 'sigma_mi':(monomer_diameter+ion_diameter)/2, 'sigma_ii':ion_diameter})
 
 
 # -----------------------------------------------------------------
@@ -225,7 +244,7 @@ def generate_data_file():
         return (x % L, x / L) # todo: handle negative winding numbers
     
     def atom_position(i):
-        d = ion_separation
+        d = packing_distance
         mx = d
         my = d*d / L
         mz = d*d*d / L**2
