@@ -89,3 +89,13 @@ density of salt molecules = Ns / 40.5^3 = Ns * 1.5e-5
 small reexpansion visible
 
 
+======= OCT 23 =======
+
+See long email to Erik for recap.
+
+
+======= OCT 26 =======
+
+Want to test effect of monovalent salt on single chain (P-Y) with N=16, monomer-density=0.008.  Compare to larger box size?
+
+Nearest neighbors

@@ -47,20 +47,20 @@ ewald_cutoff = 10 # tunable parameter for performance
 packing_distance = 1.0 # separation of ions when initially packed
 
 dt = 0.003 # time step // 0.002
-N = 30 # chain length // 30
-f = 40 # number of chains // 40
-Ns = 50 # salt molecules
+N = 16 # chain length // 30
+f = 1 # number of chains // 40
+Ns = 4 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
-L = 53 # linear system size // 160
-T = 1.2 # temperature // 1.2
+L = 12.5992 # linear system size // 160
+T = 1. # temperature // 1.2
 bjerrum = 3.0 # bjerrum length // 3.0
-monomer_radius = 1.0 # LJ repulsion of monomers // 1.0
-ion_radius = 0.5 # LJ repulsion of ions // 1.0
+monomer_diameter = 1.0 # LJ repulsion of monomers // 1.0
+ion_diameter = 1.0 # LJ repulsion of ions // 1.0
 
-equilibsteps = int(5e5)
-simsteps     = int(1e7)
-dumpevery = 10000
+equilibsteps = int(5e3)
+simsteps     = int(1e6)
+dumpevery = int(1e3)
 num_dumps = simsteps / dumpevery
 
 sim_hours = 5000
@@ -89,7 +89,7 @@ else:
 if salt_free:
     jobname = "L%d.N%d.Nz%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
 else:
-    jobname = "L%d.Ns%04d.r8" % (round(L), Ns) # -round(log10(ewald_accuracy))
+    jobname = "L%d.Ns%04d.T1" % (round(L), Ns) # -round(log10(ewald_accuracy))
 dirname = mknewdir("/home/kbarros/scratch/peb/"+jobname)
 print "Created directory:\n " + dirname
 lammps = "/home/kbarros/installs/Lammps/current/src/lmp_suse_linux"
@@ -152,11 +152,9 @@ timestep	%(dt)f                  # FENE bonds are bottleneck for dt
 ### DEFINE GROUPS
 group		graft type 1
 group		nongraft subtract all graft
-group		monomers type 1 2
-group		ions subtract all monomers
 
 ### ADD GLOBE
-fix		1 nongraft globe/lj126 %(R)f 1.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
+fix		1 nongraft globe/lj126 %(R)s 0.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
 fix_modify	1 energy yes		# include globe energy
 
 ### SET INTEGRATION METHOD
@@ -166,15 +164,15 @@ fix		3 graft nve/noforce	# zero velocities of grafted atoms while retaining forc
 #### SOFT DYNAMICS TO SPREAD ATOMS
 pair_style	soft 1.0			# < cutoff  >
 pair_coeff	* * 0.0 60.0 			# < Astart Astop >
-fix		4 nongraft langevin %(T)f %(T)f 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
+fix		4 nongraft langevin %(T)s %(T)s 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
 run		%(soft_equilibsteps)d
 unfix		4
 
 ### SWITCH TO COULOMB/LJ INTERACTIONS
 pair_style	lj/cut/coul/long 1.12246204830937 %(ewald_cutoff)f # < LJ_cutoff=2^{1/6} coulomb_cutoff >
-pair_coeff	monomers monomers 1.0 %(sigma_mm)	# < atom_type1 atom_type2 epsilon sigma >
-pair_coeff	monomers ions 1.0 %(sigma_mi)	# < atom_type1 atom_type2 epsilon sigma >
-pair_coeff	ions ions 1.0 %(sigma_ii)	# < atom_type1 atom_type2 epsilon sigma >
+pair_coeff	1*2 1*2 1.0 %(sigma_mm)s	# < atom_type1 atom_type2 epsilon sigma > (monomer-monomer)
+pair_coeff	1*2 3*  1.0 %(sigma_mi)s	# < atom_type1 atom_type2 epsilon sigma > (monomer-ion)
+pair_coeff	3* 3*   1.0 %(sigma_ii)s	# < atom_type1 atom_type2 epsilon sigma > (ion-ion)
 
 pair_modify	shift yes		# LJ interactions shifted to zero
 kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
@@ -182,16 +180,16 @@ kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 # bjerrum length is (\lambda_B = %(bjerrum)f)
 # temperature is (k T = %(T)f)
 # dielectric is (1 / k T \lambda_B)
-dielectric	%(dielectric)f
+dielectric	%(dielectric)s
 
 ### EQUILIBRATE WITH TEMPERATURE RESCALING
-fix		5 all temp/rescale 1 %(T)f %(T)f 0.05 1	# N Tstart Tstop window fraction
+fix		5 all temp/rescale 1 %(T)s %(T)s 0.05 1	# N Tstart Tstop window fraction
 run		%(equilibsteps)d
 unfix		5
 
 ### PRODUCTION RUN WITH LANGEVIN DYNAMICS
 dump		1 all custom %(dumpevery)d %(dumpname)s id type x y z ix iy iz vx vy vz
-fix		6 nongraft langevin %(T)f %(T)f 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
+fix		6 nongraft langevin %(T)s %(T)s 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
 run		%(simsteps)d
 unfix		6
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
