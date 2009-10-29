@@ -114,10 +114,17 @@ N	Ns	Rg^2		Pai-Yi
 
 * indicates half diameter ions.
 
-Note that for the cases Ns={2, 2*} I get only 20 independent samples after 10^7 steps.  In the case Ns=2* generic_analyzer fails using data from 10^7 simulation steps.
+Note that for the cases Ns={2, 4*} I get only 20 independent samples after 10^7 steps.  In the case Ns=2* generic_analyzer fails using data from 10^7 simulation steps.
 
 
 ======= OCT 29 =======
 
 Discovered that I had forgotten to set (cutoff = sigma 2^(1/6)) in the case that sigma varies between particle types.  This may explain why I didn't reproduce Pai-Yi's data.
+
+New data with fixed cutoffs:
+
+N	Ns	Rg^2		Pai-Yi
+64	2*	56.7 +- 1.5	? 55
+
+Same problem as before with samples: only 20 independent samples after 10^7 timesteps!
 
