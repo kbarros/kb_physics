@@ -91,11 +91,33 @@ small reexpansion visible
 
 ======= OCT 23 =======
 
-See long email to Erik for recap.
+See long email to Erik for recap of last couple weeks results, and plans for large simulations.
 
 
-======= OCT 26 =======
+======= OCT 28 =======
 
-Want to test effect of monovalent salt on single chain (P-Y) with N=16, monomer-density=0.008.  Compare to larger box size?
+*****
 
-Nearest neighbors
+Momentarily wondered if Pai-Yi actually used kT = 1.2 \epsilon.  Performed simulations using both 1.0 eps and 1.2 eps, fixed Bjerrum length. I used chain length 16, and 4 salt molecules (density 0.002).  I found Rg^2 was 4.92 +- 3 and 4.95 +- 3.  The larger T matches Pai-Yi's data, 4.98 +- 0.04.
+
+*****
+
+Single chain runs with smaller diameter ions (consistency check).  Pai-Yi data only available for N=64.
+
+N	Ns	Rg^2		Pai-Yi
+64	2	67.6 +- 1.4	66.4 +- 0.9
+64	2*	49 +- ?		? 55
+64	4	59.7 +- 1.8	58.52 +- 1.13
+64	4*	41.9 +- 0.8	? 49
+64	6*			? 45
+64	8*	34.7 +- 0.7	? 41
+
+* indicates half diameter ions.
+
+Note that for the cases Ns={2, 2*} I get only 20 independent samples after 10^7 steps.  In the case Ns=2* generic_analyzer fails using data from 10^7 simulation steps.
+
+
+======= OCT 29 =======
+
+Discovered that I had forgotten to set (cutoff = sigma 2^(1/6)) in the case that sigma varies between particle types.  This may explain why I didn't reproduce Pai-Yi's data.
+

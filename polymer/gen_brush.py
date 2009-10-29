@@ -43,27 +43,30 @@ def mknewdir(newdir):
 #
 
 ewald_accuracy = 1e-4
-ewald_cutoff = 10 # tunable parameter for performance
+ewald_cutoff = 12 # tunable parameter for performance
 packing_distance = 1.0 # separation of ions when initially packed
 
-dt = 0.003 # time step // 0.002
-N = 16 # chain length // 30
-f = 1 # number of chains // 40
-Ns = 4 # salt molecules
-Z = 3 # salt valency // 1 through 4
-R = 6 # globe radius // 6
-L = 12.5992 # linear system size // 160
-T = 1. # temperature // 1.2
-bjerrum = 3.0 # bjerrum length // 3.0
-monomer_diameter = 1.0 # LJ repulsion of monomers // 1.0
-ion_diameter = 1.0 # LJ repulsion of ions // 1.0
-
-equilibsteps = int(5e3)
-simsteps     = int(1e6)
-dumpevery = int(1e3)
+equilibsteps = int(1e6)
+simsteps     = int(1e7)
+dumpevery = int(1e4)
 num_dumps = simsteps / dumpevery
 
 sim_hours = 5000
+
+dt = 0.003 # time step // 0.002
+N = 64 # chain length // 30
+f = 1 # number of chains // 40
+Ns = 2 # salt molecules
+Z = 3 # salt valency // 1 through 4
+R = 6 # globe radius // 6
+L = 20 # linear system size // 160
+T = 1.2 # temperature // 1.2
+bjerrum = 3.0 # bjerrum length // 3.0
+
+sigma_mm = 1.0 # monomer diameter for LJ repulsion // 1.0
+sigma_ii = 0.5 # ion diameter for LJ repulsion // 1.0
+sigma_mi = (sigma_mm + sigma_ii) / 2.0
+
 
 salt_free = False # if True, only counterions (no salt coions)
 if salt_free:
@@ -71,12 +74,13 @@ if salt_free:
     n_counterions = f*N - Z*Ns
     n_salt_counterions = Ns
     n_salt_coions = 0
+    jobname = "L%d.N%d.Nz%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
 else:
     n_monomers = f*N
     n_counterions = f*N
     n_salt_counterions = Ns
     n_salt_coions = Z*Ns
-
+    jobname = "L%d.Ns%04d.%f" % (round(L), Ns, sigma_ii) # -round(log10(ewald_accuracy))
 
 if n_counterions < 0:
     print "Too many multivalent ions"
@@ -86,10 +90,6 @@ elif n_counterions == 0:
 else:
     print "Phi ratio: %f" % (n_salt_counterions / float(n_counterions))
 
-if salt_free:
-    jobname = "L%d.N%d.Nz%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
-else:
-    jobname = "L%d.Ns%04d.T1" % (round(L), Ns) # -round(log10(ewald_accuracy))
 dirname = mknewdir("/home/kbarros/scratch/peb/"+jobname)
 print "Created directory:\n " + dirname
 lammps = "/home/kbarros/installs/Lammps/current/src/lmp_suse_linux"
@@ -154,7 +154,7 @@ group		graft type 1
 group		nongraft subtract all graft
 
 ### ADD GLOBE
-fix		1 nongraft globe/lj126 %(R)s 0.0 1.0 1.12246204830937 # radius epsilon sigma cutoff
+fix		1 nongraft globe/lj126 %(R)s 0.0 1.0 %(sigma_mm)s # radius epsilon sigma cutoff
 fix_modify	1 energy yes		# include globe energy
 
 ### SET INTEGRATION METHOD
@@ -169,10 +169,10 @@ run		%(soft_equilibsteps)d
 unfix		4
 
 ### SWITCH TO COULOMB/LJ INTERACTIONS
-pair_style	lj/cut/coul/long 1.12246204830937 %(ewald_cutoff)f # < LJ_cutoff=2^{1/6} coulomb_cutoff >
-pair_coeff	1*2 1*2 1.0 %(sigma_mm)s	# < atom_type1 atom_type2 epsilon sigma > (monomer-monomer)
-pair_coeff	1*2 3*  1.0 %(sigma_mi)s	# < atom_type1 atom_type2 epsilon sigma > (monomer-ion)
-pair_coeff	3* 3*   1.0 %(sigma_ii)s	# < atom_type1 atom_type2 epsilon sigma > (ion-ion)
+pair_style	lj/cut/coul/long 0 %(ewald_cutoff)f	# < LJ_cutoff coulomb_cutoff > (LJ_cutoff is overridden below)
+pair_coeff	1*2 1*2 1.0 %(sigma_mm)s %(cut_mm)s	# < type1 type2 epsilon sigma LJ_cutoff > (monomer-monomer)
+pair_coeff	1*2 3*  1.0 %(sigma_mi)s %(cut_mi)s	# < type1 type2 epsilon sigma LJ_cutoff > (monomer-ion)
+pair_coeff	3* 3*   1.0 %(sigma_ii)s %(cut_ii)s	# < type1 type2 epsilon sigma LJ_cutoff > (ion-ion)
 
 pair_modify	shift yes		# LJ interactions shifted to zero
 kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
@@ -196,7 +196,8 @@ unfix		6
        'soft_equilibsteps':equilibsteps, 'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'restart_freq':20*dumpevery,
        'ewald_accuracy':ewald_accuracy, 'ewald_cutoff':ewald_cutoff, 'T':T, 'R':R, 'dt':dt, 'bjerrum':bjerrum,
        'dielectric':1.0/(T * bjerrum),
-       'sigma_mm':monomer_diameter, 'sigma_mi':(monomer_diameter+ion_diameter)/2, 'sigma_ii':ion_diameter})
+       'sigma_mm':sigma_mm, 'sigma_mi':sigma_mi, 'sigma_ii':sigma_ii,
+       'cut_mm':sigma_mm*(2**(1./6)), 'cut_mi':sigma_mi*(2**(1./6)), 'cut_ii':sigma_ii*(2**(1./6))})
 
 
 # -----------------------------------------------------------------
