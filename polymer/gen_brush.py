@@ -43,10 +43,10 @@ def mknewdir(newdir):
 #
 
 ewald_accuracy = 1e-4
-ewald_cutoff = 12 # tunable parameter for performance
+ewald_cutoff = 20 # tunable parameter for performance
 packing_distance = 1.0 # separation of ions when initially packed
 
-equilibsteps = int(1e6)
+equilibsteps = int(5e5)
 simsteps     = int(1e7)
 dumpevery = int(1e4)
 num_dumps = simsteps / dumpevery
@@ -54,12 +54,12 @@ num_dumps = simsteps / dumpevery
 sim_hours = 5000
 
 dt = 0.003 # time step // 0.002
-N = 64 # chain length // 30
-f = 1 # number of chains // 40
-Ns = 2 # salt molecules
+N = 30 # chain length // 30
+f = 40 # number of chains // 40
+Ns = 3200 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
-L = 20 # linear system size // 160
+L = 53 # linear system size // 160
 T = 1.2 # temperature // 1.2
 bjerrum = 3.0 # bjerrum length // 3.0
 
@@ -80,7 +80,7 @@ else:
     n_counterions = f*N
     n_salt_counterions = Ns
     n_salt_coions = Z*Ns
-    jobname = "L%d.Ns%04d.%f" % (round(L), Ns, sigma_ii) # -round(log10(ewald_accuracy))
+    jobname = "L%d.Ns%04d.h.r8" % (round(L), Ns) # -round(log10(ewald_accuracy))
 
 if n_counterions < 0:
     print "Too many multivalent ions"
@@ -152,21 +152,25 @@ timestep	%(dt)f                  # FENE bonds are bottleneck for dt
 ### DEFINE GROUPS
 group		graft type 1
 group		nongraft subtract all graft
+group		chain type 2
+group		ion subtract all graft chain
 
 ### ADD GLOBE
-fix		1 nongraft globe/lj126 %(R)s 0.0 1.0 %(sigma_mm)s # radius epsilon sigma cutoff
+fix		1 chain globe/lj126 %(R)s 1.0 %(sigma_mm)s %(cut_mm)s # radius epsilon sigma cutoff
 fix_modify	1 energy yes		# include globe energy
+fix		2 ion globe/lj126 %(R)s 1.0 %(sigma_mi)s %(cut_mi)s # radius epsilon sigma cutoff
+fix_modify	2 energy yes		# include globe energy
 
 ### SET INTEGRATION METHOD
-fix		2 nongraft nve		# apply newtons equations to ungrafted atoms
-fix		3 graft nve/noforce	# zero velocities of grafted atoms while retaining force information
+fix		3 nongraft nve		# apply newtons equations to ungrafted atoms
+fix		4 graft nve/noforce	# zero velocities of grafted atoms while retaining force information
 
 #### SOFT DYNAMICS TO SPREAD ATOMS
 pair_style	soft 1.0			# < cutoff  >
 pair_coeff	* * 0.0 60.0 			# < Astart Astop >
-fix		4 nongraft langevin %(T)s %(T)s 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
+fix		5 nongraft langevin %(T)s %(T)s 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
 run		%(soft_equilibsteps)d
-unfix		4
+unfix		5
 
 ### SWITCH TO COULOMB/LJ INTERACTIONS
 pair_style	lj/cut/coul/long 0 %(ewald_cutoff)f	# < LJ_cutoff coulomb_cutoff > (LJ_cutoff is overridden below)
@@ -183,15 +187,15 @@ kspace_style	pppm %(ewald_accuracy)f	# desired accuracy
 dielectric	%(dielectric)s
 
 ### EQUILIBRATE WITH TEMPERATURE RESCALING
-fix		5 all temp/rescale 1 %(T)s %(T)s 0.05 1	# N Tstart Tstop window fraction
+fix		6 all temp/rescale 1 %(T)s %(T)s 0.05 1	# N Tstart Tstop window fraction
 run		%(equilibsteps)d
-unfix		5
+unfix		6
 
 ### PRODUCTION RUN WITH LANGEVIN DYNAMICS
 dump		1 all custom %(dumpevery)d %(dumpname)s id type x y z ix iy iz vx vy vz
-fix		6 nongraft langevin %(T)s %(T)s 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
+fix		7 nongraft langevin %(T)s %(T)s 10.0 699483	# < Tstart Tstop damp seed [keyword values ... ] >
 run		%(simsteps)d
-unfix		6
+unfix		7
 """ % {'dataname':dataname, 'dumpname':dumpname, 'simsteps':simsteps,
        'soft_equilibsteps':equilibsteps, 'equilibsteps':equilibsteps, 'dumpevery':dumpevery, 'restart_freq':20*dumpevery,
        'ewald_accuracy':ewald_accuracy, 'ewald_cutoff':ewald_cutoff, 'T':T, 'R':R, 'dt':dt, 'bjerrum':bjerrum,
