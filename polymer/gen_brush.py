@@ -56,31 +56,31 @@ sim_hours = 5000
 dt = 0.003 # time step // 0.002
 N = 30 # chain length // 30
 f = 40 # number of chains // 40
-Ns = 3200 # salt molecules
+Ns = 400 # salt molecules
 Z = 3 # salt valency // 1 through 4
 R = 6 # globe radius // 6
-L = 53 # linear system size // 160
+L = 92 # linear system size // 160
 T = 1.2 # temperature // 1.2
 bjerrum = 3.0 # bjerrum length // 3.0
 
 sigma_mm = 1.0 # monomer diameter for LJ repulsion // 1.0
-sigma_ii = 0.5 # ion diameter for LJ repulsion // 1.0
+sigma_ii = 1.0 # ion diameter for LJ repulsion // 1.0
 sigma_mi = (sigma_mm + sigma_ii) / 2.0
 
 
-salt_free = False # if True, only counterions (no salt coions)
+salt_free = True # if True, only counterions (no salt coions)
 if salt_free:
     n_monomers = f*N
     n_counterions = f*N - Z*Ns
     n_salt_counterions = Ns
     n_salt_coions = 0
-    jobname = "L%d.N%d.Nz%d.Z%d" % (round(L), N, Ns, Z) # -round(log10(ewald_accuracy))
+    jobname = "L%d.Ns%d.sf.r9" % (round(L), Ns) # -round(log10(ewald_accuracy))
 else:
     n_monomers = f*N
     n_counterions = f*N
     n_salt_counterions = Ns
     n_salt_coions = Z*Ns
-    jobname = "L%d.Ns%04d.h.r8" % (round(L), Ns) # -round(log10(ewald_accuracy))
+    jobname = "L%d.Ns%04d.r8" % (round(L), Ns) # -round(log10(ewald_accuracy))
 
 if n_counterions < 0:
     print "Too many multivalent ions"
@@ -142,6 +142,7 @@ read_data	%(dataname)s		# load volume dimensions, masses, atoms, and bonds
 # read_restart	restart.equil.dat
 restart		%(restart_freq)d restart/restart.*.dat
 thermo		%(dumpevery)d		# steps between output of thermodynamic quantities 
+thermo_modify	flush yes		# flush output in case of Lammps crash
 
 ### BONDS
 bond_style	fene

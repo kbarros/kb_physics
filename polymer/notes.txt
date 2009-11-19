@@ -124,7 +124,44 @@ Discovered that I had forgotten to set (cutoff = sigma 2^(1/6)) in the case that
 New data with fixed cutoffs:
 
 N	Ns	Rg^2		Pai-Yi
-64	2*	56.7 +- 1.5	? 55
+64	2*	55.6 +- 0.6	? 55
 
-Same problem as before with samples: only 20 independent samples after 10^7 timesteps!
+About 100 independent samples after 5*10^7 timesteps
+
+
+====== Nov 17 =======
+
+resubmitted jobs after minotaur reboot.
+
+some preliminary data analysis.  caveats: 
+L53 data is correlated, not many independent samples.  generic_analyzer correlation coefficient (c.c.) never goes below 0.2
+
+L	Ns	Rg^2
+
+53	50	311
+53	200	255 +- 0.4
+53	400*	217 +- 0.4
+53	566	218 +- 0.5
+53	1131	223.7 +- 0.2
+
+92	50	281
+92	400*	102.69 +- 0.12
+92	800	104.98 +- 0.14
+92	1600	108.54 +- 0.13
+
+160	400*	102.1 +- 0.7
+160	1600	103.34 +- 0.15
+
+
+====== Nov 18 =======
+
+now believe that big difference between 53 and 92 is a blessing and
+not a curse.  high monovolent ion concentration screening multivalent
+bridges.
+
+submitted the following test runs
+
+L?.Ns0.r8 : system with ZERO multivalent salt, only counter ions
+L?.Ns400.sf.r9 : system with only multivalent counterions, no monovalent ions
+L53.Ns400.r10 : like previous, but now add MONOVALENT salt to match monovalent concentration of L92.Ns400.r7
 
