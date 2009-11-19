@@ -7,11 +7,11 @@
 *.blg
 *.fmt
 *~
-.scala_dependencies
 .#*
 ._*
 _region_*
 *##
+.scala_dependencies
 .DS_Store
 
 # executables in subdirectories
@@ -28,3 +28,4 @@ workspace/Scikit/bin/*
 workspace/JavaSims/bin/*
 workspace/Scitools/bin/*
 workspace/.metadata/
+
