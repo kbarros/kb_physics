@@ -7,6 +7,7 @@
 *.blg
 *.fmt
 *~
+.scala_dependencies
 .#*
 ._*
 _region_*
@@ -25,4 +26,5 @@ scitools/project/boot/
 # Eclipse dirs
 workspace/Scikit/bin/*
 workspace/JavaSims/bin/*
+workspace/Scitools/bin/*
 workspace/.metadata/
