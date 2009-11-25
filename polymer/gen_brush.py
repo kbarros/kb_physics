@@ -245,7 +245,14 @@ def generate_data_file():
 """)
     
     def wrap_coordinate(x):
-        return (x % L, x / L) # todo: handle negative winding numbers
+        i = 0
+        while x >= L:
+            x -= L
+            i += 1
+        while x < 0:
+            x += L
+            i -= 1
+        return (x, i)
     
     def atom_position(i):
         d = packing_distance
