@@ -161,7 +161,36 @@ bridges.
 
 submitted the following test runs
 
-L?.Ns0.r8 : system with ZERO multivalent salt, only counter ions
+L?.Ns0.h.r8 : system with ZERO multivalent salt, only counter ions (UPDATE: this has been relabeled L?Ns0.r7)
 L?.Ns400.sf.r9 : system with only multivalent counterions, no monovalent ions
 L53.Ns400.r10 : like previous, but now add MONOVALENT salt to match monovalent concentration of L92.Ns400.r7
 
+
+====== Nov 24 =======
+
+Results for brush with zero salt (run7, Ns0000):
+L	Ns	Rg^2		cRg^2
+53	0	340.6 +- 0.3	133.99 +- 0.15
+92	0	319.7 +- 0.3	40.50 +- 0.05
+160	0	326.0 +- 0.3	41.49 +- 0.04
+
+Result for brush with only multivalent counterions (neutralization, run9)
+L	Ns	Rg^2		cRg^2
+53	0	213.6 +- 0.5	140.7 +- 0.2
+92	0	100.37 +- 0.10	10.72 +- 0.04
+
+
+====== Nov 25 =======
+
+Found bug in image numbers.  This affects ALL previous L=53 runs.  Doh!  New results follow
+
+Results for brush with zero salt (run7, Ns0000):
+L	Ns	Rg^2		cRg^2
+53	0	299.6 +- 0.2	36.97 +- 0.04
+92	0	319.7 +- 0.3	40.50 +- 0.05
+160	0	326.0 +- 0.3	41.49 +- 0.04
+
+Result for brush with only multivalent counterions (neutralization, run9)
+L	Ns	Rg^2		cRg^2
+53	0	100.56 +- 0.13	10.66 +- 0.04
+92	0	100.37 +- 0.10	10.72 +- 0.04

@@ -405,7 +405,7 @@ def generate_pbs_file():
 #PBS -S /bin/bash
 
 cd %(dirname)s 
-%(lammps)s < %(confname)s > lammps.out
+%(lammps)s < %(confname)s &> lammps.out
 ssh minotaur scp -r %(dirname)s achilles.ms.northwestern.edu:%(dirname)s-mino
 if [ $? -eq 0 ] ; then
 touch COMPLETED
