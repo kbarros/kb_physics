@@ -194,3 +194,8 @@ Result for brush with only multivalent counterions (neutralization, run9)
 L	Ns	Rg^2		cRg^2
 53	0	100.56 +- 0.13	10.66 +- 0.04
 92	0	100.37 +- 0.10	10.72 +- 0.04
+
+Result for brush at neutralization point (L=92) with fixed monovalent ion density (when L=53 the monovalent ions are decreased)
+L	Ns	Rg^2		cRg^2
+53*	0	102.34 +- 0.08	10.83 +- 0.02  (fewer monovalent ions to match L=92 case)
+92	0	102.69 +- 0.12	10.94 +- 0.04
