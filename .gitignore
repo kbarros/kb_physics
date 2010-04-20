@@ -6,6 +6,7 @@
 *.bbl
 *.blg
 *.fmt
+*.pyc
 *~
 .#*
 ._*
@@ -24,8 +25,6 @@ src_managed/
 scitools/project/boot/
 
 # Eclipse dirs
-workspace/Scikit/bin/*
-workspace/JavaSims/bin/*
-workspace/Scitools/bin/*
+workspace/*/bin/*
 workspace/.metadata/
 
