@@ -1,6 +1,7 @@
-package kip.lmps
+package kip
 
-import Util._
+import lmps._
+import lmps.Util._
 import java.lang.Math._
 
 object PEB {
