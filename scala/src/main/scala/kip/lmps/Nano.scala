@@ -3,7 +3,7 @@ package kip.lmps
 
 object Nano {
   def main(args: Array[String]) {
-    go("/Users/kbarros/dev/repo/projects/dielectric/nano.L15/dump.dat", 1000)
+    go("/Users/kbarros/dev/repo/projects/dielectric/nano.L15/dump.dat", 2000, 0.1, 10)
   }
   
   // types 
@@ -45,15 +45,15 @@ object Nano {
     (r, g)
   }
   
-  def go(fname: String, tbegin: Long) {
+  def go(fname: String, tbegin: Long, dr: Double, rmax: Double) {
     val snaps = LammpsParser.readLammpsDump(fname) filter {_.time > tbegin}
     // LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
     
     println("Processing "+snaps.size+" snapshots")
     
-    val (r, g1) = pairCorrelation(snaps, dr=0.2, rmax=12, typCore, typCore)
-    val (_, g2) = pairCorrelation(snaps, dr=0.2, rmax=12, typCore, typCation)
-    val (_, g3) = pairCorrelation(snaps, dr=0.2, rmax=12, typCation, typCation)
+    val (r, g1) = pairCorrelation(snaps, dr, rmax, typCore, typCore)
+    val (_, g2) = pairCorrelation(snaps, dr, rmax, typCore, typCation)
+    val (_, g3) = pairCorrelation(snaps, dr, rmax, typCation, typCation)
     
     val formatted = Util.formatDataInColumns(
       ("radii", r),
@@ -61,7 +61,7 @@ object Nano {
       ("g(core-cation)", g2),
       ("g(cation-cation)", g3)
     )
-    Util.writeStringToFile(formatted, "/Users/kbarros/Desktop/results.dat")
+    Util.writeStringToFile(formatted, "results.dat")
     // print(formatted)
   }
 }
