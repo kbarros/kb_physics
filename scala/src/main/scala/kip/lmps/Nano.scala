@@ -6,12 +6,16 @@ object Nano {
     go("/Users/kbarros/dev/repo/projects/dielectric/nano.L15/dump.dat", 2000, 0.1, 10)
   }
   
-  // types 
+  // atom types 
   val typPatch = 1
   val typCore = 2
   val typCation = 3
   val typAnion = 4
   
+  
+  def averageTemperature(snaps: Seq[Snapshot]) = {
+    snaps.map(_.thermo.temperature).sum / snaps.size
+  }
 
   def pairCorrelation(snaps: Seq[Snapshot], dr: Double, rmax: Double, typ1: Int, typ2: Int) = {
     val types = snaps(0).typ
@@ -47,8 +51,11 @@ object Nano {
   
   def go(fname: String, tbegin: Long, dr: Double, rmax: Double) {
     val snaps = LammpsParser.readLammpsDump(fname) filter {_.time > tbegin}
-    // LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
+    LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
     
+    
+    println("Average temperature = "+averageTemperature(snaps))
+
     println("Processing "+snaps.size+" snapshots")
     
     val (r, g1) = pairCorrelation(snaps, dr, rmax, typCore, typCore)
