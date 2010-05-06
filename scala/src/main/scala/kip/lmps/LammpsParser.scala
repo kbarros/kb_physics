@@ -155,6 +155,9 @@ object LammpsParser {
         case "vx" => ss.vx = c
         case "vy" => ss.vy = c
         case "vz" => ss.vz = c
+        case "fx" => ()
+        case "fy" => ()
+        case "fz" => ()
       }
     }
 
