@@ -3,31 +3,30 @@ package kip.dielectric
 
 import no.uib.cipr.matrix._ 
 
-/**
- * @param order The number of series terms to retain, 'l'.  Order 0 corresponds to pure Coulomb interactions.
- *   Order 1 includes the point-sphere interaction.
- * @param L The center to center distance of the two spheres
- */
-// TODO: Place constants into param list
-case class Constants(val order: Int, val L: Double) {
-  // dielectric constant of background between spheres
-  val eps0: Double = 1
+
+case class Constants(
+  order: Int    = 40, // Terms in series. Order 0: pure Coulomb. Order 1: point-sphere correction.
+  L:     Double = 10, // Center to center distance between spheres
+  ra:    Double =  5, // Radius of sphere a
+  rb:    Double =  5, // Radius of sphere b
+  eps0:  Double =  1, // Dielectric constant of solution
+  epsa:  Double = 10, // Dielectric constant of sphere a
+  epsb:  Double = 10, // Dielectric constant of sphere b
+  qa:    Double =  1, // Charge of sphere a
+  qb:    Double = -1  // Charge of sphere b
+  ) {
+
+  val (xa, xb) = (epsa/eps0, epsb/eps0)
+  val (ta, tb) = (ra/L, rb/L)
   
-  // (x_a = eps_a / eps_0) where eps_a is dielectric constant of sphere a
-  val (xa, xb) = (10/eps0, 10/eps0)
-    
-  // (t_a = r_a / L) where r_a is the radius of sphere a
-  val (ta, tb) = (5/L, 5/L)
-    
-  // sphere charges
-  val (qa, qb) = (1, -1)
-  
-  def factorial(i: Int):Double = {
-    var ret: Double = 1.0
-    for (iter <- 1 to i) ret *= iter
-    ret
+  def beta(i: Int, j: Int) = {
+    def factorial(i: Int):Double = {
+      var ret: Double = 1.0
+      for (iter <- 1 to i) ret *= iter
+      ret
+    }
+    factorial(i+j) / (factorial(i)*factorial(j))
   }
-  def beta(i: Int, j: Int) = factorial(i+j) / (factorial(i)*factorial(j))
   
   def alphaA(l: Double) = (1-xa)*l*math.pow(ta, 2*l+1) / ((xa+1)*l+1)
   def alphaB(l: Double) = (1-xb)*l*math.pow(tb, 2*l+1) / ((xb+1)*l+1)
@@ -85,7 +84,7 @@ object SphereSphereForce {
   def forceVector(order: Int, L1: Double, L2: Double) = {
     val dL = (L2 - L1) / 200
     val xs = L1 until L2 by dL
-    val fs = xs map (x => force(new Constants(order, x), dL))
+    val fs = xs map (x => force(Constants(order=order, L=x), dL))
     (xs, fs)
   }
   
@@ -102,10 +101,9 @@ object SphereSphereForce {
   def main(args : Array[String]) : Unit = {
     val order = 30
     val Ls = List(11, 12, 13, 15, 17, 20)
-//    val Ls = Seq(6.5, 7.2)
     val dL = 1e-4 // seems good if L>=7    
     for (L <- Ls) {
-      val c = new Constants(order, L)
+      val c = Constants(order=order, L=L)
       println("L=" + L + " force=" +force(c, 1e-2))
       println("L=" + L + " force=" +force(c, 1e-3))
       println("L=" + L + " force=" +force(c, 1e-4))
