@@ -5,15 +5,15 @@ import no.uib.cipr.matrix._
 
 
 case class Constants(
-  order: Int    = 40, // Terms in series. Order 0: pure Coulomb. Order 1: point-sphere correction.
-  L:     Double = 10, // Center to center distance between spheres
-  ra:    Double =  5, // Radius of sphere a
-  rb:    Double =  5, // Radius of sphere b
-  eps0:  Double =  1, // Dielectric constant of solution
-  epsa:  Double = 10, // Dielectric constant of sphere a
-  epsb:  Double = 10, // Dielectric constant of sphere b
-  qa:    Double =  1, // Charge of sphere a
-  qb:    Double = -1  // Charge of sphere b
+  order: Int   , // Terms in series. Order 0: pure Coulomb. Order 1: point-sphere correction.
+  L:     Double, // Center to center distance between spheres
+  ra:    Double, // Radius of sphere a
+  rb:    Double, // Radius of sphere b
+  eps0:  Double, // Dielectric constant of solution
+  epsa:  Double, // Dielectric constant of sphere a
+  epsb:  Double, // Dielectric constant of sphere b
+  qa:    Double, // Charge of sphere a
+  qb:    Double  // Charge of sphere b
   ) {
 
   val (xa, xb) = (epsa/eps0, epsb/eps0)
@@ -81,15 +81,15 @@ object SphereSphereForce {
     - (e2-e1) / dL
   }
 
-  def forceVector(order: Int, L1: Double, L2: Double) = {
+  def forceVector(consts: Constants, L1: Double, L2: Double) = {
     val dL = (L2 - L1) / 200
     val xs = L1 until L2 by dL
-    val fs = xs map (x => force(Constants(order=order, L=x), dL))
+    val fs = xs map (x => force(consts.copy(L=x), dL))
     (xs, fs)
   }
   
-  def plotAt(order: Int) {
-    val (xs, fs) = forceVector(order, 2, 4)
+  def plotAt(consts: Constants, order: Int) {
+    val (xs, fs) = forceVector(consts, 2, 4)
     
     val formatted = kip.lmps.Util.formatDataInColumns(
       ("position", xs.toArray),
@@ -99,14 +99,32 @@ object SphereSphereForce {
   }
   
   def main(args : Array[String]) : Unit = {
-    val order = 30
+    val c = Constants(
+      L     =  0,
+      ra    =  5,
+      rb    =  5,
+      eps0  =  1,
+      epsa  = 10,
+      epsb  = 10,
+      qa    =  1,
+      qb    = -1,
+      order = 30
+    )
     val Ls = List(11, 12, 13, 15, 17, 20)
-    val dL = 1e-4 // seems good if L>=7    
+    val dL = 1e-4 // seems good if L>=7
+    
     for (L <- Ls) {
-      val c = Constants(order=order, L=L)
-      println("L=" + L + " force=" +force(c, 1e-2))
-      println("L=" + L + " force=" +force(c, 1e-3))
-      println("L=" + L + " force=" +force(c, 1e-4))
+      val cFull = c.copy(L=L)
+      val cCoul = c.copy(L=L, epsa=1, epsb=1)
+      
+      println("L="+L)
+      println("Coulomb force  = " +force(cCoul, 1e-3))
+      println("Force          = " +force(cFull, 1e-2)+" "+force(cFull, 1e-3)+" "+force(cFull, 1e-4))
+      println("Coulomb energy = "+energy(cCoul))
+      println("Full energy    = "+energy(cFull))
+      println("Delta energy   = "+(energy(cFull) - energy(cCoul)))
+      println("Delta fraction = "+(energy(cFull) - energy(cCoul)) / energy(cCoul))
+      println()
     }
   }
 }
