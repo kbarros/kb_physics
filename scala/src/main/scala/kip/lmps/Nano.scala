@@ -55,10 +55,11 @@ object Nano {
     val s = snaps(0)
     val types = snaps(0).typ
     def isPositive(q: Array[Double], i: Int) = if (q == null) true else q(i) > 0
+    def isNegative(q: Array[Double], i: Int) = if (q == null) true else q(i) < 0
     def filterIds(f: Int => Boolean) = (0 until s.natoms) filter f
     
-    val idsCorePos = filterIds (i => s.typ(i) == typCore &&  isPositive(s.q, i))
-    val idsCoreNeg = filterIds (i => s.typ(i) == typCore && !isPositive(s.q, i))
+    val idsCorePos = filterIds (i => s.typ(i) == typCore && isPositive(s.q, i))
+    val idsCoreNeg = filterIds (i => s.typ(i) == typCore && isNegative(s.q, i))
     val idsCore    = filterIds (i => s.typ(i) == typCore)
     val idsCation  = filterIds (i => s.typ(i) == typCation)
     val idsAnion   = filterIds (i => s.typ(i) == typAnion)
