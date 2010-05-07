@@ -17,11 +17,8 @@ object Nano {
     snaps.map(_.thermo.temperature).sum / snaps.size
   }
 
-  def pairCorrelation(snaps: Seq[Snapshot], dr: Double, rmax: Double, typ1: Int, typ2: Int) = {
-    val types = snaps(0).typ
+  def pairCorrelation(snaps: Seq[Snapshot], dr: Double, rmax: Double, ids1: Seq[Int], ids2: Seq[Int]) = {
     val volume = snaps(0).volume
-    val indices1 = types.indices.filter(types(_) == typ1)
-    val indices2 = types.indices.filter(types(_) == typ2)
     val nbins = (rmax/dr).toInt
     val g = new Array[Double](nbins)
     
@@ -29,7 +26,7 @@ object Nano {
     for ((s,iter) <- snaps.zipWithIndex) {
       if (iter % 100 == 0)
         println("Processing snapshot "+iter)
-      for (i1 <- indices1; i2 <- indices2; if i1 != i2) {
+      for (i1 <- ids1; i2 <- ids2; if i1 != i2) {
         val dist = math.sqrt(s.distance2(i1, i2))
         val bin = (dist/dr).toInt
         if (bin < nbins)
@@ -43,7 +40,7 @@ object Nano {
     // normalize pair-correlation to unity for homogeneous density
     for (bin <- 0 until nbins) {
       val volume_fraction = 4*math.Pi*r(bin)*r(bin)*dr / volume
-      g(bin) /= volume_fraction * snaps.size * indices1.size * indices2.size
+      g(bin) /= volume_fraction * snaps.size * ids1.size * ids2.size
     }
     
     (r, g)
@@ -52,15 +49,23 @@ object Nano {
   def go(fname: String, tbegin: Long, dr: Double, rmax: Double) {
     val snaps = LammpsParser.readLammpsDump(fname) filter {_.time > tbegin}
     LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
-    
-    
     println("Average temperature = "+averageTemperature(snaps))
-
     println("Processing "+snaps.size+" snapshots")
     
-    val (r, g1) = pairCorrelation(snaps, dr, rmax, typCore, typCore)
-    val (_, g2) = pairCorrelation(snaps, dr, rmax, typCore, typCation)
-    val (_, g3) = pairCorrelation(snaps, dr, rmax, typCation, typCation)
+    val s = snaps(0)
+    val types = snaps(0).typ
+    def isPositive(q: Array[Double], i: Int) = if (q == null) true else q(i) > 0
+    def filterIds(f: Int => Boolean) = (0 until s.natoms) filter f
+    
+    val idsCorePos = filterIds (i => s.typ(i) == typCore &&  isPositive(s.q, i))
+    val idsCoreNeg = filterIds (i => s.typ(i) == typCore && !isPositive(s.q, i))
+    val idsCore    = filterIds (i => s.typ(i) == typCore)
+    val idsCation  = filterIds (i => s.typ(i) == typCation)
+    val idsAnion   = filterIds (i => s.typ(i) == typAnion)
+    
+    val (r, g1) = pairCorrelation(snaps, dr, rmax, idsCorePos, idsCoreNeg)
+    val (_, g2) = pairCorrelation(snaps, dr, rmax, idsCore, idsCation)
+    val (_, g3) = pairCorrelation(snaps, dr, rmax, idsCation, idsCation)
     
     val formatted = Util.formatDataInColumns(
       ("radii", r),

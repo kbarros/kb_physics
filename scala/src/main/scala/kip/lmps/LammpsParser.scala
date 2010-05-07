@@ -39,6 +39,7 @@ class Snapshot(val time: Int, val natoms: Int) {
   var vx : Array[Double] = null
   var vy : Array[Double] = null
   var vz : Array[Double] = null
+  var q  : Array[Double] = null
   
   var thermo: Thermo = null
 
@@ -155,6 +156,7 @@ object LammpsParser {
         case "vx" => ss.vx = c
         case "vy" => ss.vy = c
         case "vz" => ss.vz = c
+        case "q"  => ss.q = c
         case "fx" => ()
         case "fy" => ()
         case "fz" => ()
