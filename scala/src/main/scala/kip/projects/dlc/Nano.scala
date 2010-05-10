@@ -1,4 +1,6 @@
-package kip.lmps
+package kip.projects.dlc
+
+import kip.util.{LammpsParser, Snapshot, Util}
 
 
 object Nano {
@@ -9,8 +11,9 @@ object Nano {
   // atom types 
   val typPatch = 1
   val typCore = 2
-  val typCation = 3
-  val typAnion = 4
+  val typSphereCation = 3
+  val typCation = 4
+  val typAnion = 5
   
   
   def averageTemperature(snaps: Seq[Snapshot]) = {

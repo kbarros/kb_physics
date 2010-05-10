@@ -1,4 +1,4 @@
-package kip.dielectric
+package kip.projects.dielectric
 
 
 import no.uib.cipr.matrix._ 
@@ -91,7 +91,7 @@ object SphereSphereForce {
   def plotAt(consts: Constants, order: Int) {
     val (xs, fs) = forceVector(consts, 2, 4)
     
-    val formatted = kip.lmps.Util.formatDataInColumns(
+    val formatted = kip.util.Util.formatDataInColumns(
       ("position", xs.toArray),
       ("force", fs.toArray)
     )

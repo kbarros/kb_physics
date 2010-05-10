@@ -1,32 +1,19 @@
-package kip.lmps
+package kip.util
 
 import scala.util.matching.Regex
-import java.lang.Math._
 import java.io.{BufferedWriter, FileWriter}
 
 
-object Util {
-  final def sqr(x: Double) = x*x
 
-/*
-  def mkIterator[A](f: => Option[A]) : Iterator[A] = {
-    new Iterator[A] {
-      // None if next element not yet read, else Some(nextElement)
-      var cache: Option[Option[A]] = None
-      private def readCache() = cache.getOrElse{cache = Some(f); cache.get }
-      def next = {
-        val v = readCache()
-        cache = None
-        v.get
-      }
-      def hasNext = readCache match {
-        case None => false
-        case Some(_) => true
-      }
+object Util {
+  case class Vec3(x: Double, y: Double, z: Double) {
+    def distance2(that: Vec3) = {
+      sqr(x-that.x) + sqr(y-that.y) + sqr(z-that.z)
     }
   }
-  */
-
+  
+  final def sqr(x: Double) = x*x
+  
   // def refToOption[A <: AnyRef](a:A) =
   //  if (a == null) None else Some(a)  
 

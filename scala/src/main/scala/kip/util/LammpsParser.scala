@@ -1,4 +1,4 @@
-package kip.lmps
+package kip.util
 
 import java.io.File
 import java.io.FileReader
@@ -7,13 +7,6 @@ import java.io.BufferedReader
 import scala.io.Source
 import scala.collection.mutable.ArrayBuffer
 import Util._
-
-
-case class Vec3(x: Double, y: Double, z: Double) {
-  def distance2(that: Vec3) = {
-    sqr(x-that.x) + sqr(y-that.y) + sqr(z-that.z)
-  }
-}
 
 
 class Thermo {

@@ -1,7 +1,7 @@
-package kip
+package kip.projects.peb
 
-import lmps._
-import lmps.Util._
+import kip.util.{Snapshot, LammpsParser}
+import kip.util.Util._
 import java.lang.Math._
 
 object PEB {
