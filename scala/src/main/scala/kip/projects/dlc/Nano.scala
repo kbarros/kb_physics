@@ -34,12 +34,30 @@ object Nano {
     for ((s,iter) <- snaps.zipWithIndex) {
       if (iter % 100 == 0)
         println("Processing snapshot "+iter)
+
       for (i1 <- ids1; i2 <- ids2; if i1 != i2) {
         val dist = math.sqrt(s.distance2(i1, i2))
         val bin = (dist/dr).toInt
         if (bin < r.size)
           g(bin) += 1
       }
+      
+      /*
+      var i1 = 0
+      while (i1 < ids1.size) {
+        var i2 = 0
+        while (i2 < ids1.size) {
+          if (i1 != i2) {
+            val dist = math.sqrt(s.distance2(ids1(i1), ids2(i2)))
+            val bin = (dist/dr).toInt
+            if (bin < nbins)
+              g(bin) += 1
+          }
+          i2 += 1
+        }
+        i1 += 1
+      }
+      */
     }
 
     // normalize pair-correlation so that it becomes unity at homogeneous density
