@@ -176,8 +176,8 @@ object LammpsParser {
     val snaps = new ArrayBuffer[Snapshot]()
     while (lines.hasNext && snaps.length < maxSnapshots) {
       snaps.append(readSnapshot(lines))
-      if (snaps.length % 100 == 0)
-        System.err.println("Reading snapshot "+snaps.length)
+      //if (snaps.length % 100 == 0)
+      //  System.err.println("Reading snapshot "+snaps.length)
     }
     snaps
   }

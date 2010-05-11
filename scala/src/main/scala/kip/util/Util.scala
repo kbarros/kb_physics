@@ -12,21 +12,21 @@ object Util {
     }
   }
   
-  final def sqr(x: Double) = x*x
+  def sqr(x: Double) = x*x
   
-  final def printTime[A](fn: => A) = {
-    val begin = System.currentTimeMillis
-    print ("Begin timing... ")
-    val ret = fn
-    val end = System.currentTimeMillis
-    println("done. Execution time: " + (end-begin)/1000. + "s")
+  def average(vs: Seq[Double]) =
+    if (vs.size == 0) Double.NaN else vs.sum / vs.length
+
+  def time[A](f: => A, s: String): A = {
+    print("Timing '"+s+"'...")
+    val t1 = System.currentTimeMillis
+    val ret = f
+    val t2 = System.currentTimeMillis
+    println(" done. Elapsed time "+(t2-t1)/1000.+"s");
     ret
   }
-
-  def average(vs: Seq[Double]) =
-    if (vs.size == 0) Double.NaN else vs.reduceLeft(_+_) / vs.length
   
-  def trace[A](str: String, v: A) = {
+  def tr[A](v: A, str: String) = {
     println(str + v)
     v
   }

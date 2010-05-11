@@ -2,16 +2,9 @@ package kip.util
 
 
 class BlockAnalysis(data: Array[Double]) {
-  val mean = data.sum / data.size
-  
-  val (error, error_error) = {
-    blocks.find(_.corr < 0.1) match {
-      case Some(iter) => (iter.sigma, iter.sigma_err)
-      case None       => (blocks.last.sigma, Double.PositiveInfinity)
-    }
-  }
-  
   case class Block(sigma: Double, sigma_err: Double, corr: Double, n: Int)
+
+  val mean = data.sum / data.size
   
   val blocks = {
     var a = data
@@ -41,7 +34,14 @@ class BlockAnalysis(data: Array[Double]) {
     // finest blocking is first in return list
     ret.reverse
   }
-
+  
+  val (error, error_error) = {
+    blocks.find(_.corr < 0.1) match {
+      case Some(iter) => (iter.sigma, iter.sigma_err)
+      case None       => (blocks.last.sigma, Double.PositiveInfinity)
+    }
+  }
+  
   private def decimate(a: Array[Double], factor: Int): Array[Double] = {
     val n = a.size
     val ret = new Array[Double](n / factor)

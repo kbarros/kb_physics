@@ -1,7 +1,7 @@
 package kip.projects.dlc
 
-import kip.util.{LammpsParser, Snapshot, Util}
-
+import kip.util.{LammpsParser, Snapshot}
+import kip.util.Util._
 
 object Nano {
   def main(args: Array[String]) {
@@ -32,8 +32,8 @@ object Nano {
     
     // sum over all snapshots, and all pairs of particles. distances are binned into g
     for ((s,iter) <- snaps.zipWithIndex) {
-      if (iter % 100 == 0)
-        println("Processing snapshot "+iter)
+      // if (iter % 100 == 0)
+      //  println("Processing snapshot "+iter)
 
       for (i1 <- ids1; i2 <- ids2; if i1 != i2) {
         val dist = math.sqrt(s.distance2(i1, i2))
@@ -84,7 +84,7 @@ object Nano {
 
   
   def go(fname: String, tbegin: Long, dr: Double, rmax: Double) {
-    val snaps = LammpsParser.readLammpsDump(fname) filter {_.time > tbegin}
+    val snaps = time(LammpsParser.readLammpsDump(fname) filter {_.time > tbegin}, "Reading "+fname)
     LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
     println("Average temperature = "+averageTemperature(snaps))
     println("Processing "+snaps.size+" snapshots")
@@ -98,11 +98,11 @@ object Nano {
     val idsAnion   = filterIds (i => s.typ(i) == typAnion)
     
     val r  = pairCorrelationBins(dr, rmax)
-    val (g1,e1) = pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCore)
-    val (g2,e2) = pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCation)
-    val (g3,e3) = pairCorrelationWithError(snaps, dr, rmax, idsCation, idsCation)
+    val (g1,e1) = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCore), "Sphere-sphere")
+    val (g2,e2) = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCation), "Sphere-ion")
+    val (g3,e3) = time(pairCorrelationWithError(snaps, dr, rmax, idsCation, idsCation), "Ion-ion")
     
-    val formatted = Util.formatDataInColumns(
+    val formatted = formatDataInColumns(
       ("radii", r),
       ("g(core-core)", g1),
       ("err", e1),
@@ -111,7 +111,7 @@ object Nano {
       ("g(cation-cation)", g3),
       ("err", e3)
     )
-    Util.writeStringToFile(formatted, "results.dat")
+    writeStringToFile(formatted, "results.dat")
     // print(formatted)
   }
 }
