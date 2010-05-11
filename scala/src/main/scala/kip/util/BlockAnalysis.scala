@@ -2,8 +2,7 @@ package kip.util
 
 
 class BlockAnalysis(data: Array[Double]) {
-  val n = data.size
-  val mean = data.sum / n
+  val mean = data.sum / data.size
   
   val (error, error_error) = {
     blocks.find(_.corr < 0.1) match {
@@ -17,7 +16,6 @@ class BlockAnalysis(data: Array[Double]) {
   val blocks = {
     var a = data
     var n = a.size
-    val mean = a.sum / n
     var ret: List[Block] = Nil
     
     while (n > 8) {
