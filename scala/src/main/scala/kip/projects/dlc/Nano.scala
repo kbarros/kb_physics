@@ -58,10 +58,11 @@ object Nano {
     // bin radii (average)
     val r = Array.range(0, nbins).map(bin => (bin + 0.5) * dr)
     
-    // normalize pair-correlation to unity for homogeneous density
+    // normalize pair-correlation so that it becomes unity at homogeneous density
+    val uniquePairs = (ids1.size * ids2.size) - (ids1.toSet & ids2.toSet).size
     for (bin <- 0 until nbins) {
       val volume_fraction = 4*math.Pi*r(bin)*r(bin)*dr / volume
-      g(bin) /= volume_fraction * snaps.size * ids1.size * ids2.size
+      g(bin) /= volume_fraction * snaps.size * uniquePairs
     }
     
     (r, g)

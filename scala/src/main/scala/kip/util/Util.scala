@@ -1,7 +1,7 @@
 package kip.util
 
 import scala.util.matching.Regex
-import java.io.{BufferedWriter, FileWriter}
+import java.io.{LineNumberReader, BufferedReader, BufferedWriter, FileWriter, FileReader}
 
 
 
@@ -50,4 +50,39 @@ object Util {
     writer.write(s);
     writer.close();
   }
+  
+  def readDataFromFile(fn: String): (Array[Array[Double]], String) = {
+    import scala.collection.mutable.ArrayBuffer
+    var data: Array[ArrayBuffer[Double]] = null // Slow!  ArrayBuffer boxes Double
+    var desc: String = ""
+    
+    val reader = new LineNumberReader(new FileReader(fn))
+    var line = reader.readLine()
+    while (line != null) {
+      line = line.trim
+      
+      if (line.size == 0) {
+        // skip
+      }
+      else if (line.startsWith("#")) {
+        desc += line
+      }
+      else {
+        val items = line.split("\\s+").map(_.toDouble)
+        if (data == null) {
+          data = Array.fill(items.size)(new ArrayBuffer[Double]())
+        }
+        if (data.size != items.size) {
+          throw new Error("Column size mismatch, "+data.size+"!="+items.size+", in '"+fn+"':"+reader.getLineNumber())
+        }
+        for (i <- items.indices) {
+          data(i).append(items(i))
+        }
+      }
+      line = reader.readLine()
+    }
+    
+    (data.map(_.toArray), desc) 
+  }
+
 }
