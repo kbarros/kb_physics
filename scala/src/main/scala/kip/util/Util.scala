@@ -14,9 +14,6 @@ object Util {
   
   final def sqr(x: Double) = x*x
   
-  // def refToOption[A <: AnyRef](a:A) =
-  //  if (a == null) None else Some(a)  
-
   final def printTime[A](fn: => A) = {
     val begin = System.currentTimeMillis
     print ("Begin timing... ")
@@ -53,7 +50,7 @@ object Util {
   
   def readDataFromFile(fn: String): (Array[Array[Double]], String) = {
     import scala.collection.mutable.ArrayBuffer
-    var data: Array[ArrayBuffer[Double]] = null // Slow!  ArrayBuffer boxes Double
+    var data: Array[ArrayBuffer[Double]] = null
     var desc: String = ""
     
     val reader = new LineNumberReader(new FileReader(fn))
