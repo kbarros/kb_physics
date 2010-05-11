@@ -29,12 +29,30 @@ object Nano {
     for ((s,iter) <- snaps.zipWithIndex) {
       if (iter % 100 == 0)
         println("Processing snapshot "+iter)
+
       for (i1 <- ids1; i2 <- ids2; if i1 != i2) {
         val dist = math.sqrt(s.distance2(i1, i2))
         val bin = (dist/dr).toInt
         if (bin < nbins)
           g(bin) += 1
       }
+      
+      /*
+      var i1 = 0
+      while (i1 < ids1.size) {
+        var i2 = 0
+        while (i2 < ids1.size) {
+          if (i1 != i2) {
+            val dist = math.sqrt(s.distance2(ids1(i1), ids2(i2)))
+            val bin = (dist/dr).toInt
+            if (bin < nbins)
+              g(bin) += 1
+          }
+          i2 += 1
+        }
+        i1 += 1
+      }
+      */
     }
 
     // bin radii (average)
@@ -57,17 +75,13 @@ object Nano {
     
     val s = snaps(0)
     val types = snaps(0).typ
-    def isPositive(q: Array[Double], i: Int) = if (q == null) true else q(i) > 0
-    def isNegative(q: Array[Double], i: Int) = if (q == null) true else q(i) < 0
     def filterIds(f: Int => Boolean) = (0 until s.natoms) filter f
     
-    val idsCorePos = filterIds (i => s.typ(i) == typCore && isPositive(s.q, i))
-    val idsCoreNeg = filterIds (i => s.typ(i) == typCore && isNegative(s.q, i))
     val idsCore    = filterIds (i => s.typ(i) == typCore)
-    val idsCation  = filterIds (i => s.typ(i) == typCation)
+    val idsCation  = filterIds (i => s.typ(i) == typCation || s.typ(i) == typSphereCation)
     val idsAnion   = filterIds (i => s.typ(i) == typAnion)
     
-    val (r, g1) = pairCorrelation(snaps, dr, rmax, idsCorePos, idsCoreNeg)
+    val (r, g1) = pairCorrelation(snaps, dr, rmax, idsCore, idsCore)
     val (_, g2) = pairCorrelation(snaps, dr, rmax, idsCore, idsCation)
     val (_, g3) = pairCorrelation(snaps, dr, rmax, idsCation, idsCation)
     
