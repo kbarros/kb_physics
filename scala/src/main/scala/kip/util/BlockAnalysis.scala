@@ -11,7 +11,7 @@ class BlockAnalysis(data: Array[Double]) {
     var n = a.size
     var ret: List[Block] = Nil
     
-    while (n > 8) {
+    while (n > 16) {
       val c0 = c_t(a, 0)
       val c1 = c_t(a, 1)
 
@@ -35,10 +35,10 @@ class BlockAnalysis(data: Array[Double]) {
     ret.reverse
   }
   
-  val (error, error_error) = {
-    blocks.find(_.corr < 0.1) match {
-      case Some(iter) => (iter.sigma, iter.sigma_err)
-      case None       => (blocks.last.sigma, Double.PositiveInfinity)
+  val (error, error_error, isDecorrelated) = {
+    blocks.find(_.corr < 0.2) match {
+      case Some(iter) => (iter.sigma, iter.sigma_err, true)
+      case None       => (blocks.last.sigma, Double.PositiveInfinity, false)
     }
   }
   
