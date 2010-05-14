@@ -1,9 +1,7 @@
 package kip.util
 
-import java.io.File
-import java.io.FileReader
-import java.io.BufferedReader
-
+import java.io.{BufferedReader, File, FileInputStream, FileReader, InputStreamReader}
+import java.util.zip.GZIPInputStream
 import scala.io.Source
 import scala.collection.mutable.ArrayBuffer
 import Util._
@@ -169,16 +167,34 @@ object LammpsParser {
   }
 
   def readLammpsDumpPartial(fname: String, maxSnapshots: Int): Seq[Snapshot] = {
-    val br = new BufferedReader(new FileReader(fname))
-    val lines = Iterator.continually(br.readLine()).takeWhile(_ != null)
-    // val lines = mkIterator { refToOption(br.readLine()) }
+    val isGZipped = fname.endsWith("gz") || fname.endsWith("gzip")
+    val fis = new FileInputStream(fname)
+    val gzis = if (isGZipped) new GZIPInputStream(fis) else fis
+    val br = new BufferedReader(new InputStreamReader(gzis))
+    val lines = Iterator.continually {
+      try { br.readLine() } catch {
+        case e: java.io.EOFException => {
+          System.err.println("Unexpected end of file '"+fname+"'")
+          null
+        }
+      }
+    } takeWhile (_ != null)
     
     val snaps = new ArrayBuffer[Snapshot]()
-    while (lines.hasNext && snaps.length < maxSnapshots) {
-      snaps.append(readSnapshot(lines))
-      //if (snaps.length % 100 == 0)
-      //  System.err.println("Reading snapshot "+snaps.length)
+
+    try {
+      while (lines.hasNext && snaps.length < maxSnapshots) {
+        //if (snaps.length % 100 == 0)
+        //  System.err.println("Reading snapshot "+snaps.length)
+        snaps.append(readSnapshot(lines))
+      }
+    } catch {
+      case e: Exception => {
+        System.err.println(e.toString)
+        System.err.println("Failed to parse snapshot "+(snaps.size+1))
+      }
     }
+    
     snaps
   }
 
