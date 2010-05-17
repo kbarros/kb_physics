@@ -34,7 +34,6 @@ object Nano {
     for ((s,iter) <- snaps.zipWithIndex) {
       // if (iter % 100 == 0)
       //  println("Processing snapshot "+iter)
-
       for (i1 <- ids1; i2 <- ids2; if i1 != i2) {
         val dist = math.sqrt(s.distance2(i1, i2))
         val bin = (dist/dr).toInt
@@ -42,22 +41,21 @@ object Nano {
           g(bin) += 1
       }
       
-      /*
-      var i1 = 0
-      while (i1 < ids1.size) {
-        var i2 = 0
-        while (i2 < ids1.size) {
-          if (i1 != i2) {
-            val dist = math.sqrt(s.distance2(ids1(i1), ids2(i2)))
-            val bin = (dist/dr).toInt
-            if (bin < nbins)
-              g(bin) += 1
-          }
-          i2 += 1
-        }
-        i1 += 1
-      }
-      */
+      // // while loops give no apparent speedup
+      // var i1 = 0
+      // while (i1 < ids1.size) {
+      //   var i2 = 0
+      //   while (i2 < ids2.size) {
+      //     if (i1 != i2) {
+      //       val dist = math.sqrt(s.distance2(ids1(i1), ids2(i2)))
+      //       val bin = (dist/dr).toInt
+      //       if (bin < r.size)
+      //         g(bin) += 1
+      //     }
+      //     i2 += 1
+      //   }
+      //   i1 += 1
+      // }
     }
 
     // normalize pair-correlation so that it becomes unity at homogeneous density
@@ -82,7 +80,24 @@ object Nano {
   }
   
   def go(fname: String, tbegin: Long, dr: Double, rmax: Double) {
-    val snaps = time(LammpsParser.readLammpsDump(fname) filter {_.time > tbegin}, "Reading "+fname)
+    
+    // discard unused arrays to save space; filter by time
+    def process(s: Snapshot) = {
+      if (s.time > tbegin) {
+        s.id = null
+        s.ix = null
+        s.iy = null
+        s.iz = null
+        s.vx = null
+        s.vy = null
+        s.vz = null
+        Some(s)
+      }
+      else {
+        None
+      }
+    }
+    val snaps = time(LammpsParser.readLammpsDump(fname, process), "Reading "+fname)
     LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
     println("Average temperature = "+averageTemperature(snaps))
     println("Processing "+snaps.size+" snapshots")

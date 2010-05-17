@@ -166,7 +166,11 @@ object LammpsParser {
     ss
   }
 
-  def readLammpsDumpPartial(fname: String, maxSnapshots: Int): Seq[Snapshot] = {
+  def readLammpsDump(
+    fname: String,
+    process: Snapshot => Option[Snapshot] = Some(_),
+    maxSnapshots: Int = Integer.MAX_VALUE
+  ): Seq[Snapshot] = {
     val isGZipped = fname.endsWith("gz") || fname.endsWith("gzip")
     val fis = new FileInputStream(fname)
     val gzis = if (isGZipped) new GZIPInputStream(fis) else fis
@@ -186,7 +190,7 @@ object LammpsParser {
       while (lines.hasNext && snaps.length < maxSnapshots) {
         //if (snaps.length % 100 == 0)
         //  System.err.println("Reading snapshot "+snaps.length)
-        snaps.append(readSnapshot(lines))
+        process(readSnapshot(lines)) foreach { snaps.append(_) }
       }
     } catch {
       case e: Exception => {
@@ -196,10 +200,6 @@ object LammpsParser {
     }
     
     snaps
-  }
-
-  def readLammpsDump(fname: String) = {
-    readLammpsDumpPartial(fname, Integer.MAX_VALUE)
   }
   
   def weaveThermoData(snaps: Seq[Snapshot], thermos: Seq[Thermo]) {
