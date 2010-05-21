@@ -112,15 +112,13 @@ object Nano {
     
     val r  = pairCorrelationBins(dr, rmax)
     val b1 = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCore), "Sphere-sphere")
-    val b2 = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCation), "Sphere-ion")
-    val b3 = time(pairCorrelationWithError(snaps, dr, rmax, idsCation, idsCation), "Ion-ion")
+    val b2 = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCation), "Sphere-cation")
+    val b3 = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsAnion), "Sphere-anion")
     
     if (b1.exists(b => b.error > 0 && !b.isDecorrelated))
       println("Sphere-sphere g(r) not decorrelated!")
     if (b2.exists(b => b.error > 0 && !b.isDecorrelated))
       println("Sphere-ion g(r) not decorrelated!")
-    if (b3.exists(b => b.error > 0 && !b.isDecorrelated))
-      println("Ion-ion g(r) not decorrelated!")
     
     val formatted = formatDataInColumns(
       ("radii", r),
@@ -128,10 +126,11 @@ object Nano {
       ("err", b1.map(_.error)),
       ("g(core-cation)", b2.map(_.mean)),
       ("err", b2.map(_.error)),
-      ("g(cation-cation)", b3.map(_.mean)),
-      ("err", b3.map(_.error))
+      ("g(core-anion)", b3.map(_.mean)),
+      ("err", b3.map(_.error)),
+      ("cc_err_err", b1.map(_.error_error)),
+      ("ci_err_err", b2.map(_.error_error))
     )
     writeStringToFile(formatted, "results.dat")
-    // print(formatted)
   }
 }
