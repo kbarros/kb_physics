@@ -4,10 +4,6 @@ import kip.util.{LammpsParser, Snapshot}
 import kip.util.Util._
 
 object Nano {
-  def main(args: Array[String]) {
-    go("/Users/kbarros/dev/repo/projects/dielectric/nano.L15/dump.dat", 2000, 0.1, 10)
-  }
-  
   // atom types 
   val typPatch = 1
   val typCore = 2
@@ -79,7 +75,7 @@ object Nano {
     gs.map (new kip.util.BlockAnalysis(_))
   }
   
-  def go(fname: String, tbegin: Long, dr: Double, rmax: Double) {
+  def go(tbegin: Long, dr: Double, rmax: Double) {
     
     // discard unused arrays to save space; filter by time
     def process(s: Snapshot) = {
@@ -97,23 +93,31 @@ object Nano {
         None
       }
     }
-    val snaps = time(LammpsParser.readLammpsDump(fname, process), "Reading "+fname)
-    LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
-    println("Average temperature = "+averageTemperature(snaps))
-    println("Processing "+snaps.size+" snapshots")
+    val snaps1 = time(LammpsParser.readLammpsDump("dump1.gz", process), "Reading dump1.gz")
+    val snaps2 = time(LammpsParser.readLammpsDump("dump2.gz", process), "Reading dump1.gz")
+    time(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")), "Weaving thermo")
+    println("Average temperature = "+averageTemperature(snaps1))
+    println("Processing "+snaps1.size+" snapshots")
     
-    val s = snaps(0)
-    val types = snaps(0).typ
-    def filterIds(f: Int => Boolean) = (0 until s.natoms) filter f
+    val r = pairCorrelationBins(dr, rmax)
     
-    val idsCore    = filterIds (i => s.typ(i) == typCore)
-    val idsCation  = filterIds (i => s.typ(i) == typCation || s.typ(i) == typSphereCation)
-    val idsAnion   = filterIds (i => s.typ(i) == typAnion)
+    // sphere-sphere correlation
+    val b1 = {
+      val s = snaps1(0)
+      val idsCore = 0 until s.natoms
+      time(pairCorrelationWithError(snaps1, dr, rmax, idsCore, idsCore), "Sphere-sphere")
+    }
     
-    val r  = pairCorrelationBins(dr, rmax)
-    val b1 = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCore), "Sphere-sphere")
-    val b2 = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsCation), "Sphere-cation")
-    val b3 = time(pairCorrelationWithError(snaps, dr, rmax, idsCore, idsAnion), "Sphere-anion")
+    // sphere-ion correlation
+    val (b2, b3) = {
+      val s = snaps2(0)
+      def filterIds(f: Int => Boolean) = (0 until s.natoms) filter f
+      val idsCore    = filterIds (i => s.typ(i) == typCore)
+      val idsCation  = filterIds (i => s.typ(i) == typCation || s.typ(i) == typSphereCation)
+      val idsAnion   = filterIds (i => s.typ(i) == typAnion)
+      (time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsCation), "Sphere-cation"),
+       time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion), "Sphere-anion"))
+    }
     
     if (b1.exists(b => b.error > 0 && !b.isDecorrelated))
       println("Sphere-sphere g(r) not decorrelated!")
