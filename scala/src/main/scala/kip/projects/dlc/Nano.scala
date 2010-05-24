@@ -66,7 +66,8 @@ object Nano {
   
   def pairCorrelationWithError(snaps: Seq[Snapshot], dr: Double, rmax: Double, ids1: Seq[Int], ids2: Seq[Int]) = {
     // partition snapshots into 199 equal sized groups
-    val snapsGrouped = snaps.grouped(snaps.size / 200).toArray.dropRight(1)
+    val groupSize = math.max(snaps.size / 200, 1)
+    val snapsGrouped = snaps.grouped(groupSize).toArray.dropRight(1)
     
     // for each distance 'r', construct array of approximations to g(r)
     val gs = snapsGrouped.map(pairCorrelation(_, dr, rmax, ids1, ids2)).transpose
@@ -75,8 +76,8 @@ object Nano {
     gs.map (new kip.util.BlockAnalysis(_))
   }
   
+  
   def go(tbegin: Long, dr: Double, rmax: Double) {
-    
     // discard unused arrays to save space; filter by time
     def process(s: Snapshot) = {
       if (s.time > tbegin) {

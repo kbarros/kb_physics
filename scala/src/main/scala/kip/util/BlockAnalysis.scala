@@ -11,11 +11,11 @@ class BlockAnalysis(data: Array[Double]) {
     var n = a.size
     var ret: List[Block] = Nil
     
-    while (n > 16) {
+    do {
       val c0 = c_t(a, 0)
       val c1 = c_t(a, 1)
 
-      // see Flyvbjerb & Petersen, 1989
+      // see Flyvbjerg & Petersen, 1989
       val sigma2 = c0 / (n - 1.0)
       val sigma2_err = sigma2 * math.sqrt(2.0 / (n - 1.0))
       
@@ -29,7 +29,7 @@ class BlockAnalysis(data: Array[Double]) {
 
       a = decimate(a, 2)
       n = a.size
-    }
+    } while (n > 16)
     
     // finest blocking is first in return list
     ret.reverse
