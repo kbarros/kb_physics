@@ -77,10 +77,10 @@ object Nano {
   }
   
   
-  def go(tbegin: Long, dr: Double, rmax: Double) {
+  def go(tbegin: Long, tmax: Long = Long.MaxValue, dr: Double, rmax: Double) {
     // discard unused arrays to save space; filter by time
     def process(s: Snapshot) = {
-      if (s.time > tbegin) {
+      if (s.time > tbegin && s.time < tmax) {
         s.id = null
         s.ix = null
         s.iy = null
