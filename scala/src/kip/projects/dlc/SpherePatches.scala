@@ -23,6 +23,11 @@ object SpherePatches {
     }
     new SpherePatches(patches.toArray, errorFraction=0.0)
   }
+  
+  def main(args: Array[String]) {
+    val p = fromFile("/Users/kbarros/Desktop/372-maxvol.txt").estimateArea(0.01)
+    Util.writeStringToFile(p.toString, "/Users/kbarros/Desktop/yahoo.txt")
+  }
 }
 
 class SpherePatches(val patches: Array[Patch], val errorFraction: Double) {
@@ -42,7 +47,8 @@ class SpherePatches(val patches: Array[Patch], val errorFraction: Double) {
     }
   }
 
-  @tailrec final def randomPointOnSphere(): Vec3 = {
+  @tailrec
+  final def randomPointOnSphere(): Vec3 = {
     def coord() = 2.0*rand.nextDouble() - 1.0
     val (x, y, z) = (coord(), coord(), coord())
     val d2 = x*x + y*y + z*z
@@ -101,19 +107,12 @@ class SpherePatches(val patches: Array[Patch], val errorFraction: Double) {
 # x y z nx ny nz area curvature
 """.format(numSamplesForError(errorFraction), errorFraction, patches.size)
     for (p <- patches) {
-      sb append "%12.10f %12.10f %12.10f %12.10f %12.10f %12.10f %12.10f %12.10f\n".format(
+      sb append "%14.10f %14.10f %14.10f %14.10f %14.10f %14.10f %14.10f %14.10f\n".format(
         p.pos.x, p.pos.y, p.pos.z,
         p.normal.x, p.normal.y, p.normal.z,
-        5*5*p.area, p.curvature
+        p.area, p.curvature
       )
     }
     sb.toString
   }
 }
-
-
-/*
-import kip.projects.dlc._
-val s = SpherePatches.fromFile("/Users/kbarros/Desktop/372-maxvol.txt")
-s.estimateArea(0.01)
-*/ 

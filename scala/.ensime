@@ -5,11 +5,9 @@
 :server-env ()
 
 :project-package "kip"
-:source ("src/main/scala" "src/main/java")
+:source ("src")
 :exclude-source ()
-:classpath ("lib/jnotify/jnotify-0.93.jar"
-            "project/boot/scala-2.8.0.RC1/lib/scala-library.jar"
-            "project/boot/scala-2.8.0.RC1/lib/scala-compiler.jar"
+:classpath ("project/boot/scala-2.8.0.RC3/lib/scala-library.jar"
+            "project/boot/scala-2.8.0.RC3/lib/scala-compiler.jar"
             "lib/mtj-0.9.12.jar")
-
 )

@@ -1,4 +1,4 @@
-package kip.projects.dielectric
+package kip.projects.dlc
 
 
 import no.uib.cipr.matrix._ 
