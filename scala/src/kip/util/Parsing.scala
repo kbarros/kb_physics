@@ -2,7 +2,7 @@ package kip.util;
 
 // charAt -> apply
 
-object Parsing2 {
+object Parsing {
   def isWhitespace(c: Char): Boolean = {
     c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'
   }
@@ -12,12 +12,12 @@ object Parsing2 {
     var i = 0
     
     while (i < line.size) {
-      while (i < line.size && isWhitespace(line.charAt(i))) {
+      while (i < line.size && isWhitespace(line(i))) {
         i += 1
       }
       
       val startIdx = i
-      while (i < line.size && !isWhitespace(line.charAt(i))) {
+      while (i < line.size && !isWhitespace(line(i))) {
         i += 1
       }
       
@@ -36,12 +36,12 @@ object Parsing2 {
     var i = 0
     
     while (i < line.size) {
-      while (i < line.size && isWhitespace(line.charAt(i))) {
+      while (i < line.size && isWhitespace(line(i))) {
         i += 1
       }
       
       val startIdx = i
-      while (i < line.size && !isWhitespace(line.charAt(i))) {
+      while (i < line.size && !isWhitespace(line(i))) {
         i += 1
       }
       
