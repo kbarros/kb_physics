@@ -1,8 +1,11 @@
 package kip.projects.peb
 
 import kip.util.{Snapshot, LammpsParser}
-import kip.util.Util._
-import java.lang.Math._
+import kip.util.Vec3
+import kip.util.Util.{sqr, formatDataInColumns, writeStringToFile}
+import kip.util.Statistics.{mean}
+import scala.math.sqrt
+
 
 object PEB {
   def molecules(chainLength: Int, numChains: Int): Seq[Seq[Int]] = {
@@ -92,7 +95,7 @@ object PEB {
   // calculate radius of gyration for individual chains
   def chainRg2(snaps: Seq[Snapshot], mols: Seq[Seq[Int]]): Seq[Double] = {
     for (s <- snaps) yield {
-      average (mols.map {m =>
+      mean (mols.map {m =>
         val (rgx2, rgy2, rgz2) = radiusOfGyrationSquared(s, m)
         rgx2 + rgy2 + rgz2
       })
@@ -102,7 +105,7 @@ object PEB {
   // calculate mean end to end distance squared of chains
   def endToEnd2(snaps: Seq[Snapshot], mols: Seq[Seq[Int]]): Seq[Double] = {
     for (s <- snaps) yield {
-      average (mols.map {m =>
+      mean (mols.map {m =>
         val (i1, i2) = (m.head, m.last)
         val x2 = sqr(s.x(i1)-s.x(i2))
         val y2 = sqr(s.y(i1)-s.y(i2))
@@ -119,7 +122,7 @@ object PEB {
       val brushCm = centerOfMass(s, mols.flatten)
 
       // calculate mean center to end distance squared
-      val rce2 = average(mols.map {m =>
+      val rce2 = mean(mols.map {m =>
       brushCm distance2 (s.getPoint(m.last))
       })
 

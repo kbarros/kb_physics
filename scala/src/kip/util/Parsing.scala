@@ -48,7 +48,7 @@ object Parsing2 {
       if (i > startIdx) {
         val str = line.substring(startIdx, i)
         try {
-          ret(retCnt) = java.lang.Double.parseDouble(str)
+          ret(retCnt) = str.toDouble
           retCnt += 1
         } catch {
           case (nfe: NumberFormatException) => {

@@ -6,17 +6,8 @@ import java.io.{LineNumberReader, BufferedReader, BufferedWriter, FileWriter, Fi
 
 
 object Util {
-  case class Vec3(x: Double, y: Double, z: Double) {
-    def distance2(that: Vec3) = {
-      sqr(x-that.x) + sqr(y-that.y) + sqr(z-that.z)
-    }
-  }
-  
   def sqr(x: Double) = x*x
   
-  def average(vs: Seq[Double]) =
-    if (vs.size == 0) Double.NaN else vs.sum / vs.length
-
   def time[A](f: => A, s: String): A = {
     print("Timing '"+s+"'...")
     val t1 = System.currentTimeMillis
@@ -48,7 +39,7 @@ object Util {
     writer.close();
   }
   
-  def readDataFromFile(fn: String): (Array[Array[Double]], String) = {
+  def readCsvFile(fn: String): (Array[Array[Double]], String) = {
     import scala.collection.mutable.ArrayBuffer
     var data: Array[ArrayBuffer[Double]] = null
     var desc: String = ""
