@@ -1,9 +1,12 @@
 package kip.projects.dlc
 
-import kip.util.{Vec3, Util}
 import scala.io.Source
 import scala.annotation.tailrec
 import java.io.File
+
+import kip.math.Vec3
+import kip.util.Util
+
 
 /**
  * @param pos the center of patch

@@ -4,7 +4,9 @@ import java.io.{BufferedReader, File, FileInputStream, FileReader, InputStreamRe
 import java.util.zip.GZIPInputStream
 import scala.io.Source
 import scala.collection.mutable.ArrayBuffer
-import Util._
+
+import kip.math.Vec3
+import kip.math.Math.sqr
 
 
 class Thermo {

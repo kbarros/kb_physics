@@ -9,5 +9,6 @@
 :exclude-source ()
 :classpath ("project/boot/scala-2.8.0.RC3/lib/scala-library.jar"
             "project/boot/scala-2.8.0.RC3/lib/scala-compiler.jar"
-            "lib/mtj-0.9.12.jar")
+            "lib_managed/scala_2.8.0.RC3/compile/jogl.jar")
+            "lib/mtj-0.9.12.jar"
 )

@@ -6,8 +6,6 @@ import java.io.{LineNumberReader, BufferedReader, BufferedWriter, FileWriter, Fi
 
 
 object Util {
-  def sqr(x: Double) = x*x
-  
   def time[A](f: => A, s: String): A = {
     print("Timing '"+s+"'...")
     val t1 = System.currentTimeMillis

@@ -1,9 +1,10 @@
 package kip.projects.peb
 
 import kip.util.{Snapshot, LammpsParser}
-import kip.util.Vec3
-import kip.util.Util.{sqr, formatDataInColumns, writeStringToFile}
+import kip.util.Util.{formatDataInColumns, writeStringToFile}
 import kip.util.Statistics.{mean}
+import kip.math.Vec3
+import kip.math.Math.sqr
 import scala.math.sqrt
 
 
