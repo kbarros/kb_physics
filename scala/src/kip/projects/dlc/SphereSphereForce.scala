@@ -35,7 +35,7 @@ case class Constants(
 
 object SphereSphereForce {
   def buildMatrix(consts: Constants) = {
-    import consts._    
+    import consts._
     
     val m = new DenseMatrix(2*order,2*order)
     for (i <- 0 until order; j <- 0 until order) {
@@ -81,24 +81,44 @@ object SphereSphereForce {
     - (e2-e1) / dL
   }
 
-  def forceVector(consts: Constants, L1: Double, L2: Double) = {
-    val dL = (L2 - L1) / 200
-    val xs = L1 until L2 by dL
-    val fs = xs map (x => force(consts.copy(L=x), dL))
-    (xs, fs)
-  }
-  
-  def plotAt(consts: Constants, order: Int) {
-    val (xs, fs) = forceVector(consts, 2, 4)
-    
-    val formatted = kip.util.Util.formatDataInColumns(
-      ("position", xs.toArray),
-      ("force", fs.toArray)
+  def makePlot() {
+    val c = Constants(
+      L     =  0,
+      ra    =  1,
+      rb    =  1,
+      eps0  =  1,
+      epsa  = 10,
+      epsb  = 10,
+      qa    =  1,
+      qb    = -1,
+      order = 30
     )
-    println(formatted)
+    
+    val L1 = 2.001
+    val L2 = 2.200
+    val dL = 0.001
+    val orders = Seq(15, 30, 45)
+    
+    val xs = (L1 to L2 by dL).toArray
+    val us = orders map (o => xs map (x => energy(c.copy(L=x, order=o))))
+    val fs = orders map (o => xs map (x => force (c.copy(L=x, order=o), dL)))
+    val formatted = kip.util.Util.formatDataInColumns(
+      ("position", xs),
+      ("energy1", us(0)),
+      ("energy2", us(1)),
+      ("energy3", us(2)),
+      ("force1", fs(0)),
+      ("force2", fs(1)),
+      ("force3", fs(2)),
+      ("energyCoul", xs.map (x => energy(c.copy(L=x, order=0))))
+    )
+    
+    // println(formatted)
+    kip.util.Util.writeStringToFile(formatted, "yahoo.txt")
   }
   
-  def main(args : Array[String]) : Unit = {
+  
+  def printFew() {
     val c = Constants(
       L     =  0,
       ra    =  5,
@@ -111,20 +131,24 @@ object SphereSphereForce {
       order = 30
     )
     val Ls = List(11, 12, 13, 15, 17, 20)
-    val dL = 1e-4 // seems good if L>=7
     
     for (L <- Ls) {
       val cFull = c.copy(L=L)
       val cCoul = c.copy(L=L, epsa=1, epsb=1)
       
       println("L="+L)
-      println("Coulomb force  = " +force(cCoul, 1e-3))
-      println("Force          = " +force(cFull, 1e-2)+" "+force(cFull, 1e-3)+" "+force(cFull, 1e-4))
+      println("Coulomb force  = "+force(cCoul, 1e-3))
+      println("Force          = "+force(cFull, 1e-2)+" "+force(cFull, 1e-3)+" "+force(cFull, 1e-4))
       println("Coulomb energy = "+energy(cCoul))
       println("Full energy    = "+energy(cFull))
       println("Delta energy   = "+(energy(cFull) - energy(cCoul)))
       println("Delta fraction = "+(energy(cFull) - energy(cCoul)) / energy(cCoul))
       println()
     }
+   }
+  
+  def main(args : Array[String]) : Unit = {
+    // printFew()
+    makePlot()
   }
 }

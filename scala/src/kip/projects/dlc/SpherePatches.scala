@@ -19,6 +19,7 @@ case class Patch(pos: Vec3, normal: Vec3, area: Double, curvature: Double)
 
 object SpherePatches {
   def fromFile(fname: String) = {
+    println("Reading file "+fname)
     val lines = Source.fromFile(new File(fname)).getLines()
     val patches = lines.map(_.toDouble).grouped(3).map { case Seq(x,y,z) =>
       val pos = Vec3(x,y,z).normalize
@@ -28,8 +29,9 @@ object SpherePatches {
   }
   
   def main(args: Array[String]) {
-    val p = fromFile("/Users/kbarros/Desktop/372-maxvol.txt").estimateArea(0.01)
-    Util.writeStringToFile(p.toString, "/Users/kbarros/Desktop/yahoo.txt")
+    val proj = "/home/kbarros/dev/projects/dielectric/packings"
+    val p = fromFile(proj+"/1472-maxvol.txt").estimateArea(0.002)
+    Util.writeStringToFile(p.toString, proj+"/geometry1472.txt")
   }
 }
 
