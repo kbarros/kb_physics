@@ -118,6 +118,7 @@ object SphereSphereForce {
   }
   
   def printFew() {
+    // Daniel's system
     val c = Constants(
       L     =  0,
       ra    =  5,
@@ -129,19 +130,19 @@ object SphereSphereForce {
       qb    =  1,
       order = 40
     )
-    val Ls = List(11, 12, 13, 15, 17, 20)
+    val Ls = List(6, 7, 8, 9, 10, 12, 15)
     
     for (L <- Ls) {
       val cFull = c.copy(L=L)
       val cCoul = c.copy(L=L, epsa=1, epsb=1)
-      
+
       println("L="+L)
-      println("Coulomb force  = "+force(cCoul, 1e-3))
-      println("Force          = "+force(cFull, 1e-2)+" "+force(cFull, 1e-3)+" "+force(cFull, 1e-4))
-      println("Coulomb energy = "+energy(cCoul))
-      println("Full energy    = "+energy(cFull))
-      println("Delta energy   = "+(energy(cFull) - energy(cCoul)))
-      println("Delta fraction = "+(energy(cFull) - energy(cCoul)) / energy(cCoul))
+      println("Coulomb force  = %e" format force(cCoul, 1e-3))
+      println("Force          = %e" format force(cFull, 1e-3))
+      println("Coulomb energy = %e" format energy(cCoul))
+      println("Full energy    = %e" format energy(cFull))
+      println("Delta energy   = %e" format (energy(cFull) - energy(cCoul)))
+      println("Delta fraction = %e" format (energy(cFull) - energy(cCoul)) / energy(cCoul))
       println()
     }
    }
