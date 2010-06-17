@@ -117,18 +117,17 @@ object SphereSphereForce {
     kip.util.Util.writeStringToFile(formatted, "yahoo.txt")
   }
   
-  
   def printFew() {
     val c = Constants(
       L     =  0,
       ra    =  5,
-      rb    =  5,
+      rb    =  0,
       eps0  =  1,
       epsa  = 10,
-      epsb  = 10,
-      qa    =  1,
-      qb    = -1,
-      order = 30
+      epsb  =  1,
+      qa    =  0,
+      qb    =  1,
+      order = 40
     )
     val Ls = List(11, 12, 13, 15, 17, 20)
     
