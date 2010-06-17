@@ -1,7 +1,8 @@
 package kip.projects.dlc
 
-import kip.util.{LammpsParser, Snapshot}
+import kip.util.{LammpsParser, Snapshot, BlockAnalysis}
 import kip.util.Util._
+
 
 object Nano {
   // atom types 
@@ -11,8 +12,8 @@ object Nano {
   val typCation = 4
   val typAnion = 5
   
-  
   def averageTemperature(snaps: Seq[Snapshot]) = {
+    snaps.foreach(s => if (s.thermo.temperature.isNaN) println("NaN temp at "+s.time))
     snaps.map(_.thermo.temperature).sum / snaps.size
   }
   
@@ -125,17 +126,21 @@ object Nano {
     if (b2.exists(b => b.error > 0 && !b.isDecorrelated))
       println("Sphere-ion g(r) not decorrelated!")
     
+    def adjustedError(b: BlockAnalysis) =
+      if (b.isDecorrelated) b.error else 5*b.error
+    
     val formatted = formatDataInColumns(
       ("radii", r),
       ("g(core-core)", b1.map(_.mean)),
-      ("err", b1.map(_.error)),
+      ("err", b1.map(adjustedError _)),
       ("g(core-cation)", b2.map(_.mean)),
-      ("err", b2.map(_.error)),
+      ("err", b2.map(adjustedError _)),
       ("g(core-anion)", b3.map(_.mean)),
-      ("err", b3.map(_.error)),
+      ("err", b3.map(adjustedError _)),
       ("cc_err_err", b1.map(_.error_error)),
       ("ci_err_err", b2.map(_.error_error))
     )
     writeStringToFile(formatted, "results.dat")
+    println()
   }
 }
