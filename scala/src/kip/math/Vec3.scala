@@ -17,6 +17,7 @@ case class Vec3(x: Double, y: Double, z: Double) {
   
   def dot(v: Vec3) = x*v.x + y*v.y + z*v.z
   def distance2(v: Vec3) = sqr(x-v.x) + sqr(y-v.y) + sqr(z-v.z)
+  def distance(v: Vec3) = math.sqrt(distance2(v))
 
   def rotateBy(q: Quaternion): Vec3 = {
     assert(false, "must check")

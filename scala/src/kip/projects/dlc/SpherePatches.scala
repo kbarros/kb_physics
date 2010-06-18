@@ -30,8 +30,10 @@ object SpherePatches {
   
   def main(args: Array[String]) {
     val proj = "/home/kbarros/dev/projects/dielectric/packings"
-    val p = fromFile(proj+"/1472-maxvol.txt").estimateArea(0.002)
-    Util.writeStringToFile(p.toString, proj+"/geometry1472.txt")
+    val n = 1472
+    val typ = "maxvol"
+    val p = fromFile(proj+"/"+n+"-"+typ+".txt").estimateArea(0.002)
+    Util.writeStringToFile(p.toString, proj+"/geom_"+typ+"_"+n+".txt")
   }
 }
 
