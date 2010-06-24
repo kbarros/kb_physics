@@ -81,23 +81,40 @@ object SphereSphereForce {
     - (e2-e1) / dL
   }
 
+
   def makePlot() {
+    // Two spheres
+    // val c = Constants(
+    //   L     =  0,
+    //   ra    =  1,
+    //   rb    =  1,
+    //   eps0  =  1,
+    //   epsa  = 10,
+    //   epsb  = 10,
+    //   qa    =  1,
+    //   qb    = -1,
+    //   order = 30
+    // )
+    // val L1 = 2.001
+    // val L2 = 2.200
+
+    // Messina's system
     val c = Constants(
       L     =  0,
-      ra    =  1,
-      rb    =  1,
-      eps0  =  1,
-      epsa  = 10,
-      epsb  = 10,
-      qa    =  1,
-      qb    = -1,
-      order = 30
+      ra    =  7.5,
+      rb    =  0,
+      eps0  =  80,
+      epsa  =  2,
+      epsb  =  0,
+      qa    = -60,
+      qb    =  3,
+      order = 40
     )
+    val L1 = 8.00
+    val L2 = 15
     
-    val L1 = 2.001
-    val L2 = 2.200
-    val dL = 0.001
-    val orders = Seq(15, 30, 45)
+    val dL = 0.05
+    val orders = Seq(45, 60, 100)
     
     val xs = (L1 to L2 by dL).toArray
     val us = orders map (o => xs map (x => energy(c.copy(L=x, order=o))))
