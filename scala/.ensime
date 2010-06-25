@@ -1,14 +1,82 @@
 (
-:server-root "~/installs/ensime/dist"
-:server-cmd  "bin/server.sh"
-:server-host "localhost"
-:server-env ()
 
-:project-package "kip"
-:source ("src")
-:exclude-source ()
-:classpath ("project/boot/scala-2.8.0.RC3/lib/scala-library.jar"
-            "project/boot/scala-2.8.0.RC3/lib/scala-compiler.jar"
-            "lib_managed/scala_2.8.0.RC3/compile/jogl.jar"
-            "lib/mtj-0.9.12.jar")
-)
+ ;; Where you unpacked the ENSIME distribution.
+ :server-root 
+ "/Users/kbarros/installs/ensime/dist"
+
+ ;; The command with which to invoke the ENSIME server. Change this to 
+ ;; "bin/server.bat" if your're on Windows.
+ :server-cmd  "bin/server.sh"
+
+ ;; The default repl command is 'scala'. Override here:
+ ;; ------------------------------
+ ;;  :repl-cmd  "scala"
+
+ ;; The host to connect to. Connecting to remote ENSIME servers is not
+ ;; currently supported.
+ ;; ------------------------------
+ ;; :server-host "localhost"
+
+
+ ;; Assume a standard sbt directory structure. Look in default sbt
+ ;; locations for dependencies, sources, target, etc.
+ ;; -----------------------------
+ :use-sbt t
+ :sbt-conf "compile"
+ :sources ("src/")
+
+ ;; Use an existing pom.xml to determine the dependencies
+ ;; for the project. A Maven-style directory structure is assumed.
+ ;; -----------------------------
+ ;; :use-maven t
+ ;; :maven-scopes "compile"
+
+
+ ;; Use an existing ivy.xml to determine the dependencies
+ ;; for the project. A Maven-style directory structure is assumed.
+ ;; -----------------------------
+ ;; :use-ivy t
+ ;; :ivy-conf "compile"
+
+
+ ;; The home package for your project. 
+ ;; Used by ENSIME to populate the project outline view.
+ ;; ------------------------------
+ :project-package "kip"
+
+
+ ;; :sources ([dir | file]*)
+ ;; Include source files by directory(recursively) or by filename.
+ ;; ------------------------------
+ ;; :sources ("src/main/")
+
+
+ ;; :exclude-sources ([dir | file]*)
+ ;; Exclude source files by directory(recursively) or by filename.
+ ;; ------------------------------
+ ;; :exclude-sources ("src/main/")
+
+
+ ;; :dependency-jars ([dir | file]*)
+ ;; Include jars by directory(recursively) or by filename.
+ ;; ------------------------------
+ ;; :dependency-jars ("lib")
+
+
+ ;; :dependency-dirs ([dir | file]*)
+ ;; Include directories of .class files.
+ ;; ------------------------------
+ ;; :dependency-dirs ("target/classes")
+
+
+ ;; :target dir | file
+ ;; Specify the target of the project build process. Should be 
+ ;; the directory where .class files are written, or the path
+ ;; to a .jar file containing all the project's classes.
+ ;; 
+ ;; The target is used to populate the classpath when launching
+ ;; the inferior scala repl.
+ ;; ------------------------------
+ ;; :target "target/classes"
+
+ )

@@ -30,9 +30,12 @@ object SpherePatches {
   
   def main(args: Array[String]) {
     val proj = "/home/kbarros/dev/projects/dielectric/packings"
+    // val proj = "/Users/kbarros/dev/repo/projects/dielectric/packings"
     val n = 1472 // 372, 732, 1472
     val typ = "maxvol"
-    val p = fromFile(proj+"/"+n+"-"+typ+".txt").estimateArea(0.001)
+    var p = fromFile(proj+"/"+n+"-"+typ+".txt")
+    // println(p.findHoleCenter(1000000))
+    p = p.estimateArea(0.001)
     Util.writeStringToFile(p.toString, proj+"/geom_"+typ+"_"+n+".txt")
   }
 }
@@ -79,11 +82,31 @@ class SpherePatches(val patches: Array[Patch], val errorFraction: Double) {
     minIdx
   }
   
+  
+  /**
+   * Find an appriximate "center" of an arbitrary voronoi cell, and the distance to nearest patch
+   */
+  def findHoleCenter(ntrials: Int): (Vec3, Double) = {
+    var maxDist2 = 0.
+    var maxPt    = Vec3(0,0,0)
+    for (iter <- 0 until ntrials) {
+      val p1 = randomPointOnSphere()
+      val p2 = patches(nearestPatchIndex(p1)).pos
+      val dist2 = p1 distance2 p2
+      if (dist2 > maxDist2) {
+        maxDist2 = dist2
+        maxPt = p1
+      }
+    }
+    (maxPt, math.sqrt(maxDist2))
+  }
+  
+  
   /**
    * Monte-Carlo estimate of each patch's Voronoi area
    * @param errorFraction target fractional error for each patch
    */
-  def estimateArea(errorFraction: Double) = {
+  def estimateArea(errorFraction: Double): SpherePatches = {
     val numSamples = numSamplesForError(errorFraction)
     val printFrequency = numSamples / 50
     val acc = Array.fill(patches.size)(0.0)
