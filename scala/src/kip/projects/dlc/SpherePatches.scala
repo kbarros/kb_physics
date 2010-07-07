@@ -31,7 +31,7 @@ object SpherePatches {
   def main(args: Array[String]) {
     val proj = "/home/kbarros/dev/projects/dielectric/packings"
     // val proj = "/Users/kbarros/dev/repo/projects/dielectric/packings"
-    val n = 1472 // 372, 732, 1472
+    val n = 3002 // 372, 732, 1472, 3002
     val typ = "maxvol"
     var p = fromFile(proj+"/"+n+"-"+typ+".txt")
     // println(p.findHoleCenter(1000000))
