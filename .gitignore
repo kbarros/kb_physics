@@ -1,5 +1,6 @@
 *.o
 *.pdf
+*.eps
 *.log
 *.aux
 *.bbl
