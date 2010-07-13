@@ -22,27 +22,27 @@
  ;; locations for dependencies, sources, target, etc.
  ;; -----------------------------
  :use-sbt t
- :sbt-conf "compile"
+ :sbt-compile-conf "compile"
+ :sbt-runtime-conf "compile"
  :sources ("src/")
-
- ;; Use an existing pom.xml to determine the dependencies
- ;; for the project. A Maven-style directory structure is assumed.
- ;; -----------------------------
- ;; :use-maven t
- ;; :maven-scopes "compile"
-
-
- ;; Use an existing ivy.xml to determine the dependencies
- ;; for the project. A Maven-style directory structure is assumed.
- ;; -----------------------------
- ;; :use-ivy t
- ;; :ivy-conf "compile"
 
 
  ;; The home package for your project. 
  ;; Used by ENSIME to populate the project outline view.
  ;; ------------------------------
  :project-package "kip"
+
+
+ ;; :debug-class "com.example.Main"
+ ;; The 'main' class to run when debugging.
+ ;; ------------------------------
+ :debug-class "kip.graphics.Plot"
+
+ ;; :debug-args (str*)
+ ;; The arguments to pass to the main class
+ ;; when debugging. 
+ ;; ------------------------------
+ :debug-args ("")
 
 
  ;; :sources ([dir | file]*)
