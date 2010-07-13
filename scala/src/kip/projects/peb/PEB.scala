@@ -233,6 +233,8 @@ object PEB {
       val associatedIons = saltCoions filter { withinDistance(_, freeSaltCounterions, 1.2) }
       
 //      associatedIons.size.toDouble / saltCoions.size
+      
+      // fraction of salt counterions that are "unbound" from brush
       freeSaltCounterions.size.toDouble / saltCounterions.size
     }
   }

@@ -1,11 +1,12 @@
-*.o
-*.dat
-*.pdf
-*.log
 *.aux
 *.bbl
 *.blg
+*.dvi
+*.eps
 *.fmt
+*.log
+*.o
+*.pdf
 *.pyc
 *~
 .#*
