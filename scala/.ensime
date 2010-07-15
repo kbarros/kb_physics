@@ -2,7 +2,7 @@
 
  ;; Where you unpacked the ENSIME distribution.
  :server-root 
- "/Users/kbarros/installs/ensime/dist"
+ "~/installs/ensime/dist"
 
  ;; The command with which to invoke the ENSIME server. Change this to 
  ;; "bin/server.bat" if your're on Windows.
