@@ -238,18 +238,12 @@ object PEB {
       freeSaltCounterions.size.toDouble / saltCounterions.size
     }
   }
-
-  // a note about error propagation
-  // (from http://en.wikipedia.org/wiki/Propagation_of_uncertainty)
-  //
-  // given (x = a +- e) and (y = c x) => (y = c a +- c e)
-  // given (x = a +- e) and (y = x^c) => (y = a^c +- c e (a^c / a)
-  //
-
+  
+  
   def go(chainLength: Int, numChains: Int, coreRadius: Double) {
     val mols = molecules(chainLength, numChains)
     val snaps = LammpsParser.readLammpsDump("dump.dat") filter {_.time > 2000000}
-    snaps.foreach {s => fixPolymerContinuity(s, mols)}
+    snaps.foreach {s => s.unwindCoords(); fixPolymerContinuity(s, mols)}
     LammpsParser.weaveThermoData(snaps, LammpsParser.readLammpsThermo("log.lammps"))
     
     // todo: return string and write to file here

@@ -42,12 +42,12 @@ class Snapshot(val time: Int, val natoms: Int) {
     val lx = hi.x - lo.x
     val ly = hi.y - lo.y
     val lz = hi.z - lo.z
-    var dx = math.abs(x(i) - x(j))
-    var dy = math.abs(y(i) - y(j))
-    var dz = math.abs(z(i) - z(j))
-    while (dx > lx/2) dx -= lx
-    while (dy > ly/2) dy -= ly
-    while (dz > lz/2) dz -= lz
+    var dx = math.abs(x(i)-x(j)) % lx
+    var dy = math.abs(y(i)-y(j)) % ly
+    var dz = math.abs(z(i)-z(j)) % lz
+    dx = math.min(dx, lx-dx)
+    dy = math.min(dy, ly-dy)
+    dz = math.min(dz, lz-dz)
     dx*dx + dy*dy + dz*dz
   }
 
@@ -63,6 +63,17 @@ class Snapshot(val time: Int, val natoms: Int) {
     val ly = hi.y - lo.y
     val lz = hi.z - lo.z
     lx * ly * lz
+  }
+  
+  def unwindCoords() {
+    // unwrap particle positions using image indices (ix, iy, iz)
+    if (ix != null) {
+      for (i <- 0 until x.length) {
+        x(i) += ix(i)*(hi.x-lo.x)
+        y(i) += iy(i)*(hi.y-lo.y)
+        z(i) += iz(i)*(hi.z-lo.z)
+      }
+    }
   }
 }
 
@@ -155,19 +166,10 @@ object LammpsParser {
         case "fz" => ()
       }
     }
-
-    // wrap particle positions according to image indices (ix, iy, iz)
-    if (ss.ix != null) {
-      for (i <- 0 until ss.x.length) {
-        ss.x(i) += ss.ix(i)*(xhi-xlo)
-        ss.y(i) += ss.iy(i)*(yhi-ylo)
-        ss.z(i) += ss.iz(i)*(zhi-zlo)
-      }
-    }
-
+    
     ss
   }
-
+  
   def readLammpsDump(
     fname: String,
     process: Snapshot => Option[Snapshot] = Some(_),
@@ -203,7 +205,7 @@ object LammpsParser {
     
     snaps
   }
-  
+
   def weaveThermoData(snaps: Seq[Snapshot], thermos: Seq[Thermo]) {
     val thermoMap = new scala.collection.mutable.HashMap[Int,Thermo]
     for (th <- thermos) {
