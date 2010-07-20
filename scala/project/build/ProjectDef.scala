@@ -8,7 +8,8 @@ class ProjectDef(info: ProjectInfo) extends DefaultProject(info) with JoglProjec
   override def fork = forkRun(jvmOptions)
   
   lazy val mkrunner = task {
-    val toolClasspathStr = Path.makeString(buildScalaJars.get)
+    val jlineJar = runClasspath.get.find(_.toString.contains("jline"))
+    val toolClasspathStr = Path.makeString(buildScalaJars.get ++ jlineJar)
     val runClasspathStr  = Path.makeString(runClasspath.get)
     val scalaHomeStr = buildLibraryJar.asFile.getParentFile.getParent
     val scalaRunner =
