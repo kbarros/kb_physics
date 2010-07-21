@@ -12,6 +12,7 @@ import kip.math.Math.sqr
 class Thermo {
   var time = Integer.MIN_VALUE
   var temperature = Double.NaN
+  var potential = Double.NaN
   var energy = Double.NaN
   var pressure = Double.NaN
 }
@@ -100,10 +101,11 @@ object LammpsParser {
       var thermo = new Thermo
       for ((d,v) <- desc.get zip vs) {
         d match {
-          case "Step" => thermo.time = v.toInt
-          case "Temp" => thermo.temperature = v
+          case "Step"   => thermo.time = v.toInt
+          case "Temp"   => thermo.temperature = v
+          case "E_pair" => thermo.potential = v
           case "TotEng" => thermo.energy = v
-          case "Press" => thermo.pressure = v
+          case "Press"  => thermo.pressure = v
           case _ => ()
         }
       }
