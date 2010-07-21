@@ -31,11 +31,9 @@ RUN_CLASSPATH="%s"
 SCALA_HOME="%s"
 exec "${JAVACMD:=java}" $JAVA_OPTS -cp "$TOOL_CLASSPATH" -Dscala.home="$SCALA_HOME" -Denv.emacs="$EMACS" scala.tools.nsc.MainGenericRunner -cp "$RUN_CLASSPATH" "$@"
 """.format(toolClasspathStr, runClasspathStr, scalaHomeStr)
-    val targetFile = ("target"/"bin"/"scala").asFile
+    val targetFile = ("target"/"bin"/"sbt-scala").asFile
     FileUtilities.write(targetFile, scalaRunner, log)
     targetFile.setExecutable(true)
     None
   }
-  
-  lazy val print = task {log.info("hello"); None}
 }

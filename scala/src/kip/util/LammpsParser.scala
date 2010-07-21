@@ -78,7 +78,7 @@ class Snapshot(val time: Int, val natoms: Int) {
 }
 
 object LammpsParser {  
-  def readLammpsThermo(fname: String) = {
+  def readLammpsThermo(fname: String): Seq[Thermo] = {
     val lines = Source.fromFile(new File(fname)).getLines().buffered
     
     val dataLines = new ArrayBuffer[Array[Double]]()
@@ -111,7 +111,7 @@ object LammpsParser {
     }
   }
   
-  def readSnapshot(lines: Iterator[String]) = {
+  def readSnapshot(lines: Iterator[String]): Snapshot = {
     def matchLine(line: String, str: String) {
       if (line != str)
         throw new Exception("Failure to parse '"+str+"'; found '"+line+"'")
