@@ -111,14 +111,15 @@ object Nano {
     }
     
     // sphere-ion correlation
-    val (b2, b3) = {
+    val (b2, b3, b4) = {
       val s = snaps2(0)
       def filterIds(f: Int => Boolean) = (0 until s.natoms) filter f
       val idsCore    = filterIds (i => s.typ(i) == typCore)
       val idsCation  = filterIds (i => s.typ(i) == typCation || s.typ(i) == typSphereCation)
       val idsAnion   = filterIds (i => s.typ(i) == typAnion)
       (time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsCation), "Sphere-cation"),
-       time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion), "Sphere-anion"))
+       time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion), "Sphere-anion"),
+       time(pairCorrelationWithError(snaps2, dr, rmax, idsCation, idsCation), "Cation-cation"))
     }
     
     if (b1.exists(b => b.error > 0 && !b.isDecorrelated))
@@ -137,8 +138,8 @@ object Nano {
       ("err", b2.map(adjustedError _)),
       ("g(core-anion)", b3.map(_.mean)),
       ("err", b3.map(adjustedError _)),
-      ("cc_err_err", b1.map(_.error_error)),
-      ("ci_err_err", b2.map(_.error_error))
+      ("g(cation-cation)", b4.map(_.mean)),
+      ("err", b4.map(adjustedError _))
     )
     writeStringToFile(formatted, "results.dat")
     println()
