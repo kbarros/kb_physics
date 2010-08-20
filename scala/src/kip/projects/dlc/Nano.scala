@@ -45,7 +45,7 @@ object Nano {
 
     // normalize
     for (j <- g.elemCenters) {
-      g(j) /= dtheta * snaps.size * ids1.size
+      g(j) /= dtheta * snaps.size * ids1.size * (2*math.Pi*math.sin(j))
     }
     
     g
