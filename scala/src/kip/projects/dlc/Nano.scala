@@ -153,7 +153,7 @@ object Nano {
   def writeAngleHistogram(snaps: Seq[Snapshot], dtheta: Double) {
     val s0 = snaps(0)
     val idsCore = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
-    val g = time(bondAngleHistogram(snaps, dtheta, idsCore, idsCore, rcutoff=8.5), "Sphere-sphere")
+    val g = time(bondAngleHistogram(snaps, dtheta, idsCore, idsCore, rcutoff=8.5), "Angle histogram")
     val formatted = formatDataInColumns(
       ("radii", g.elemCenters),
       ("g(theta)", g.elems)

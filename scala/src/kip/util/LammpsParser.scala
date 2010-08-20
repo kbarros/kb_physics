@@ -51,7 +51,7 @@ class Snapshot(val time: Int, val natoms: Int) {
   }
   
   def distance2(i: Int, j: Int): Double = {
-    if (false) {
+    if (true) {
       val lx = hi.x - lo.x
       val ly = hi.y - lo.y
       val lz = hi.z - lo.z
