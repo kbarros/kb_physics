@@ -23,13 +23,19 @@ object Nano {
     math.acos((dx1 dot dx2) / (dx1.norm*dx2.norm))
   }
 
-  def bondAngleHistogram(snaps: Seq[Snapshot], dj: Double, jmax: Double, ids1: Seq[Int], ids2: Seq[Int], rcutoff: Double) = {
-    val g = RangeArray.fill(xmin=0, xmax=jmax, dx=dj)(0d)
+  def sizeTwoSubsets[A](a: Seq[A]): Seq[(A,A)] = {
+    for (i <- 0   until a.size;
+         j <- i+1 until a.size) yield {
+      (a(i), a(j))
+    }
+  }
+  
+  def bondAngleHistogram(snaps: Seq[Snapshot], dtheta: Double, ids1: Seq[Int], ids2: Seq[Int], rcutoff: Double) = {
+    val g = RangeArray.fill(xmin=0, xmax=math.Pi, dx=dtheta)(0d)
     for ((s,iter) <- snaps.zipWithIndex) {
       for (i <- ids1) {
         val bonded = ids2.filter { j => (i != j) && (s.distance2(i, j) < rcutoff*rcutoff) }
-        for (j1 <- 0 until bonded.size;
-             j2 <- j1+1 until bonded.size) {
+        for ((j1, j2) <- sizeTwoSubsets(bonded)) {
           val d1 = s.displacement(j1, i)
           val d2 = s.displacement(j2, i)
           g(bondAngle(d1, d2)) += 1.0
@@ -38,8 +44,8 @@ object Nano {
     }
 
     // normalize
-    for (j <- g.binCenters) {
-      g(j) /= dj * snaps.size * ids1.size
+    for (j <- g.elemCenters) {
+      g(j) /= dtheta * snaps.size * ids1.size
     }
     
     g
@@ -78,7 +84,7 @@ object Nano {
 
     // normalize pair-correlation so that it becomes unity at homogeneous density
     val uniquePairs = (ids1.size * ids2.size) - (ids1.toSet & ids2.toSet).size
-    for (r <- g.binCenters) {
+    for (r <- g.elemCenters) {
       val volume_fraction = 4*math.Pi*r*r*dr / volume
       g(r) /= volume_fraction * snaps.size * uniquePairs
     }
@@ -101,6 +107,62 @@ object Nano {
   }
   
   
+  def writeCorrelationFunctions(snaps1: Seq[Snapshot], snaps2: Seq[Snapshot], dr: Double, rmax: Double) {
+    // sphere-sphere correlation
+    val b1 = {
+      val s0 = snaps1(0)
+      val idsCore = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
+      time(pairCorrelationWithError(snaps1, dr, rmax, idsCore, idsCore), "Sphere-sphere")
+    }
+    
+    // sphere-ion correlation
+    val (b2, b3, b4) = {
+      val s0 = snaps2(0)
+      val idsCore   = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
+      val idsCation = (0 until s0.natoms) filter (i => s0.typ(i) == typCation || s0.typ(i) == typSphereCation)
+      val idsAnion  = (0 until s0.natoms) filter (i => s0.typ(i) == typAnion)
+      (time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsCation), "Sphere-cation"),
+       time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion), "Sphere-anion"),
+       time(pairCorrelationWithError(snaps2, dr, rmax, idsCation, idsCation), "Cation-cation"))
+    }
+    
+    if (b1.exists(b => b.error > 0 && !b.isDecorrelated))
+      println("Sphere-sphere g(r) not decorrelated!")
+    if (b2.exists(b => b.error > 0 && !b.isDecorrelated))
+      println("Sphere-ion g(r) not decorrelated!")
+    
+    def adjustedError(b: BlockAnalysis) =
+      if (b.isDecorrelated) b.error else 5*b.error
+    
+    val formatted = formatDataInColumns(
+      ("radii", b1.elemCenters),
+      ("g(core-core)", b1.map(_.mean).elems),
+      ("err", b1.map(adjustedError _).elems),
+      ("g(core-cation)", b2.map(_.mean).elems),
+      ("err", b2.map(adjustedError _).elems),
+      ("g(core-anion)", b3.map(_.mean).elems),
+      ("err", b3.map(adjustedError _).elems),
+      ("g(cation-cation)", b4.map(_.mean).elems),
+      ("err", b4.map(adjustedError _).elems)
+    )
+    writeStringToFile(formatted, "results.dat")
+    println()
+  }
+
+  
+  def writeAngleHistogram(snaps: Seq[Snapshot], dtheta: Double) {
+    val s0 = snaps(0)
+    val idsCore = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
+    val g = time(bondAngleHistogram(snaps, dtheta, idsCore, idsCore, rcutoff=8.5), "Sphere-sphere")
+    val formatted = formatDataInColumns(
+      ("radii", g.elemCenters),
+      ("g(theta)", g.elems)
+    )
+    writeStringToFile(formatted, "angles.dat")
+    println()
+  }
+
+
   def go(tbegin: Long, tmax: Long = Long.MaxValue, dr: Double, rmax: Double) {
     // discard unused arrays to save space; filter by time
     def process(s: Snapshot) = {
@@ -124,45 +186,7 @@ object Nano {
     println("Average temperature = "+averageTemperature(snaps1))
     println("Processing "+snaps1.size+" snapshots")
     
-    // sphere-sphere correlation
-    val b1 = {
-      val s = snaps1(0)
-      val idsCore = 0 until s.natoms
-      time(pairCorrelationWithError(snaps1, dr, rmax, idsCore, idsCore), "Sphere-sphere")
-    }
-    
-    // sphere-ion correlation
-    val (b2, b3, b4) = {
-      val s = snaps2(0)
-      def filterIds(f: Int => Boolean) = (0 until s.natoms) filter f
-      val idsCore    = filterIds (i => s.typ(i) == typCore)
-      val idsCation  = filterIds (i => s.typ(i) == typCation || s.typ(i) == typSphereCation)
-      val idsAnion   = filterIds (i => s.typ(i) == typAnion)
-      (time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsCation), "Sphere-cation"),
-       time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion), "Sphere-anion"),
-       time(pairCorrelationWithError(snaps2, dr, rmax, idsCation, idsCation), "Cation-cation"))
-    }
-    
-    if (b1.exists(b => b.error > 0 && !b.isDecorrelated))
-      println("Sphere-sphere g(r) not decorrelated!")
-    if (b2.exists(b => b.error > 0 && !b.isDecorrelated))
-      println("Sphere-ion g(r) not decorrelated!")
-    
-    def adjustedError(b: BlockAnalysis) =
-      if (b.isDecorrelated) b.error else 5*b.error
-    
-    val formatted = formatDataInColumns(
-      ("radii", b1.binCenters),
-      ("g(core-core)", b1.map(_.mean).elems),
-      ("err", b1.map(adjustedError _).elems),
-      ("g(core-cation)", b2.map(_.mean).elems),
-      ("err", b2.map(adjustedError _).elems),
-      ("g(core-anion)", b3.map(_.mean).elems),
-      ("err", b3.map(adjustedError _).elems),
-      ("g(cation-cation)", b4.map(_.mean).elems),
-      ("err", b4.map(adjustedError _).elems)
-    )
-    writeStringToFile(formatted, "results.dat")
-    println()
+    writeCorrelationFunctions(snaps1, snaps2, dr, rmax)
+    writeAngleHistogram(snaps1, dtheta=0.05)
   }
 }

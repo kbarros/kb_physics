@@ -15,7 +15,7 @@ object RangeArray {
       case None => throw new IllegalArgumentException
       case Some(ra) => {
         val res = fill(ra.xmin, ra.xmax, ra.dx)(new collection.mutable.ArrayBuffer[A])
-        for (r <- res.binCenters; a <- c) {
+        for (r <- res.elemCenters; a <- c) {
           res(r) += a(r)
         }
         res.map(_.toArray)
@@ -28,15 +28,9 @@ class RangeArray[A](val xmin: Double, val xmax: Double, val elems: Array[A]) {
   val n = elems.size
   val dx = (xmax - xmin) / n
   
-  def isDefinedAt(x: Double): Boolean = {
-    xmin <= x && x <= xmax
-  }
+  def isDefinedAt(x: Double): Boolean = xmin <= x && x <= xmax
   
-  def binCenterForIndex(i: Int): Double = {
-    xmin + (i + 0.5) * dx
-  }
-  
-  def binIndex(x: Double): Int = {
+  def index(x: Double): Int = {
     if (!isDefinedAt(x))
       throw new IllegalArgumentException(
         "Argument %g out of range [%g, %g]" format (x, xmin, xmax))
@@ -44,12 +38,16 @@ class RangeArray[A](val xmin: Double, val xmax: Double, val elems: Array[A]) {
     math.min(math.max(i, 0), n-1)
   }
 
-  def binCenters[Double] = Array.tabulate(n)(binCenterForIndex _)
+  def elemCenterForIndex(i: Int): Double = xmin + (i + 0.5) * dx
   
-  def apply(x: Double): A = elems(binIndex(x))
+  def elemCenter(x: Double): Double = elemCenterForIndex(index(x))
+  
+  def elemCenters: Array[Double] = Array.tabulate(n)(elemCenterForIndex _)
+  
+  def apply(x: Double): A = elems(index(x))
   
   def update(x: Double, elem: A) {
-    elems(binIndex(x)) = elem
+    elems(index(x)) = elem
   }
   
   def map[B: Manifest](f: A => B): RangeArray[B] = {

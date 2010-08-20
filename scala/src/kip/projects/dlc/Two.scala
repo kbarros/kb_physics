@@ -99,7 +99,7 @@ object Two {
     
     // sphere-ion correlation
     val formatted = formatDataInColumns(
-      ("pos", patchCharge.binCenters),
+      ("pos", patchCharge.elemCenters),
       ("cationCharge", cationCharge.elems),
       ("patchCharge",  patchCharge.elems)
     )
