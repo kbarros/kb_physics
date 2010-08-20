@@ -39,17 +39,33 @@ class Snapshot(val time: Int, val natoms: Int) {
 
   def getPoint(i: Int) = Vec3(x(i), y(i), z(i))
   
-  def distance2(i: Int, j: Int) = {
-    val lx = hi.x - lo.x
-    val ly = hi.y - lo.y
-    val lz = hi.z - lo.z
-    var dx = math.abs(x(i)-x(j)) % lx
-    var dy = math.abs(y(i)-y(j)) % ly
-    var dz = math.abs(z(i)-z(j)) % lz
-    dx = math.min(dx, lx-dx)
-    dy = math.min(dy, ly-dy)
-    dz = math.min(dz, lz-dz)
-    dx*dx + dy*dy + dz*dz
+  // returns r(i)-r(j) vector, appropriately wrapped
+  def displacement(i: Int, j: Int): Vec3 = {
+    def shift(x: Double, lx: Double): Double = {
+      var xp = x % lx
+      if (xp >  +lx/2) xp-lx
+      else if (xp <= -lx/2) xp+lx
+      else xp
+    }
+    Vec3(shift(x(i)-x(j), hi.x-lo.x), shift(y(i)-y(j), hi.y-lo.y), shift(z(i)-z(j), hi.z-lo.z))
+  }
+  
+  def distance2(i: Int, j: Int): Double = {
+    if (false) {
+      val lx = hi.x - lo.x
+      val ly = hi.y - lo.y
+      val lz = hi.z - lo.z
+      var dx = math.abs(x(i)-x(j)) % lx
+      var dy = math.abs(y(i)-y(j)) % ly
+      var dz = math.abs(z(i)-z(j)) % lz
+      dx = math.min(dx, lx-dx)
+      dy = math.min(dy, ly-dy)
+      dz = math.min(dz, lz-dz)
+      dx*dx + dy*dy + dz*dz
+    }
+    else {
+      displacement(i,j).norm2
+    }
   }
 
   def maxDistance2 = {

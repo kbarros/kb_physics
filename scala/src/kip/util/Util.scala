@@ -4,7 +4,6 @@ import scala.util.matching.Regex
 import java.io.{LineNumberReader, BufferedReader, BufferedWriter, FileWriter, FileReader}
 
 
-
 object Util {
   def time[A](f: => A, s: String): A = {
     print("Timing '"+s+"'...")
@@ -20,13 +19,14 @@ object Util {
     v
   }
 
-  def formatDataInColumns(kvs: (String, Array[Double])*) = {
+  def formatDataInColumns(kvs: (String, Traversable[Double])*) = {
     val sb = new StringBuffer()
 
-    val (descs, vals) = kvs.unzip
+    val (descs, cols) = kvs.unzip
+    val rows = cols.transpose
     sb.append("# " + descs.mkString(" ") + "\n")
-    for (i <- 0 until vals(0).size) {
-      sb.append(vals.map{_(i)}.mkString(" ")+"\n")
+    for (row <- rows) {
+      sb.append(row.mkString(" ")+"\n")
     }
     sb.toString()
   }
