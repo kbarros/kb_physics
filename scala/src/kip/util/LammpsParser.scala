@@ -47,7 +47,21 @@ class Snapshot(val time: Int, val natoms: Int) {
       else if (xp <= -lx/2) xp+lx
       else xp
     }
-    Vec3(shift(x(i)-x(j), hi.x-lo.x), shift(y(i)-y(j), hi.y-lo.y), shift(z(i)-z(j), hi.z-lo.z))
+    Vec3(shift(x(i)-x(j), hi.x-lo.x),
+         shift(y(i)-y(j), hi.y-lo.y),
+         shift(z(i)-z(j), hi.z-lo.z))
+  }
+  
+  // coordinates of the atom image within box boundary
+  def principalImage(i: Int): Vec3 = {
+    def shift(x: Double, lo: Double, hi: Double) = {
+      var xp = x % (hi-lo)
+      if (xp < 0) xp += (hi-lo)
+      xp + lo
+    }
+    Vec3(shift(x(i), lo.x, hi.x),
+         shift(y(i), lo.y, hi.y),
+         shift(z(i), lo.z, hi.z))
   }
   
   def distance2(i: Int, j: Int): Double = {
@@ -81,7 +95,7 @@ class Snapshot(val time: Int, val natoms: Int) {
     val lz = hi.z - lo.z
     lx * ly * lz
   }
-  
+
   def unwindCoords() {
     // unwrap particle positions using image indices (ix, iy, iz)
     if (ix != null) {
@@ -209,7 +223,7 @@ object LammpsParser {
     val snaps = new ArrayBuffer[Snapshot]()
 
     try {
-      while (lines.hasNext && snaps.length < maxSnapshots) {
+      while (lines.hasNext && snaps.size < maxSnapshots) {
         //if (snaps.length % 100 == 0)
         //  System.err.println("Reading snapshot "+snaps.length)
         process(readSnapshot(lines)) foreach { snaps.append(_) }
