@@ -1,16 +1,15 @@
 package kip.util
 
-import java.io.{BufferedReader, File, FileInputStream, FileReader, InputStreamReader}
+import java.io.{BufferedReader, File, FileInputStream, InputStreamReader}
 import java.util.zip.GZIPInputStream
-import scala.io.Source
-import scala.collection.mutable.ArrayBuffer
-
 import kip.math.Vec3
 import kip.math.Math.sqr
+import scala.collection.mutable.ArrayBuffer
+import scala.io.Source
 
 
 class Thermo {
-  var time = Integer.MIN_VALUE
+  var time = Integer.MIN_VALUE // in steps
   var temperature = Double.NaN
   var potential = Double.NaN
   var energy = Double.NaN
@@ -95,6 +94,8 @@ class Snapshot(val time: Int, val natoms: Int) {
 }
 
 object LammpsParser {  
+  class LammpsParserException(s: String) extends Exception
+  
   def readLammpsThermo(fname: String): Seq[Thermo] = {
     val lines = Source.fromFile(new File(fname)).getLines().buffered
     
@@ -223,7 +224,7 @@ object LammpsParser {
     
     snaps
   }
-
+    
   def weaveThermoData(snaps: Seq[Snapshot], thermos: Seq[Thermo]) {
     val thermoMap = new scala.collection.mutable.HashMap[Int,Thermo]
     for (th <- thermos) {
@@ -232,6 +233,39 @@ object LammpsParser {
     for (sn <- snaps) {
       sn.thermo = thermoMap.get(sn.time).getOrElse(new Thermo)
     }
+  }
+
+  def readTemperFile(fname: String): Seq[(Int, Array[Int])] = {
+    val lines = Source.fromFile(new File(fname)).getLines().buffered.zipWithIndex
+    val ret = new ArrayBuffer[(Int, Array[Int])]
+    
+    lines.next // Ignore 1st line
+    val nprocs = lines.next._1.split("\\s")(2).toInt // Extract # processors from 2nd line
+    lines.next // Ignore 3rd line
+    
+    while (lines.hasNext) {
+      val (line, id) = lines.next
+      val tokens = line.split("\\s").map(_.toInt)
+      if (tokens.size == 1+nprocs)
+        ret.append((tokens.head, tokens.tail))
+      else
+        throw new LammpsParserException("Line %d of temper file '%s' incomplete".format(id, fname))
+    }
+    ret
+  }
+  
+  def weaveTemperRuns(runs: Seq[Seq[Snapshot]], temper: Seq[(Int, Array[Int])]) {
+    def elemsAgree[A](a: Seq[A]): Boolean = {
+      a.distinct.size <= 1
+    }
+    
+    assert(runs.size == temper(0)._2.size)
+    assert(elemsAgree(runs.map(_.size)))
+    assert(runs.transpose.forall(snaps => elemsAgree(snaps.map(_.time))))
+    
+    val dumpTimes = runs(0).map(_.time)
+    
+    throw new LammpsParserException("Not implemented")
   }
   
   def main(args: Array[String]) {
