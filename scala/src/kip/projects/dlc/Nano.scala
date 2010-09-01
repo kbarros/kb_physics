@@ -180,8 +180,8 @@ object Nano {
         None
       }
     }
-    val snaps1 = time(LammpsParser.readLammpsDump("dump1.gz", process), "Reading dump1.gz")
-    val snaps2 = time(LammpsParser.readLammpsDump("dump2.gz", process), "Reading dump2.gz")
+    val snaps1 = time(LammpsParser.readLammpsDump("dump1-0.gz", process), "Reading dump1.gz")
+    val snaps2 = time(LammpsParser.readLammpsDump("dump2-0.gz", process), "Reading dump2.gz")
     time(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")), "Weaving thermo")
     println("Average temperature = "+averageTemperature(snaps1))
     println("Processing "+snaps1.size+" snapshots")
