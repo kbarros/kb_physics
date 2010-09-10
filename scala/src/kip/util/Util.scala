@@ -31,6 +31,18 @@ object Util {
     sb.toString()
   }
 
+  def readStringFromFile(fn: String) = {
+    val stream = new java.io.FileInputStream(new java.io.File(fn))
+    try {
+      val fc = stream.getChannel()
+      val bb = fc.map(java.nio.channels.FileChannel.MapMode.READ_ONLY, 0, fc.size())
+      java.nio.charset.Charset.defaultCharset().decode(bb).toString()
+    }
+    finally {
+      stream.close();
+    }
+  }
+  
   def writeStringToFile(s: String, fn: String) {
     val writer = new BufferedWriter(new FileWriter(fn))
     writer.write(s);
