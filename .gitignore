@@ -1,3 +1,4 @@
+acs-*.bib
 *.aux
 *.bbl
 *.blg
@@ -6,7 +7,6 @@
 *.fmt
 *.log
 *.o
-*.pdf
 *.pyc
 *~
 .#*
