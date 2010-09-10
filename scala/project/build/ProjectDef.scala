@@ -1,13 +1,19 @@
 import sbt._
 
 class ProjectDef(info: ProjectInfo) extends DefaultProject(info) with JoglProject {
+  val json = "com.twitter" % "json" % "2.1.3"
+  
+  override def compileOptions: Seq[CompileOption] = Deprecation :: Unchecked :: Nil
+  
+  // non-standard source directories
   override def mainScalaSourcePath = "src" // default = src/main/scala
   override def mainJavaSourcePath = "src-java" // default = src/main/java
-  override def compileOptions: Seq[CompileOption] = Deprecation :: Unchecked :: Nil
 
+  // needed for Jogl dependencies
   val jvmOptions = Seq("-Djava.library.path="+(managedDependencyPath / "compile"))
   override def fork = forkRun(jvmOptions)
   
+  // creates a runner script "sbt-scala" with project automatically on classpath
   lazy val mkrunner = task {
     val jlineJar = runClasspath.get.find(_.toString.contains("jline"))
     val toolClasspathStr = Path.makeString(buildScalaJars.get ++ jlineJar)
