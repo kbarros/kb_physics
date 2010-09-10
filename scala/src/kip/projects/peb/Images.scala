@@ -12,8 +12,9 @@ import scala.math.sqrt
 object Images {  
   def go(fileIn: String, fileOut: String, chainLength: Int, numChains: Int, time: Int, rCutoff: Double) {
     println("parsing "+fileIn+" at "+time)
-    val snaps = LammpsParser.readLammpsDump(fileIn, maxSnapshots=1,
-                                            process={s => if (s.time == time) Some(s) else None})
+    val snaps = LammpsParser.readLammpsDump(fileIn,
+                                            process={s => if (s.time == time) Some(s) else None},
+                                            terminate={_.size >= 1})
     val s = snaps(0)
     s.unwindCoords()
     val mols = PEB.molecules(chainLength, numChains)
