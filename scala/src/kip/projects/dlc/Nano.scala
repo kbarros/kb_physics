@@ -163,10 +163,10 @@ object Nano {
   }
 
 
-  def go(tbegin: Long, tmax: Long = Long.MaxValue, dr: Double, rmax: Double) {
+  def go(tmin:Int, tmax:Int, dr: Double, rmax: Double, dtheta: Double) {
     // discard unused arrays to save space; filter by time
     def process(s: Snapshot) = {
-      if (s.time > tbegin && s.time < tmax) {
+      if (s.time > tmin) {
         s.id = null
         s.ix = null
         s.iy = null
@@ -180,13 +180,48 @@ object Nano {
         None
       }
     }
-    val snaps1 = time(LammpsParser.readLammpsDump("dump1-0.gz", process), "Reading dump1.gz")
-    val snaps2 = time(LammpsParser.readLammpsDump("dump2-0.gz", process), "Reading dump2.gz")
+    def terminate(snaps: Seq[Snapshot]): Boolean = {
+      snaps.lastOption.map(_.time > tmax).getOrElse(false)
+    }
+    val snaps1 = time(LammpsParser.readLammpsDump("dump1-0.gz", process, terminate), "Reading dump1.gz")
+    val snaps2 = time(LammpsParser.readLammpsDump("dump2-0.gz", process, terminate), "Reading dump2.gz")
     time(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")), "Weaving thermo")
     println("Average temperature = "+averageTemperature(snaps1))
     println("Processing "+snaps1.size+" snapshots")
     
     writeCorrelationFunctions(snaps1, snaps2, dr, rmax)
-    writeAngleHistogram(snaps1, dtheta=0.05)
+    writeAngleHistogram(snaps1, dtheta=dtheta)
+  }
+  
+  def main(args: Array[String]) {
+    import com.twitter.json.Json
+    case class JsonInspector(tree: Any) {
+      def toDouble: Double = {
+        tree match {
+          case v:Int    => v.toDouble
+          case v:Double => v
+          case v:BigDecimal => v.toDouble
+          case v:AnyRef => error("Cannot convert class "+v.getClass+" to double")
+        }
+      }
+      def toInt: Int = {
+        tree match {
+          case v:Int => v
+        }
+      }
+      def apply(key: Any): JsonInspector = {
+        tree match {
+          case m: Map[Any,Any] => JsonInspector(m(key))
+        }
+      }
+    }
+    
+    val cfg = JsonInspector(Json.parse(kip.util.Util.readStringFromFile("cfg.json")))
+    val params = JsonInspector(Json.parse(kip.util.Util.readStringFromFile("../params.json")))
+    go(tmin=params("tmin").toInt,
+       tmax=params("tmax").toInt,
+       dr=params("dr").toDouble,
+       rmax=params("rmax").toDouble,
+       dtheta=params("dtheta").toDouble)
   }
 }

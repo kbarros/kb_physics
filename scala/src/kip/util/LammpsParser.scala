@@ -206,7 +206,7 @@ object LammpsParser {
   def readLammpsDump(
     fname: String,
     process: Snapshot => Option[Snapshot] = Some(_),
-    maxSnapshots: Int = Integer.MAX_VALUE
+    terminate: Seq[Snapshot] => Boolean = { _ => false }
   ): Seq[Snapshot] = {
     val isGZipped = fname.endsWith("gz") || fname.endsWith("gzip")
     val fis = new FileInputStream(fname)
@@ -224,7 +224,7 @@ object LammpsParser {
     val snaps = new ArrayBuffer[Snapshot]()
 
     try {
-      while (lines.hasNext && snaps.size < maxSnapshots) {
+      while (lines.hasNext && !terminate(snaps)) {
         //if (snaps.length % 100 == 0)
         //  System.err.println("Reading snapshot "+snaps.length)
         process(readSnapshot(lines)) foreach { snaps.append(_) }
@@ -232,7 +232,7 @@ object LammpsParser {
     } catch {
       case e: Exception => {
         System.err.println(e.toString)
-        System.err.println("Failed to parse snapshot "+(snaps.size+1))
+        System.err.println("Failed to parse snapshot after t="+(snaps.lastOption.map(_.time).getOrElse(-1)))
       }
     }
     
