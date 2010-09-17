@@ -214,10 +214,21 @@ object Nano {
           case m: Map[Any,Any] => JsonInspector(m(key))
         }
       }
+      def ++(that: JsonInspector): JsonInspector = {
+        (tree, that.tree) match {
+          case (m1: Map[Any, Any], m2: Map[Any, Any]) => JsonInspector(m1++m2)
+        }
+      }
     }
     
-    val cfg = JsonInspector(Json.parse(kip.util.Util.readStringFromFile("cfg.json")))
-    val params = JsonInspector(Json.parse(kip.util.Util.readStringFromFile("../params.json")))
+    val files = List("cfg.json", "../cfg.json", "../../cfg.json").map(new java.io.File(_))
+    var params = JsonInspector(Map[Any,Any]())
+    for (file <- files) {
+      if (file.exists) {
+        println("Loading configuration file '"+file+"'")
+        params ++= JsonInspector(Json.parse(kip.util.Util.readStringFromFile(file.toString)))
+      }
+    }
     go(tmin=params("tmin").toInt,
        tmax=params("tmax").toInt,
        dr=params("dr").toDouble,
