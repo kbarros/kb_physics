@@ -1,6 +1,6 @@
 (
 
-:server-root "/home/kbarros/installs/ensime/dist"
+:server-root "~/installs/ensime/dist"
 
 :use-sbt t
 :sbt-compile-conf "compile"
