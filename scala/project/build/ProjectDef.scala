@@ -10,16 +10,17 @@ class ProjectDef(info: ProjectInfo) extends DefaultProject(info) with JoglProjec
   override def mainJavaSourcePath = "src-java" // default = src/main/java
 
   // needed for Jogl dependencies
-  val jvmOptions = Seq("-Djava.library.path="+(managedDependencyPath / "compile"))
+  val javaLibraryPath = Path.makeString(Seq(managedDependencyPath / "compile"))
+  val jvmOptions = Seq("-Djava.library.path="+javaLibraryPath)
   override def fork = forkRun(jvmOptions)
   
   // creates a runner script "sbt-scala" with project automatically on classpath
   lazy val mkrunner = task {
     val jlineJar = runClasspath.get.find(_.toString.contains("jline"))
     val toolClasspathStr = Path.makeString(buildScalaJars.get ++ jlineJar)
-    val runClasspathStr  = Path.makeString(runClasspath.get)
+    val runClasspathStr  = Path.makeString(runClasspath.get ++ buildScalaJars.get)
     val scalaHomeStr = buildLibraryJar.asFile.getParentFile.getParent
-    val scalaRunner =
+    val scalaRunner = 
 """[ -n "$JAVA_OPTS" ] || JAVA_OPTS="-Xmx256M -Xms32M"
 for i
 do
@@ -36,8 +37,9 @@ fi
 TOOL_CLASSPATH="%s"
 RUN_CLASSPATH="%s"
 SCALA_HOME="%s"
-exec "${JAVACMD:=java}" $JAVA_OPTS -cp "$TOOL_CLASSPATH" -Dscala.home="$SCALA_HOME" -Denv.emacs="$EMACS" scala.tools.nsc.MainGenericRunner -cp "$RUN_CLASSPATH" "$@"
-""".format(toolClasspathStr, runClasspathStr, scalaHomeStr)
+JAVA_LIBRARY_PATH="%s"
+exec "${JAVACMD:=java}" $JAVA_OPTS -cp "$TOOL_CLASSPATH" -Dscala.home="$SCALA_HOME" -Denv.emacs="$EMACS" -Djava.library.path="$JAVA_LIBRARY_PATH" scala.tools.nsc.MainGenericRunner -cp "$RUN_CLASSPATH" "$@"
+""".format(toolClasspathStr, runClasspathStr, scalaHomeStr, javaLibraryPath)
     val targetFile = ("target"/"bin"/"sbt-scala").asFile
     FileUtilities.write(targetFile, scalaRunner, log)
     targetFile.setExecutable(true)
