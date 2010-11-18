@@ -195,33 +195,15 @@ object Nano {
   
   def main(args: Array[String]) {
     import com.twitter.json.Json
-    case class JsonInspector(tree: Any) {
-      def toDouble: Double = {
-        tree match {
-          case v:Int    => v.toDouble
-          case v:Double => v
-          case v:BigDecimal => v.toDouble
-          case v:AnyRef => error("Cannot convert class "+v.getClass+" to double")
-        }
-      }
-      def toInt: Int = {
-        tree match {
-          case v:Int => v
-        }
-      }
-      def apply(key: Any): JsonInspector = {
-        tree match {
-          case m: Map[Any,Any] => JsonInspector(m(key))
-        }
-      }
-      def ++(that: JsonInspector): JsonInspector = {
-        (tree, that.tree) match {
-          case (m1: Map[Any, Any], m2: Map[Any, Any]) => JsonInspector(m1++m2)
-        }
-      }
-    }
+    import kip.util.JsonInspector
     
-    val files = List("cfg.json", "../cfg.json", "../../cfg.json").map(new java.io.File(_))
+    val files = {
+      if (args.size == 0)
+        List("cfg.json", "../cfg.json", "../../cfg.json")
+      else 
+        args.toList
+    }.map(new java.io.File(_))
+    
     var params = JsonInspector(Map[Any,Any]())
     for (file <- files) {
       if (file.exists) {
@@ -229,6 +211,11 @@ object Nano {
         params ++= JsonInspector(Json.parse(kip.util.Util.readStringFromFile(file.toString)))
       }
     }
+    if (params.isEmpty) {
+      println("Empty configuration")
+      System.exit(1)
+    }
+    
     go(tmin=params("tmin").toInt,
        tmax=params("tmax").toInt,
        dr=params("dr").toDouble,
