@@ -54,7 +54,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     gl.glMatrixMode(GL.GL_PROJECTION)
     gl.glLoadIdentity()
     val fovY = 35
-    val aspect = pixWidth / pixHeight
+    val aspect = pixWidth / pixHeight.toDouble
     val zNear = 0.1*len
     val zFar = 10*len
     glu.gluPerspective(fovY, aspect, zNear, zFar)
