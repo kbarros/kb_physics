@@ -15,7 +15,7 @@ object Plot {
         gfx.drawLines(Vec3(0,0,0), Vec3(50,80,50))
         gfx.setColor(Color.GREEN)
         gfx.drawCuboid(bds)
-        gfx.drawSphere(Vec3(20, 20, 20), 10)
+        gfx.drawSphere(Vec3(20, 20, 20), 10, 0)
         gfx.ortho2d(Bounds3d(Vec3(0,0,0), Vec3(1,1,1)))
         gfx.setColor(Color.RED)
         gfx.rasterString("hello worl", 0.1, 0.1)

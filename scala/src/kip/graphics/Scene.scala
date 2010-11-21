@@ -64,8 +64,8 @@ abstract class Scene {
         }
         else if (e.isMetaDown) {
           translation += Vec3(0, 0, -dy)*dpp
-          val q = Quaternion.fromAxisAngle(0, 0, -dx*rpp)
-          rotation = (q * rotation).normalize
+          // val q = Quaternion.fromAxisAngle(0, 0, -dx*rpp)
+          // rotation = (q * rotation).normalize
         }
         else {
           val q = Quaternion.fromAxisAngle(dy*rpp, dx*rpp, 0)

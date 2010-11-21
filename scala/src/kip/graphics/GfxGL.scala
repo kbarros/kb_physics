@@ -1,5 +1,6 @@
 package kip.graphics
 
+import scala.collection.mutable.LinkedList
 import java.awt.Color
 import javax.media.opengl.{GL, GLAutoDrawable}
 import javax.media.opengl.glu.GLU
@@ -125,10 +126,76 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     gl.glEnable(GL.GL_LIGHTING)
   }
   
-  def drawSphere(center: Vec3, radius: Double) {
+  
+  case class Triangle(v1: Vec3, v2: Vec3, v3: Vec3)
+  val octahedron = {
+    val a1 = Vec3(0, 0, 1)
+    val b1 = Vec3(1, 0, 0)
+    val b2 = Vec3(0, 1, 0)
+    val b3 = Vec3(-1, 0, 0)
+    val b4 = Vec3(0, -1, 0)
+    val c1 = Vec3(0, 0, -1)
+    LinkedList(
+      Triangle(a1, b1, b2),
+      Triangle(a1, b2, b3),
+      Triangle(a1, b3, b4),
+      Triangle(a1, b4, b1),
+      Triangle(c1, b2, b1),
+      Triangle(c1, b3, b2),
+      Triangle(c1, b4, b3),
+      Triangle(c1, b1, b4)
+    )
+  }
+  
+  val sphereCache = new Array[Seq[Triangle]](5)
+  sphereCache(0) = octahedron
+  
+  def drawSphere(center: Vec3, radius: Double, subdivisions: Int) {
+    if (subdivisions >= sphereCache.size)
+      throw new IllegalArgumentException("Cannot subdivide sphere with n=%d".format(subdivisions))
+    
+    if (sphereCache(subdivisions) == null) {
+      def subdivide(t: Triangle, n: Int): LinkedList[Triangle] = {
+        if (n == 0)
+          LinkedList(t)
+        else {
+          val v12 = (t.v1 + t.v2).normalize
+          val v23 = (t.v2 + t.v3).normalize
+          val v31 = (t.v3 + t.v1).normalize
+          //     v23
+          //v3 ________ v2
+          //   \  /\  /
+          // v31\/__\/ v12
+          //     \  /
+          //      \/ v1
+          //       
+          val triangles = LinkedList(
+            Triangle(t.v1, v12, v31),
+            Triangle(v12, t.v2, v23),
+            Triangle(v31, v23, t.v3),
+            Triangle(v23, v31, v12)
+          )
+          triangles.flatMap(subdivide(_, n-1))
+        }
+      }
+      sphereCache(subdivisions) = sphereCache(0).flatMap(subdivide(_, subdivisions))
+    }
+    
     gl.glPushMatrix()
     gl.glTranslated(center.x, center.y, center.z)
-    glu.gluSphere(gluq, radius, 8, 8)
+    
+    gl.glBegin(GL.GL_TRIANGLES)
+    for (triangle <- sphereCache(subdivisions)) {
+      def sphereVertex(v: Vec3) {
+        gl.glNormal3d(v.x, v.y, v.z)
+        gl.glVertex3d(v.x*radius, v.y*radius, v.z*radius)
+      }
+      sphereVertex(triangle.v1)
+      sphereVertex(triangle.v2)
+      sphereVertex(triangle.v3)
+    }
+    gl.glEnd()
+    
     gl.glPopMatrix()
   }
   
