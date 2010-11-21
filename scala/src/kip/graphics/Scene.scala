@@ -36,19 +36,22 @@ trait DragHandler extends MouseInputAdapter {
  *
  */
 abstract class Scene {
-  val component = new JPanel(new BorderLayout())
-  val canvas = new GLCanvas()
   var rotation: Quaternion = Quaternion.fromAxisAngle(0, 0, 0)
-  initialize()
+  val (canvas, component) = initialize()
   
   def drawContent(gfx: GfxGL)
   
+  // def invokeInSwing(f: => Unit) {
+  //   java.awt.EventQueue.invokeAndWait(new Runnable {
+  //     def run() = f
+  //   })
+  // }
+  
   def triggerRepaint() {
-    
     canvas.repaint()
   }
   
-  def initialize() {
+  def initialize(): (GLCanvas, JPanel) = {
     val canvas = new GLCanvas()
     val mouse = new DragHandler {
       def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent) {
@@ -84,10 +87,13 @@ abstract class Scene {
       }
     })
 
+    val component = new JPanel(new BorderLayout())
     component.setBorder(BorderFactory.createCompoundBorder(
       BorderFactory.createEmptyBorder(4, 4, 4, 4),
       BorderFactory.createLineBorder(Color.GRAY)))
     component.add(canvas)
+    
+    (canvas, component)
   }
 
 }

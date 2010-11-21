@@ -9,8 +9,12 @@ import java.awt.event.{WindowAdapter, WindowEvent}
 
 object MolViz {
   def main(args: Array[String]) {
-//    load()
-    interpreter
+    // interpreter()
+
+    val file = "/Users/kbarros/dev/repo/projects/dielectric/cylinder.L20/dump.dat"
+    val snaps = time(LammpsParser.readLammpsDump(file), "Reading '%s'".format(file))
+    val molviz = time(new MolViz(snaps), "Creating MolViz")
+    interpreter(("molviz", molviz))
   }
   
   def load(): MolViz = {
@@ -29,15 +33,26 @@ object MolViz {
     }
   }
 
-  def interpreter {
+  def interpreter(bindings: (String, Any)*) {
     val output = new java.io.PrintWriter(new java.io.OutputStreamWriter(Console.out))
     val repl = new scala.tools.nsc.InterpreterLoop(None, output)
     val settings = new scala.tools.nsc.Settings
     settings.usejavacp.value = true
     settings.classpath.value = "/Users/kbarros/dev/repo/scala/target/scala_2.8.1.RC3/classes"
-    repl.main(settings)
+    repl.settings = settings
+    repl.createInterpreter()
+    val varStr = bindings.unzip._1.mkString("[",",","]")
+    time(bindings.foreach{ case (k,v) => repl.injectOne(k, v) }, "Binding values "+varStr)
+    repl.in = scala.tools.nsc.interpreter.InteractiveReader.createDefault(repl.interpreter)
+    try {
+      // it is broken on startup; go ahead and exit
+      if (repl.interpreter.reporter.hasErrors) return
+      repl.printWelcome()
+      repl.repl()
+    } finally {
+      repl.closeInterpreter()
+    }
   }
-
 }
 
 class MolViz(snaps: Seq[Snapshot]) {
@@ -54,7 +69,6 @@ class MolViz(snaps: Seq[Snapshot]) {
   private def createGui(): (Frame, Scene) = {
     val scene = new Scene() {
       def drawContent(gfx: GfxGL) {
-        println(java.lang.Thread.currentThread)
         val snap = snaps(idx)
         val bds = Bounds3d(snap.lo, snap.hi) // Box size depends on idx
         gfx.perspective3d(bds, rotation)
@@ -74,14 +88,14 @@ class MolViz(snaps: Seq[Snapshot]) {
     }
     
     val frame = new Frame("JOGL HelloWorld2")
-    frame.add(scene.component)
-    frame.setSize(300, 300)
-    frame.setVisible(true)
     frame.addWindowListener(new WindowAdapter() {
       override def windowClosing(e: WindowEvent) {
 	System.exit(0)
       }
     })
+    frame.add(scene.component)
+    frame.setSize(300, 300)
+    frame.setVisible(true)
     (frame, scene)
   }
 }
