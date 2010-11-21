@@ -10,7 +10,7 @@ object Plot {
     val scene = new Scene() {
       def drawContent(gfx: GfxGL) {
         val bds = Bounds3d(Vec3(0,0,0), Vec3(100, 100, 100))
-        gfx.perspective3d(bds, rotation)
+        gfx.perspective3d(bds, rotation, translation)
         gfx.setColor(Color.BLUE)
         gfx.drawLines(Vec3(0,0,0), Vec3(50,80,50))
         gfx.setColor(Color.GREEN)

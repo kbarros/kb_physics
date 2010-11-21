@@ -10,9 +10,9 @@ import kip.math.{Vec3, Quaternion}
 
 
 case class Bounds3d(lo: Vec3, hi: Vec3) {
-  def width  = hi.x - lo.x
-  def height = hi.y - lo.y
-  def depth  = hi.z - lo.z
+  def dx = hi.x - lo.x
+  def dy = hi.y - lo.y
+  def dz = hi.z - lo.z
   def center = (lo+hi) / 2
 }
 
@@ -41,21 +41,21 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     gl.glLoadIdentity()
   }
 
-  def perspective3d(bds: Bounds3d, rotation: Quaternion) {
+  def perspective3d(bds: Bounds3d, rotation: Quaternion, translation: Vec3) {
     gl.glEnable(GL.GL_DEPTH_TEST)
     gl.glEnable(GL.GL_COLOR_MATERIAL)
     gl.glEnable(GL.GL_LIGHTING)
     gl.glLightModeli(GL.GL_LIGHT_MODEL_TWO_SIDE, GL.GL_TRUE)
     
     // get the corner to corner distance of the view bounds cuboid
-    val len = hypot(bds.width, bds.height, bds.depth)
+    val len = (bds.hi - bds.lo).norm
     
     // set the projection matrix
     gl.glMatrixMode(GL.GL_PROJECTION)
     gl.glLoadIdentity()
     val fovY = 35
     val aspect = pixWidth / pixHeight.toDouble
-    val zNear = 0.1*len
+    val zNear = 0.4*len
     val zFar = 10*len
     glu.gluPerspective(fovY, aspect, zNear, zFar)
     
@@ -66,6 +66,8 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     // each sequential operation multiplies the modelview transformation matrix
     // from the left. operations on the scene object occur in reverse order from
     // their specification.
+    // step (4): translate object according to user
+    gl.glTranslated(translation.x, translation.y, translation.z)
     // step (3): move object away from camera
     gl.glTranslated(0, 0, -1.5*len)
     // step (2): rotate object about zero

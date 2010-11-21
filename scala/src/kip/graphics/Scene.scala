@@ -37,6 +37,8 @@ trait DragHandler extends MouseInputAdapter {
  */
 abstract class Scene {
   var rotation: Quaternion = Quaternion.fromAxisAngle(0, 0, 0)
+  var translation: Vec3 = Vec3(0, 0, 0)
+  
   val (canvas, component) = initialize()
   
   def drawContent(gfx: GfxGL)
@@ -55,9 +57,20 @@ abstract class Scene {
     val canvas = new GLCanvas()
     val mouse = new DragHandler {
       def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent) {
-        val rpp = 0.01 // radians per pixel
-        val q = Quaternion.fromAxisAngle(dy*rpp, dx*rpp, 0)
-        rotation = (q * rotation).normalize
+        val dpp = 0.003 // dimensionless displacement per pixel
+        val rpp = 0.01  // radians per pixel
+        if (e.isShiftDown) {
+          translation += Vec3(dx, -dy, 0) * dpp
+        }
+        else if (e.isMetaDown) {
+          translation += Vec3(0, 0, -dy)*dpp
+          val q = Quaternion.fromAxisAngle(0, 0, -dx*rpp)
+          rotation = (q * rotation).normalize
+        }
+        else {
+          val q = Quaternion.fromAxisAngle(dy*rpp, dx*rpp, 0)
+          rotation = (q * rotation).normalize
+        }
         canvas.repaint()
       }
     }

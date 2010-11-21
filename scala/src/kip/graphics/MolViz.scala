@@ -7,14 +7,53 @@ import java.awt.{Color, Frame, FileDialog}
 import java.awt.event.{WindowAdapter, WindowEvent}
 
 
+
+object Render {
+  val basic = new Render {
+    def color(snap: Snapshot, atom: Int) = Color.red
+    def radius(snap: Snapshot, atom: Int) = 1.0
+  }
+  
+  val nano = new Render {
+    def color(snap: Snapshot, atom: Int) = {
+      val q = snap.q(atom) 
+      val qmin = -1
+      val qmax = 1
+      
+      // interpolating value in [0,1]
+      val x = ((q - qmin) / (qmax - qmin)).toFloat
+      
+      // color gradient between red and blue
+      new Color(x, 0f, 1f-x)
+    }
+    
+    def radius(snap: Snapshot, atom: Int) = {
+      snap.typ(atom).toInt match {
+        case 1 => 0.3 // surface patch
+        case 2 => 3 // core particles
+        case 3 => 4 // salt counterions
+        case 4 => 0.5 // salt coion
+      }
+    }
+  }
+}
+
+abstract class Render {
+  def color(snap: Snapshot, atom: Int): Color
+  def radius(snap: Snapshot, atom: Int): Double
+}
+
+
 object MolViz {
   def main(args: Array[String]) {
     // interpreter()
-
     val file = "/Users/kbarros/dev/repo/projects/dielectric/cylinder.L20/dump.dat"
+    interpreter(("molviz", makeMolviz(file)))
+  }
+  
+  def makeMolviz(file: String): MolViz = {
     val snaps = time(LammpsParser.readLammpsDump(file), "Reading '%s'".format(file))
-    val molviz = time(new MolViz(snaps), "Creating MolViz")
-    interpreter(("molviz", molviz))
+    time(new MolViz(snaps, Render.nano), "Creating MolViz")
   }
   
   def load(): MolViz = {
@@ -23,14 +62,10 @@ object MolViz {
     println(d.setDirectory("/Users/kbarros/dev/repo/projects/dielectric/"))
     d.setVisible(true)
     var file = d.getFile()
-    if (file != null) {
-      file = d.getDirectory() + file
-      val snaps = time(LammpsParser.readLammpsDump(file), "Reading dump-file")
-      time(new MolViz(snaps), "Creating MolViz")
-    }
-    else {
+    if (file != null)
+      makeMolviz(d.getDirectory() + file)
+    else
       null
-    }
   }
 
   def interpreter(bindings: (String, Any)*) {
@@ -55,31 +90,21 @@ object MolViz {
   }
 }
 
-class MolViz(snaps: Seq[Snapshot]) {
-  val colors = collection.mutable.Map[Int,Color]()
-  val radii  = collection.mutable.Map[Int, Double]()
-  val (frame, scene) = createGui()
-
-  def goto(i: Int) {
-    idx = i
-    scene.triggerRepaint()
-  }
+class MolViz(snaps: Seq[Snapshot], render: Render) {
+  var idx: Int = 0
   
-  private var idx: Int = 0
-  private def createGui(): (Frame, Scene) = {
+  val (frame, scene) = {
     val scene = new Scene() {
       def drawContent(gfx: GfxGL) {
         val snap = snaps(idx)
         val bds = Bounds3d(snap.lo, snap.hi) // Box size depends on idx
-        gfx.perspective3d(bds, rotation)
+        gfx.perspective3d(bds, rotation, translation*(bds.hi-bds.lo).norm)
         gfx.setColor(Color.GREEN)
         gfx.drawCuboid(bds)
         for (i <- 0 until snap.x.size) {
           val pos = Vec3(snap.x(i), snap.y(i), snap.z(i))
-          val typ = snap.typ(i).toInt
-          val rad = radii.getOrElse(typ, 1.0)
-          gfx.setColor(colors.getOrElse(typ, Color.RED))
-          gfx.drawSphere(pos, rad)
+          gfx.setColor(render.color(snap, i))
+          gfx.drawSphere(pos, render.radius(snap, i))
         }
         gfx.ortho2d(Bounds3d(Vec3(0,0,0), Vec3(1,1,1)))
         gfx.setColor(Color.RED)
@@ -98,4 +123,10 @@ class MolViz(snaps: Seq[Snapshot]) {
     frame.setVisible(true)
     (frame, scene)
   }
+  
+  def goto(i: Int) {
+    idx = i
+    scene.triggerRepaint()
+  }
+  
 }
