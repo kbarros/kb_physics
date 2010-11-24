@@ -117,12 +117,12 @@ object LammpsParser {
     var desc = None: Option[Array[String]]
     
     while (lines.hasNext) {
-      var line = lines.next
+      var line = lines.next()
       if (line.startsWith("Step ")) {
         desc = desc.orElse(Some(line.split("\\s").filter(_.length > 0)))
         
         while (lines.hasNext && !lines.head.startsWith("Loop time")) {
-          line = lines.next
+          line = lines.next()
           dataLines.append(line.split("\\s").filter(_.length > 0).map(_.toDouble))
         }
       }
@@ -143,76 +143,86 @@ object LammpsParser {
       thermo
     }
   }
+
   
-  def readSnapshot(lines: Iterator[String]): Snapshot = {
+  def readSnapshot(lines: Iterator[String], skip: Boolean): Option[Snapshot] = {
     def matchLine(line: String, str: String) {
       if (line != str)
         throw new Exception("Failure to parse '"+str+"'; found '"+line+"'")
     }
 
-    matchLine(lines.next, "ITEM: TIMESTEP")
-    val time = lines.next.toInt
+    matchLine(lines.next(), "ITEM: TIMESTEP")
+    val time = lines.next().toInt
 
-    matchLine(lines.next, "ITEM: NUMBER OF ATOMS")
-    val natoms = lines.next.trim.toInt
+    matchLine(lines.next(), "ITEM: NUMBER OF ATOMS")
+    val natoms = lines.next().trim.toInt
 
-    matchLine(lines.next, "ITEM: BOX BOUNDS")
-    val Array(xlo, xhi) = lines.next.split("\\s").map(_.toDouble)
-    val Array(ylo, yhi) = lines.next.split("\\s").map(_.toDouble)
-    val Array(zlo, zhi) = lines.next.split("\\s").map(_.toDouble)
+    matchLine(lines.next(), "ITEM: BOX BOUNDS")
+    val Array(xlo, xhi) = lines.next().split("\\s").map(_.toDouble)
+    val Array(ylo, yhi) = lines.next().split("\\s").map(_.toDouble)
+    val Array(zlo, zhi) = lines.next().split("\\s").map(_.toDouble)
 
     // read list of atoms
-    val descLine = lines.next
+    val descLine = lines.next()
     if (!descLine.startsWith("ITEM: ATOMS "))
       throw new Exception("Failure to parse 'ITEMS: ATOMS'")
-    val descs = descLine.split("\\s").drop(2)
-    val cols = Array.ofDim[Double](descs.length, natoms)
-    val vs = Array.ofDim[Double](descs.length)
-    for (atom <- 0 until natoms) {
-      val cnt = kip.util.Parsing.stringSplitDouble(vs, lines.next)
-      assert(cnt == descs.length)
-      for (value <- 0 until descs.length) {
-        cols(value)(atom) = vs(value)
-      }
+
+    if (skip) {
+      // skip over remaining lines and return None
+      for (atom <- 0 until natoms)
+        lines.next()
+      None
     }
     
-    // build snapshot object
-    val ss = new Snapshot(time, natoms)
-    ss.lo = Vec3(xlo, ylo, zlo)
-    ss.hi = Vec3(xhi, yhi, zhi)
-    for ((d,c) <- descs zip cols) {
-      d match {
-        case "id" => ss.id = c // atom index, using Fortran indexing convention
-        case "type" => ss.typ = c
-        case "x" => ss.x = c
-        case "y" => ss.y = c
-        case "z" => ss.z = c
-        case "ix" => ss.ix = c
-        case "iy" => ss.iy = c
-        case "iz" => ss.iz = c
-        case "vx" => ss.vx = c
-        case "vy" => ss.vy = c
-        case "vz" => ss.vz = c
-        case "q"  => ss.q = c
-        case "fx" => ()
-        case "fy" => ()
-        case "fz" => ()
-      }
-    }
+    else {
+      // loop over each atom, reading each column entry
+      
+      val descs = descLine.split("\\s").drop(2)
+      val cols = Array.ofDim[Double](descs.length, natoms)
+      val vs = Array.ofDim[Double](descs.length)
     
-    ss
+      for (atom <- 0 until natoms) {
+        val cnt = kip.util.Parsing.stringSplitDouble(vs, lines.next())
+        assert(cnt == descs.length)
+        for (value <- 0 until descs.length) {
+          cols(value)(atom) = vs(value)
+        }
+      }
+      
+      // build snapshot object
+      val ss = new Snapshot(time, natoms)
+      ss.lo = Vec3(xlo, ylo, zlo)
+      ss.hi = Vec3(xhi, yhi, zhi)
+      for ((d,c) <- descs zip cols) {
+        d match {
+          case "id" => ss.id = c // atom index, using Fortran indexing convention
+          case "type" => ss.typ = c
+          case "x" => ss.x = c
+          case "y" => ss.y = c
+          case "z" => ss.z = c
+          case "ix" => ss.ix = c
+          case "iy" => ss.iy = c
+          case "iz" => ss.iz = c
+          case "vx" => ss.vx = c
+          case "vy" => ss.vy = c
+          case "vz" => ss.vz = c
+          case "q"  => ss.q = c
+          case "fx" => ()
+          case "fy" => ()
+          case "fz" => ()
+        }
+      }
+    
+      Some(ss)
+    }
   }
   
-  def readLammpsDump(
-    fname: String,
-    process: Snapshot => Option[Snapshot] = Some(_),
-    terminate: Seq[Snapshot] => Boolean = { _ => false }
-  ): Seq[Snapshot] = {
+  def lineIteratorForFile(fname: String): Iterator[String] = {
     val isGZipped = fname.endsWith("gz") || fname.endsWith("gzip")
     val fis = new FileInputStream(fname)
     val gzis = if (isGZipped) new GZIPInputStream(fis) else fis
     val br = new BufferedReader(new InputStreamReader(gzis))
-    val lines = Iterator.continually {
+    Iterator.continually {
       try { br.readLine() } catch {
         case e: java.io.EOFException => {
           System.err.println("Unexpected end of file '"+fname+"'")
@@ -220,14 +230,28 @@ object LammpsParser {
         }
       }
     } takeWhile (_ != null)
-    
+  }
+  
+  def readLammpsDump(
+    fname: String,
+    process: Snapshot => Option[Snapshot] = Some(_),
+    terminate: Seq[Snapshot] => Boolean = { _ => false },
+    skipEvery: Int = 1
+  ): Seq[Snapshot] = {
+    val lines = lineIteratorForFile(fname)
     val snaps = new ArrayBuffer[Snapshot]()
-
+    
     try {
+      var iter = 0
       while (lines.hasNext && !terminate(snaps)) {
-        //if (snaps.length % 100 == 0)
+        //if (iter % 100 == 0)
         //  System.err.println("Reading snapshot "+snaps.length)
-        process(readSnapshot(lines)) foreach { snaps.append(_) }
+        val skip = iter % skipEvery != 0
+        for (s1 <- readSnapshot(lines, skip);
+             s2 <- process(s1)) {
+          snaps.append(s2)
+        }
+        iter += 1
       }
     } catch {
       case e: Exception => {
@@ -253,12 +277,12 @@ object LammpsParser {
     val lines = Source.fromFile(new File(fname)).getLines().buffered.zipWithIndex
     val ret = new ArrayBuffer[(Int, Array[Int])]
     
-    lines.next // Ignore 1st line
-    val nprocs = lines.next._1.split("\\s")(2).toInt // Extract # processors from 2nd line
-    lines.next // Ignore 3rd line
+    lines.next() // Ignore 1st line
+    val nprocs = lines.next()._1.split("\\s")(2).toInt // Extract # processors from 2nd line
+    lines.next() // Ignore 3rd line
     
     while (lines.hasNext) {
-      val (line, id) = lines.next
+      val (line, id) = lines.next()
       val tokens = line.split("\\s").map(_.toInt)
       if (tokens.size == 1+nprocs)
         ret.append((tokens.head, tokens.tail))

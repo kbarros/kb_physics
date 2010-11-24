@@ -17,19 +17,32 @@ object Render {
   
   val nano = new Render {
     def color(snap: Snapshot, atom: Int) = {
-      val q = snap.q(atom) 
-      val qmin = -1
-      val qmax = 1
-      // interpolating value in [0,1]
-      val x = ((q - qmin) / (qmax - qmin)).toFloat
-      // color gradient between red and blue
-      new Color(x, 0f, 1f-x)
+      if (snap.q == null) {
+        snap.typ(atom).toInt match {
+          case 1 => null // surface patch
+          case 2 => Color.red // core particles
+          case 3 => Color.blue // salt counterions
+          case 4 => Color.green // salt coion
+        }
+      }
+      else {
+        val q = snap.q(atom) 
+        val qmin = -0.01
+        val qmax = 0.01
+        
+        // map charge linearly to range [0, 1]
+        val x = (q - qmin) / (qmax - qmin)
+        
+        // color gradient between red and blue
+        def saturate(x: Double) = math.min(math.max(x, 0d), 1d).toFloat
+        new Color(saturate(x), 0f, saturate(1-x))
+      }
     }
     
     def radius(snap: Snapshot, atom: Int) = {
       snap.typ(atom).toInt match {
-        case 1 => 0.2 // surface patch
-        case 2 => 0.5 // core particles
+        case 1 => 0.16 // surface patch
+        case 2 => 3.5 // core particles
         case 3 => 0.5 // salt counterions
         case 4 => 0.5 // salt coion
       }
@@ -56,12 +69,15 @@ abstract class Render {
 object MolViz {
   def main(args: Array[String]) {
     // interpreter()
-    val file = "/Users/kbarros/dev/repo/projects/dielectric/cylinder.L20/dump.dat"
+    // val file = "/Users/kbarros/dev/repo/projects/dielectric/cylinder.L20/dump.dat"
+    // val file = "/Users/kbarros/dev/repo/projects/dielectric/u6b/n100_v0.05_qr1_b400_p0_k1/dump2-0.gz"
+    val file = "/Users/kbarros/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz"
+    // val file = "/Users/kbarros/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz"
     interpreter(("molviz", makeMolviz(file)))
   }
   
   def makeMolviz(file: String): MolViz = {
-    val snaps = time(LammpsParser.readLammpsDump(file), "Reading '%s'".format(file))
+    val snaps = time(LammpsParser.readLammpsDump(file, skipEvery=100), "Reading '%s'".format(file))
     time(new MolViz(snaps, Render.nano), "Creating MolViz")
   }
   
@@ -99,7 +115,7 @@ object MolViz {
   }
 }
 
-class MolViz(snaps: Seq[Snapshot], render: Render) {
+class MolViz(val snaps: Seq[Snapshot], render: Render) {
   var idx: Int = 0
   
   val (frame, scene) = {
