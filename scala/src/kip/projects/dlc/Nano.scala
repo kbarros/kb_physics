@@ -163,7 +163,7 @@ object Nano {
   }
 
 
-  def go(tmin:Int, tmax:Int, dr: Double, rmax: Double, dtheta: Double) {
+  def go(tmin:Int, tmax:Int, dr: Double, rmax: Double, dtheta: Double, readEvery: Int) {
     // discard unused arrays to save space; filter by time
     def process(s: Snapshot) = {
       if (s.time > tmin) {
@@ -183,11 +183,11 @@ object Nano {
     def terminate(snaps: Seq[Snapshot]): Boolean = {
       snaps.lastOption.map(_.time > tmax).getOrElse(false)
     }
-    val snaps1 = time(LammpsParser.readLammpsDump("dump1-0.gz", process, terminate), "Reading dump1.gz")
-    val snaps2 = time(LammpsParser.readLammpsDump("dump2-0.gz", process, terminate), "Reading dump2.gz")
+    val snaps1 = time(LammpsParser.readLammpsDump("dump1-0.gz", process, terminate, readEvery), "Reading dump1.gz")
+    val snaps2 = time(LammpsParser.readLammpsDump("dump2-0.gz", process, terminate, readEvery), "Reading dump2.gz")
     time(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")), "Weaving thermo")
+    println("Processing "+snaps1.size+" of "+(snaps1.size*readEvery)+" snapshots")
     println("Average temperature = "+averageTemperature(snaps1))
-    println("Processing "+snaps1.size+" snapshots")
     
     writeCorrelationFunctions(snaps1, snaps2, dr, rmax)
     writeAngleHistogram(snaps1, dtheta=dtheta)
@@ -220,6 +220,7 @@ object Nano {
        tmax=params("tmax").toInt,
        dr=params("dr").toDouble,
        rmax=params("rmax").toDouble,
-       dtheta=params("dtheta").toDouble)
+       dtheta=params("dtheta").toDouble,
+       readEvery=params("readEvery").toInt)
   }
 }
