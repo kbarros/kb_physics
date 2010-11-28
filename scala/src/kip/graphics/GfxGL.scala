@@ -29,6 +29,10 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   val FONT_HEIGHT = 13 // pixels
 
   
+  def ortho2dPixels() {
+    ortho2d(Bounds3d(Vec3(0,0,0), Vec3(pixWidth,pixHeight,0)))
+  }
+  
   def ortho2d(bds: Bounds3d) {
     gl.glDisable(GL.GL_DEPTH_TEST)
     gl.glDisable(GL.GL_COLOR_MATERIAL)

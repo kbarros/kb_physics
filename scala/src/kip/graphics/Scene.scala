@@ -43,12 +43,6 @@ abstract class Scene {
   
   def drawContent(gfx: GfxGL)
   
-  // def invokeInSwing(f: => Unit) {
-  //   java.awt.EventQueue.invokeAndWait(new Runnable {
-  //     def run() = f
-  //   })
-  // }
-  
   def triggerRepaint() {
     canvas.repaint()
   }

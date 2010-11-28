@@ -236,7 +236,7 @@ object LammpsParser {
     fname: String,
     process: Snapshot => Option[Snapshot] = Some(_),
     terminate: Seq[Snapshot] => Boolean = { _ => false },
-    skipEvery: Int = 1
+    readEvery: Int = 1
   ): Seq[Snapshot] = {
     val lines = lineIteratorForFile(fname)
     val snaps = new ArrayBuffer[Snapshot]()
@@ -246,7 +246,7 @@ object LammpsParser {
       while (lines.hasNext && !terminate(snaps)) {
         //if (iter % 100 == 0)
         //  System.err.println("Reading snapshot "+snaps.length)
-        val skip = iter % skipEvery != 0
+        val skip = iter % readEvery != 0
         for (s1 <- readSnapshot(lines, skip);
              s2 <- process(s1)) {
           snaps.append(s2)
