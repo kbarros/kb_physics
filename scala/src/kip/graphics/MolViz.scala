@@ -44,8 +44,8 @@ object RenderProperties {
     
     def radius(snap: Snapshot, atom: Int) = {
       snap.typ(atom).toInt match {
-        case 1 => 0.16 // surface patch
-        case 2 => 3.5 // core particles
+        case 1 => 0.0 + 0.5 // surface patch
+        case 2 => 3.5 - 0.5 // core particles
         case 3 => 0.5 // salt counterions
         case 4 => 0.5 // salt coion
       }
@@ -53,7 +53,7 @@ object RenderProperties {
     
     def sphereRes(snap: Snapshot, atom: Int) = {
       snap.typ(atom).toInt match {
-        case 1 => 1 // surface patch
+        case 1 => 2 // surface patch
         case 2 => 3 // core particles
         case 3 => 3 // salt counterions
         case 4 => 3 // salt coion
@@ -71,11 +71,13 @@ abstract class RenderProperties {
 
 object MolViz {
   def main(args: Array[String]) {
+    val home = System.getProperty("user.home")
     // interpreter()
-    // val (file, readEvery) = ("/Users/kbarros/dev/repo/projects/dielectric/cylinder.L20/dump.dat", 1)
-    // val (file, readEvery) = ("/Users/kbarros/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz", 100)
-    // val (file, readEvery) = ("/Users/kbarros/Desktop/dlc-data/n100_v0.05_qr1_b400_p0_k1/dump2-0.gz", 10)
-    val (file, readEvery) = ("/Users/kbarros/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 100)
+    // val (file, readEvery) = (home+"/dev/repo/projects/dielectric/cylinder.L20/dump.dat", 1)
+    // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz", 100)
+    // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p0_k1/dump2-0.gz", 10)
+    // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 100)
+    val (file, readEvery) = (home+"/Desktop/dlc-data/extra/n100_v0.05_qr1_b400_p372_k10/dump3-0.gz", 1)
     interpreter(("molviz", makeMolviz(file, readEvery)))
   }
   
@@ -101,7 +103,8 @@ object MolViz {
     val repl = new scala.tools.nsc.InterpreterLoop(None, output)
     val settings = new scala.tools.nsc.Settings
     settings.usejavacp.value = true
-    settings.classpath.value = "/Users/kbarros/dev/repo/scala/target/scala_2.8.1.RC3/classes"
+    val home = System.getProperty("user.home")
+    settings.classpath.value = home+"/dev/repo/scala/target/scala_2.8.1/classes"
     repl.settings = settings
     repl.createInterpreter()
     val varStr = bindings.unzip._1.mkString("[",",","]")
