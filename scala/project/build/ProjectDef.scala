@@ -38,7 +38,7 @@ TOOL_CLASSPATH="%s"
 RUN_CLASSPATH="%s"
 SCALA_HOME="%s"
 JAVA_LIBRARY_PATH="%s"
-exec "${JAVACMD:=java}" $JAVA_OPTS -cp "$TOOL_CLASSPATH" -Dscala.home="$SCALA_HOME" -Denv.emacs="$EMACS" -Djava.library.path="$JAVA_LIBRARY_PATH" scala.tools.nsc.MainGenericRunner -cp "$RUN_CLASSPATH" "$@"
+exec "${JAVACMD:=java}" $JAVA_OPTS -cp "$TOOL_CLASSPATH" -Dscala.home="$SCALA_HOME" -Dscala.class.path="$RUN_CLASSPATH" -Denv.emacs="$EMACS" -Djava.library.path="$JAVA_LIBRARY_PATH" scala.tools.nsc.MainGenericRunner -cp "$RUN_CLASSPATH" "$@"
 """.format(toolClasspathStr, runClasspathStr, scalaHomeStr, javaLibraryPath)
     val targetFile = ("target"/"bin"/"sbt-scala").asFile
     FileUtilities.write(targetFile, scalaRunner, log)

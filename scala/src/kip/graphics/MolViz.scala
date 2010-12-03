@@ -77,7 +77,7 @@ object MolViz {
     // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz", 100)
     // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p0_k1/dump2-0.gz", 10)
     // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 100)
-    val (file, readEvery) = (home+"/Desktop/dlc-data/extra/n100_v0.05_qr1_b400_p372_k10/dump3-0.gz", 1)
+    val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1-1/dump3.dat", 1)
     interpreter(("molviz", makeMolviz(file, readEvery)))
   }
   
@@ -103,8 +103,7 @@ object MolViz {
     val repl = new scala.tools.nsc.InterpreterLoop(None, output)
     val settings = new scala.tools.nsc.Settings
     settings.usejavacp.value = true
-    val home = System.getProperty("user.home")
-    settings.classpath.value = home+"/dev/repo/scala/target/scala_2.8.1/classes"
+    settings.classpath.value = System.getProperty("scala.class.path")
     repl.settings = settings
     repl.createInterpreter()
     val varStr = bindings.unzip._1.mkString("[",",","]")
