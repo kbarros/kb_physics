@@ -1,6 +1,8 @@
 import sbt._
 
-class ProjectDef(info: ProjectInfo) extends DefaultProject(info) with JoglProject {
+class ProjectDef(info: ProjectInfo) extends DefaultProject(info) with JoglProject with AkkaProject {
+  val AkkaRepo = "Akka Repository" at "http://scalablesolutions.se/akka/repository"
+  
   val json = "com.twitter" % "json" % "2.1.3"
   
   override def compileOptions: Seq[CompileOption] = Deprecation :: Unchecked :: Nil
