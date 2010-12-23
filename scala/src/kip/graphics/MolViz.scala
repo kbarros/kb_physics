@@ -71,13 +71,18 @@ abstract class RenderProperties {
 
 object MolViz {
   def main(args: Array[String]) {
-    val home = System.getProperty("user.home")
-    // interpreter()
-    // val (file, readEvery) = (home+"/dev/repo/projects/dielectric/cylinder.L20/dump.dat", 1)
-    // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz", 100)
-    // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p0_k1/dump2-0.gz", 10)
-    // val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 100)
-    val (file, readEvery) = (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1-1/dump3.dat", 1)
+    val (file, readEvery) = if (args.size > 0) {
+      (args(0).toString, args(1).toInt)
+    }
+    else {
+      val home = System.getProperty("user.home")
+      // interpreter()
+      // (home+"/dev/repo/projects/dielectric/cylinder.L20/dump.dat", 1)
+      // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz", 100)
+      // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p0_k1/dump2-0.gz", 10)
+      // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 100)
+      (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1-1/dump3.dat", 1)
+    }
     interpreter(("molviz", makeMolviz(file, readEvery)))
   }
   
