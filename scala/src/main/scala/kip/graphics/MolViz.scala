@@ -2,6 +2,7 @@ package kip.graphics
 
 import kip.util.{Snapshot, LammpsParser}
 import kip.util.Util.time
+import kip.util.Interpreter
 import kip.math.{Vec3}
 
 import java.awt.{BorderLayout, Color, Frame, FileDialog}
@@ -83,7 +84,7 @@ object MolViz {
       // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 100)
       (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k0.1-1/dump3.dat", 1)
     }
-    interpreter(("molviz", makeMolviz(file, readEvery)))
+    Interpreter.start(("molviz", makeMolviz(file, readEvery)))
   }
   
   def makeMolviz(file: String, readEvery: Int): MolViz = {
@@ -101,27 +102,6 @@ object MolViz {
       makeMolviz(d.getDirectory() + file, readEvery=1)
     else
       null
-  }
-
-  def interpreter(bindings: (String, Any)*) {
-    val output = new java.io.PrintWriter(new java.io.OutputStreamWriter(Console.out))
-    val repl = new scala.tools.nsc.InterpreterLoop(None, output)
-    val settings = new scala.tools.nsc.Settings
-    settings.usejavacp.value = true
-    settings.classpath.value = System.getProperty("scala.class.path")
-    repl.settings = settings
-    repl.createInterpreter()
-    val varStr = bindings.unzip._1.mkString("[",",","]")
-    time(bindings.foreach{ case (k,v) => repl.injectOne(k, v) }, "Binding values "+varStr)
-    repl.in = scala.tools.nsc.interpreter.InteractiveReader.createDefault(repl.interpreter)
-    try {
-      // it is broken on startup; go ahead and exit
-      if (repl.interpreter.reporter.hasErrors) return
-      repl.printWelcome()
-      repl.repl()
-    } finally {
-      repl.closeInterpreter()
-    }
   }
 }
 

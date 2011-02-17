@@ -1,11 +1,9 @@
 (
 
-:server-root "~/installs/ensime/dist"
-
 :use-sbt t
-:sbt-compile-conf "compile"
-:sbt-runtime-conf "compile"
-:sources ("src/")
+
+;; :sbt-compile-conf "compile"
+;; :sbt-runtime-conf "compile" ;; JOGL package can go to non-standard location
 
 :project-package "kip"
 :debug-class "kip.graphics.Plot"

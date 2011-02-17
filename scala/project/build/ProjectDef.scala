@@ -6,8 +6,8 @@ class ProjectDef(info: ProjectInfo) extends DefaultProject(info) with JoglProjec
   override def compileOptions: Seq[CompileOption] = Deprecation :: Unchecked :: Nil
   
   // non-standard source directories
-  override def mainScalaSourcePath = "src" // default = src/main/scala
-  override def mainJavaSourcePath = "src-java" // default = src/main/java
+  // override def mainScalaSourcePath = "src" // default = src/main/scala
+  // override def mainJavaSourcePath = "src-java" // default = src/main/java
 
   // needed for Jogl dependencies
   val javaLibraryPath = Path.makeString(Seq(managedDependencyPath / "compile"))
