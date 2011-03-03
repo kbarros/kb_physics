@@ -61,6 +61,38 @@ object RenderProperties {
       }
     }
   }
+
+  val spherepoint = new RenderProperties {
+    def color(snap: Snapshot, atom: Int) = {
+      val q = snap.q(atom)
+      val qmin = -0.01
+      val qmax = 0.01
+        
+      // map charge linearly to range [0, 1]
+      val x = (q - qmin) / (qmax - qmin)
+      
+      // color gradient between red and blue
+      def saturate(x: Double) = math.min(math.max(x, 0d), 1d).toFloat
+      new Color(saturate(x), 0f, saturate(1-x))
+    }
+    
+    def radius(snap: Snapshot, atom: Int) = {
+      snap.typ(atom).toInt match {
+        case 1 => 0.0 + 0.1 // surface patch
+        case 2 => 1.0 - 0.1 // core particles
+        case 4 => 0.1       // salt coion
+      }
+    }
+    
+    def sphereRes(snap: Snapshot, atom: Int) = {
+      snap.typ(atom).toInt match {
+        case 1 => 2 // surface patch
+        case 2 => 3 // core particles
+        case 4 => 3 // salt coion
+      }
+    }
+  }
+
 }
 
 abstract class RenderProperties {
@@ -89,7 +121,7 @@ object MolViz {
   
   def makeMolviz(file: String, readEvery: Int): MolViz = {
     val snaps = time(LammpsParser.readLammpsDump(file, readEvery=readEvery), "Reading '%s'".format(file))
-    time(new MolViz(snaps, RenderProperties.nano), "Creating MolViz")
+    time(new MolViz(snaps, RenderProperties.spherepoint), "Creating MolViz")
   }
   
   def load(): MolViz = {
@@ -111,7 +143,8 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
   val scene = new Scene() {
     def drawContent(gfx: GfxGL) {
       val snap = snaps(idx)
-      val bds = Bounds3d(snap.lo, snap.hi) // Box size depends on idx
+//      val bds = Bounds3d(snap.lo, snap.hi) // Box size depends on idx
+      val bds = Bounds3d(Vec3(-1,-1,-1), Vec3(3,3,3))
       gfx.perspective3d(bds, rotation, translation*(bds.hi-bds.lo).norm)
       gfx.setColor(Color.GREEN)
       gfx.drawCuboid(bds)
@@ -119,6 +152,7 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
         val pos = Vec3(snap.x(i), snap.y(i), snap.z(i))
         gfx.setColor(render.color(snap, i))
         gfx.drawSphere(pos, render.radius(snap, i), render.sphereRes(snap, i))
+//        println("drawing %f %f %f r=%f".format(pos.x, pos.y, pos.z, render.radius(snap,i)))
       }
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)
