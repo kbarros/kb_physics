@@ -1,5 +1,10 @@
 package kip.math
 
+
+object Vec3 {
+  val zero = Vec3(0,0,0)
+}
+
 case class Vec3(x: Double, y: Double, z: Double) {
   import Math._
   

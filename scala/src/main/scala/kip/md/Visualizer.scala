@@ -7,24 +7,23 @@ import kip.graphics.{Scene, Bounds3d, GfxGL}
 import kip.math.{Vec3, Quaternion}
 import kip.util.Interpreter
 
-case class Appearance(radius: Double, color: Color, sphereRes: Int = 2)
-case class Particle(pt: Pt, appear: Appearance)
-
-
 object Visualizer {
+  case class Sphere(pt: Vec3, radius: Double, color: Color, resolution: Int = 2)
+  
   def main(args: Array[String]) {
     val viz = new Visualizer()
-    viz.setParticles(Seq(Particle(new Pt {var x=0.2; var y=0.8; var z=1.0}, Appearance(0.02, Color.RED))))
+    viz.setParticles(Seq(Visualizer.Sphere(Vec3(0.2, 0.8, 1.0), 0.02, Color.RED)))
     Interpreter.start(("molviz", viz))
   }
 }
 
+
 class Visualizer {
   
-  var particles = Seq[Particle]()
+  var particles = Seq[Visualizer.Sphere]()
   var bds = Bounds3d(Vec3(0,0,0), Vec3(1,1,1))
   
-  def setParticles(particles: Seq[Particle]) {
+  def setParticles(particles: Seq[Visualizer.Sphere]) {
     this.particles = particles
   }
 
@@ -38,8 +37,8 @@ class Visualizer {
       gfx.setColor(Color.GREEN)
       gfx.drawCuboid(bds)
       for (p <- particles) {
-        gfx.setColor(p.appear.color)
-        gfx.drawSphere(p.pt.toVec, p.appear.radius, p.appear.sphereRes)
+        gfx.setColor(p.color)
+        gfx.drawSphere(p.pt, p.radius, p.resolution)
       }
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)
