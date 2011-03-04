@@ -7,6 +7,11 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object PointGrid2d {
+  trait Pt {
+    var x, y: Double
+    def toVec = Vec3(x, y, 0)
+  }
+  
   def periodicOffset(L: Double, dx: Double) = {
     if (dx >  L/2)
       dx-L
@@ -17,7 +22,7 @@ object PointGrid2d {
   }
 }
 
-class PointGrid2d[T <: Pt](L: Double, cols: Int, periodic: Boolean) {
+class PointGrid2d[T <: PointGrid2d.Pt](val L: Double, val cols: Int, val periodic: Boolean) {
   private var _dx = L / cols
   private val _cells: Array[ArrayBuffer[T]] = Array.fill(cols*cols) { new ArrayBuffer[T]() }
   private val tempArray = new ArrayBuffer[T]()
@@ -33,7 +38,7 @@ class PointGrid2d[T <: Pt](L: Double, cols: Int, periodic: Boolean) {
       _cells(pointToIndex(p.x, p.y)) += p
   }
   
-  def pointOffsetsWithinRange(p: Pt, R: Double): ArrayBuffer[T] = {
+  def pointOffsetsWithinRange(p: PointGrid2d.Pt, R: Double): ArrayBuffer[T] = {
     val imax = (R/_dx+1.0).toInt
     if (2*imax+1 > cols)
       return pointOffsetsWithinRangeSlow(p, R)
@@ -83,7 +88,7 @@ class PointGrid2d[T <: Pt](L: Double, cols: Int, periodic: Boolean) {
   }
   
   
-  def pointOffsetsWithinRangeSlow(p: Pt, R: Double): ArrayBuffer[T] = {
+  def pointOffsetsWithinRangeSlow(p: PointGrid2d.Pt, R: Double): ArrayBuffer[T] = {
     val ret = new ArrayBuffer[T]()
     
     for (i <- 0 until points.length) {
