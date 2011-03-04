@@ -4,7 +4,7 @@ import java.awt.{BorderLayout, Frame, Color}
 import java.awt.event.{WindowAdapter, WindowEvent, MouseEvent}
 import javax.swing.{JPanel, BorderFactory}
 import javax.swing.event.{MouseInputAdapter, MouseInputListener}
-import javax.media.opengl.{GL, GLAutoDrawable, GLCanvas, GLEventListener}
+import javax.media.opengl.{GL, GLAutoDrawable, GLCanvas, GLEventListener, GLJPanel, GLCapabilities}
 import kip.math.{Vec3, Quaternion}
 
 
@@ -32,6 +32,7 @@ trait DragHandler extends MouseInputAdapter {
   def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent)
 }
 
+
 /**
  *
  */
@@ -47,8 +48,11 @@ abstract class Scene {
     canvas.repaint()
   }
   
-  def initialize(): (GLCanvas, JPanel) = {
-    val canvas = new GLCanvas()
+  def initialize(): (GLJPanel, JPanel) = {
+    // val canvas = new GLCanvas()
+    val capabilities = new GLCapabilities();
+    val canvas = new GLJPanel(capabilities);
+
     val mouse = new DragHandler {
       def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent) {
         val dpp = 0.003 // dimensionless displacement per pixel
@@ -104,4 +108,3 @@ abstract class Scene {
   }
 
 }
-

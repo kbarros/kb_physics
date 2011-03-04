@@ -90,8 +90,8 @@ class PointGrid2d[T <: Pt](L: Double, cols: Int, periodic: Boolean) {
       var dx = p.x - points(i).x
       var dy = p.y - points(i).y
       if (periodic) {
-        dx = PointGrid2D.periodicOffset(L, dx)
-        dy = PointGrid2D.periodicOffset(L, dy)
+        dx = PointGrid2d.periodicOffset(L, dx)
+        dy = PointGrid2d.periodicOffset(L, dy)
       }
       if (dx*dx + dy*dy < R*R)
         ret += points(i)
