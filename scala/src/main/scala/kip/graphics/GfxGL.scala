@@ -218,7 +218,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   
   def initializeLights() {
     gl.glEnable(GL.GL_LIGHT1)
-    gl.glLightfv(GL.GL_LIGHT1, GL.GL_AMBIENT,  Array(0.2f,0.2f,0.2f,0.2f), 0)
+    gl.glLightfv(GL.GL_LIGHT1, GL.GL_AMBIENT,  Array(0.5f,0.5f,0.5f,0.2f), 0)
     gl.glLightfv(GL.GL_LIGHT1, GL.GL_DIFFUSE,  Array(0.9f,0.9f,0.9f,0.9f), 0)
     gl.glLightfv(GL.GL_LIGHT1, GL.GL_POSITION, Array(1,0.5f,1,0), 0)
   }
