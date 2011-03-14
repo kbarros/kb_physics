@@ -25,10 +25,12 @@ class Visualizer {
   
   def setParticles(particles: Seq[Visualizer.Sphere]) {
     this.particles = particles
+    scene.triggerRepaint()
   }
 
   def setBounds(bds: Bounds3d) {
     this.bds = bds;
+    scene.triggerRepaint()
   }
 
   val scene = new Scene() {
