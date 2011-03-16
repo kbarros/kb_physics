@@ -235,4 +235,13 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
     idx = i
     scene.triggerRepaint()
   }
+
+  def animate(molviz: MolViz) {
+    for (i <- 500 until 2000) {
+      molviz.goto(i)
+      val comp = molviz.scene.canvas
+      val im = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
+      kip.graphics.Utilities.writeImage(im, "/Users/kbarros/Desktop/images/im"+i+".png")
+    }
+  }
 }

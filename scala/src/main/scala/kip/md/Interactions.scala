@@ -41,6 +41,10 @@ trait Interaction3 {
 trait PairInteraction extends Interaction2 {
 
   override def potential(a: Atom, bint: T, b: Atom): Double = {
+    if (a.idx == b.idx) {
+      println("Error: Atoms %s and %s have the same index".format(a, b))
+    }
+    
     if (a.idx < b.idx) {
       val r2 = sqr(b.x-a.x) + sqr(b.y-a.y) + sqr(b.z-a.z)
       if (r2 < sqr(cutoff(bint))) pairPotential(a, bint, b) else 0
@@ -49,6 +53,10 @@ trait PairInteraction extends Interaction2 {
   }
   
   override def force(a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
+    if (a.idx == b.idx) {
+      println("Error: Atoms %s and %s have the same index".format(a, b))
+    }
+    
     if (a.idx < b.idx) {
       val r2 = sqr(b.x-a.x) + sqr(b.y-a.y) + sqr(b.z-a.z)
       if (r2 < sqr(cutoff(bint))) {

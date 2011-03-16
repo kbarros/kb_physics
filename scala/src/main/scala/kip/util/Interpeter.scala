@@ -12,7 +12,6 @@ object Interpreter {
     repl.settings = settings
     repl.createInterpreter()
     val varStr = bindings.unzip._1.mkString("[",",","]")
-    bindings.foreach{ case (k,v) => println(k.toString + v.toString) }
     time(bindings.foreach{ case (k,v) => repl.injectOne(k, v) }, "Binding values "+varStr)
     repl.in = scala.tools.nsc.interpreter.InteractiveReader.createDefault(repl.interpreter)
     try {

@@ -1,21 +1,23 @@
 package kip.md
 
 import scala.math._
+import kip.math._
 import kip.math.Math._
+import kip.graphics._
 
 
-class World {
+class World() {
   var periodic = true
   var temperature = 1.0
   var integrator = new Verlet(this, 0.1)
-
+  var atomsPerCell = 4
+  
   private var _atoms = Seq[Atom]()
   private var _grid: PointGrid2d[Atom] = _
   private var _globalCutoff: Double = _
   
   def setSize(Lx: Double, Ly: Double) {
-    val atomsPerCell = 4
-    val cols = sqrt(_atoms.size / atomsPerCell).toInt
+    val cols = max(1, sqrt(_atoms.size / atomsPerCell).toInt)
     _grid = new PointGrid2d(Lx, cols, periodic)
   }
   
@@ -57,12 +59,14 @@ class World {
   def potentialEnergy: Double = {
     var ret = 0.0
     _grid.loadPoints(_atoms)
+    
     for (a1 <- _atoms) {
       ret += a1.potential1
 
       for (a2 <- _grid.pointOffsetsWithinRange(a1, _globalCutoff)) {
-	if (a1 != a2)
+	if (a1 != a2) {
 	  ret += a1.potential2(a2)
+        }
       }
     }
     ret
@@ -107,11 +111,14 @@ class World {
   
   
   def step() {
+    println("pot: " + potentialEnergy)
+    
     integrator.step()
   }
   
-  def visualize(viz: Visualizer, disp: Atom => Visualizer.Sphere) {
-    viz.setParticles(_atoms.map(disp(_)))
+  def visualize(viz: Visualizer, radius: Atom => Double, color: Atom => java.awt.Color) {
+    viz.setBounds(Bounds3d(Vec3.zero, Vec3(_grid.L, _grid.L, 1)))
+    viz.setParticles(_atoms.map(a => Visualizer.Sphere(a.pos, radius(a), color(a))))
   }
 }
 

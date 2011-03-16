@@ -23,6 +23,8 @@ object PointGrid2d {
 }
 
 class PointGrid2d[T <: PointGrid2d.Pt](val L: Double, val cols: Int, val periodic: Boolean) {
+  assert (cols > 0)
+  
   private var _dx = L / cols
   private val _cells: Array[ArrayBuffer[T]] = Array.fill(cols*cols) { new ArrayBuffer[T]() }
   private val tempArray = new ArrayBuffer[T]()
@@ -97,7 +99,7 @@ class PointGrid2d[T <: PointGrid2d.Pt](val L: Double, val cols: Int, val periodi
       if (periodic) {
         dx = PointGrid2d.periodicOffset(L, dx)
         dy = PointGrid2d.periodicOffset(L, dy)
-      } 
+      }
       if (dx*dx + dy*dy < R*R)
         ret += points(i)
     }

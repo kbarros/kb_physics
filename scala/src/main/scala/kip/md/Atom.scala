@@ -10,14 +10,15 @@ case class Tag(
 )
 
 
-abstract class Atom extends PointGrid2d.Pt {
-  val idx: Int
-  var mass: Double
-  var x, y, z: Double
-  var wx, wy, wz: Int // wrapping indices
-  var vx, vy, vz: Double // velocity
-  var fx, fy, fz: Double // instantaneous force
-  var tag: Tag
+class Atom(var idx: Int, var tag: Tag, var mass: Double = 1d,
+           var x: Double = 0, var y: Double = 0, var z: Double = 0) extends PointGrid2d.Pt {
+  var wx, wy, wz: Int = 0 // wrapping indices
+  var vx, vy, vz: Double = 0 // velocity
+  var fx, fy, fz: Double = 0 // instantaneous force
+  
+  override def toString() = "Atom(%d, %s)".format(idx, pos)
+  
+  def pos = Vec3(x, y, z)
   
   def potential1: Double = {
     var ret = 0.0
