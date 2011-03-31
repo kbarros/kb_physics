@@ -2,13 +2,27 @@ package kip.md
 
 
 trait Integrator {
-  def step(dt: Double)
+  def dt: Double
+
+/*  
+  def run(time: Double): Double = {
+    var i = 0
+    while (i*dt < time) {
+      singleStep()
+      i += 1
+    }
+    i*dt
+  }
+  */
+  
+  def singleStep(world: World)
+  
 }
 
 
-class Verlet(world: World) extends Integrator {
+class Verlet(var dt: Double, var exclude: Set[Atom] = Set()) extends Integrator {
   
-  def step(dt: Double) {
+  def singleStep(world: World) {
     for (a <- world.atoms) {
       a.x += dt*a.vx
       a.y += dt*a.vy

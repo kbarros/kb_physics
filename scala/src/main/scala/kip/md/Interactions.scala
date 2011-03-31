@@ -5,8 +5,8 @@ import kip.math.Math._
 
 
 trait Interaction1 {
-  def potential(a: Atom): Double
-  def force(a: Atom): Vec3
+  def potential(world: World, a: Atom): Double
+  def force(world: World, a: Atom): Vec3
 }
 
 trait Interaction2 {
@@ -15,10 +15,10 @@ trait Interaction2 {
   def compatibleInteractions(is: Traversable[Interaction2]): Traversable[T]
   
   /** Returns potential for atoms (a,b) using interactions (this, bint) */
-  def potential(a: Atom, bint: T, b: Atom): Double
+  def potential(world: World, a: Atom, bint: T, b: Atom): Double
   
   /** Returns forces on atoms (a, b) using interactions (this, bint) */
-  def force(a: Atom, bint: T, b: Atom): (Vec3, Vec3)
+  def force(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3)
   
   def cutoff(that: T): Double
 }
@@ -28,9 +28,9 @@ trait Interaction3 {
 
   def compatibleInteractions(is: Traversable[Interaction3]): Traversable[T]
   
-  def potential(a: Atom, bint: T, b: Atom, cint:T, c: Atom): Double
+  def potential(world: World, a: Atom, bint: T, b: Atom, cint:T, c: Atom): Double
   
-  def force(a: Atom, bint: T, b: Atom, cint: T, c: Atom): (Vec3, Vec3, Vec3)
+  def force(world: World, a: Atom, bint: T, b: Atom, cint: T, c: Atom): (Vec3, Vec3, Vec3)
   
   def cutoff(that1: T, that2: T): Double
 }
@@ -39,21 +39,19 @@ trait Interaction3 {
 // If potential and forces are symmetric between objects, then it is only necessary
 // to calculate each once per pair
 trait PairInteraction extends Interaction2 {
-  val world: World
-  
-  override def potential(a: Atom, bint: T, b: Atom): Double = {
+  override def potential(world: World, a: Atom, bint: T, b: Atom): Double = {
     if (a.idx == b.idx) {
       println("Error: Atoms %s and %s have the same index".format(a, b))
     }
     
     if (a.idx < b.idx) {
       val r2 = world.volume.distance2(a, b)
-      if (r2 < sqr(cutoff(bint))) pairPotential(a, bint, b) else 0
+      if (r2 < sqr(cutoff(bint))) pairPotential(world, a, bint, b) else 0
     }
     else 0
   }
   
-  override def force(a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
+  override def force(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
     if (a.idx == b.idx) {
       println("Error: Atoms %s and %s have the same index".format(a, b))
     }
@@ -61,7 +59,7 @@ trait PairInteraction extends Interaction2 {
     if (a.idx < b.idx) {
       val r2 = world.volume.distance2(a, b)
       if (r2 < sqr(cutoff(bint))) {
-        pairForce(a, bint, b) 
+        pairForce(world, a, bint, b) 
       }
       else (Vec3.zero, Vec3.zero)
     }
@@ -69,9 +67,9 @@ trait PairInteraction extends Interaction2 {
   }
 
 
-  def pairPotential(a: Atom, bint: T, b: Atom): Double
+  def pairPotential(world: World, a: Atom, bint: T, b: Atom): Double
   
-  def pairForce(a: Atom, bint: T, b: Atom): (Vec3, Vec3)
+  def pairForce(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3)
 }
 
 
@@ -89,8 +87,7 @@ object LennardJones {
 }
 
 
-class LennardJones(val world: World,
-                   val eps:Double=1.0,
+class LennardJones(val eps:Double=1.0,
                    val sigma:Double=1.0,
                    val sigma_cutoff:Double=3.0) extends PairInteraction {
   type T = LennardJones
@@ -101,8 +98,8 @@ class LennardJones(val world: World,
     is.collect { case i: LennardJones => i }
   }
   
-  override def pairPotential(a: Atom, bint: T, b: Atom): Double = {
-    val r2 = sqr(b.x-a.x) + sqr(b.y-a.y) + sqr(b.z-a.z)
+  override def pairPotential(world: World, a: Atom, bint: T, b: Atom): Double = {
+    val r2 = world.volume.distance2(a, b)
     val sig = sigma_effective(bint)
     val a2 = sqr(sig)/r2;
     val a6 = a2*a2*a2
@@ -110,8 +107,8 @@ class LennardJones(val world: World,
     4*eps*((a12 - a6) - LennardJones.shift)
   }
   
-  override def pairForce(a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
-    val d = Vec3(b.x-a.x, b.y-a.y, b.z-a.z)
+  override def pairForce(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
+    val d = world.volume.displacement(a, b)
     val r2 = d.norm2
     val sig = sigma_effective(bint)
     val a2 = sqr(sig)/r2
