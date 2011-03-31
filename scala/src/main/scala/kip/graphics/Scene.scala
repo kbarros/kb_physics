@@ -1,6 +1,6 @@
 package kip.graphics
 
-import java.awt.{BorderLayout, Frame, Color}
+import java.awt.{Component, BorderLayout, Frame, Color}
 import java.awt.event.{WindowAdapter, WindowEvent, MouseEvent}
 import javax.swing.{JPanel, BorderFactory}
 import javax.swing.event.{MouseInputAdapter, MouseInputListener}
@@ -48,10 +48,10 @@ abstract class Scene {
     canvas.repaint()
   }
   
-  def initialize(): (GLJPanel, JPanel) = {
-    // val canvas = new GLCanvas()
-    val capabilities = new GLCapabilities();
-    val canvas = new GLJPanel(capabilities);
+  def initialize(): (Component, JPanel) = {
+    // val capabilities = new GLCapabilities();
+    val canvas = new GLCanvas()
+    // val canvas = new GLJPanel();
 
     val mouse = new DragHandler {
       def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent) {

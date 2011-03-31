@@ -2,22 +2,19 @@ package kip.md
 
 
 trait Integrator {
-  var dt: Double
-  def step()
-  def time: Double
+  def step(dt: Double)
 }
 
 
-class Verlet(world: World, var dt: Double) extends Integrator {
-  var time = 0.0
+class Verlet(world: World) extends Integrator {
   
-  def step() {
+  def step(dt: Double) {
     for (a <- world.atoms) {
       a.x += dt*a.vx
       a.y += dt*a.vy
       a.z += dt*a.vz
     }
-    world.wrapAtoms()
+    world.volume.wrapAtoms(world.atoms)
     
     world.calculateForces()
     
@@ -27,7 +24,5 @@ class Verlet(world: World, var dt: Double) extends Integrator {
       a.vy += dt*a.fy/m
       a.vz += dt*a.fz/m
     }
-    
-    time += dt
   }
 }

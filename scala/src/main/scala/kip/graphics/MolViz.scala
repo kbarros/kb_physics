@@ -8,7 +8,7 @@ import kip.math.{Vec3}
 import java.awt.{BorderLayout, Color, Frame, FileDialog}
 import java.awt.event.{WindowAdapter, WindowEvent}
 
-import javax.swing.{JPanel, JSlider}
+import javax.swing.{JPanel, JSlider, JComponent}
 import javax.swing.event.{ChangeEvent, ChangeListener}
 
 
@@ -239,9 +239,12 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
   def animate(molviz: MolViz) {
     for (i <- 500 until 2000) {
       molviz.goto(i)
-      val comp = molviz.scene.canvas
-      val im = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
-      kip.graphics.Utilities.writeImage(im, "/Users/kbarros/Desktop/images/im"+i+".png")
+      molviz.scene.canvas match {
+        case comp: JComponent => {
+          val im = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
+          kip.graphics.Utilities.writeImage(im, "/Users/kbarros/Desktop/images/im"+i+".png")
+        }
+      }
     }
   }
 }

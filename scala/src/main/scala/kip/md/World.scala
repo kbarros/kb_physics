@@ -7,63 +7,29 @@ import kip.graphics._
 
 
 class World() {
-  var periodic = true
-  var temperature = 1.0
-  var integrator = new Verlet(this, 0.1)
+  var integrator = new Verlet(this)
   var atomsPerCell = 4
+  var volume: Volume = new Cuboid(1, 1, 1)
+  var time = 0.0
+  var dt = 0.1
   
-  private var _atoms = Seq[Atom]()
-  private var _grid: PointGrid2d[Atom] = _
-  private var _globalCutoff: Double = _
-  
-  def setSize(Lx: Double, Ly: Double) {
-    val cols = max(1, sqrt(_atoms.size / atomsPerCell).toInt)
-    _grid = new PointGrid2d(Lx, cols, periodic)
-  }
-  
-  def atoms = _atoms
-  def atoms_= (atoms: Seq[Atom]) {
-    _atoms = atoms
-    _globalCutoff = {
+  var atoms = Seq[Atom]()
+
+  def globalCutoff() = {
       val is = atoms.toSet[Atom].flatMap(_.tag.inter2)
       println("Num interactions = "+is.size)
       (for (i <- is; j <- i.compatibleInteractions(is)) yield i.cutoff(j)).max
-    }
   }
-  
-  def wrapAtoms() {
-    def wrap(x: Double, wx: Int): (Double, Int) = {
-      val L = _grid.L
-      if (x >= 2*L || x < -L) {
-        println("Simulation exploded")
-        exit(-1)
-      }
-      if (x >= _grid.L) (x-L, wx+1)
-      else if (x < 0) (x+L, wx-1)
-      else (x, wx)
-    }
-    
-    for (a <- _atoms) {
-      val (x, wx) = wrap(a.x, a.wx)
-      val (y, wy) = wrap(a.y, a.wy)
-      val (z, wz) = wrap(a.z, a.wz)
-      a.x = x
-      a.y = y
-      a.z = z
-      a.wx = wx
-      a.wy = wy
-      a.wz = wz
-    }
-  }
-  
+
   def potentialEnergy: Double = {
     var ret = 0.0
-    _grid.loadPoints(_atoms)
+    val cutoff = globalCutoff()
+    volume.buildCells(atomsPerCell, atoms)
     
-    for (a1 <- _atoms) {
+    for (a1 <- atoms) {
       ret += a1.potential1
 
-      for (a2 <- _grid.pointOffsetsWithinRange(a1, _globalCutoff)) {
+      for (a2 <- volume.atomsInRange(a1, cutoff)) {
 	if (a1 != a2) {
 	  ret += a1.potential2(a2)
         }
@@ -74,28 +40,29 @@ class World() {
   
   def kineticEnergy: Double = {
     var ret = 0.0
-    for (a <- _atoms) {
+    for (a <- atoms) {
       ret += 0.5*a.mass*(sqr(a.vx) + sqr(a.vy) + sqr(a.vz))
     }
     ret
   }
   
   def calculateForces() {
-    for (a <- _atoms) {
+    for (a <- atoms) {
       a.fx = 0
       a.fy = 0
       a.fz = 0
     }
-    
-    _grid.loadPoints(_atoms)
-    for (a1 <- _atoms) {
+    val cutoff = globalCutoff()
+    volume.buildCells(atomsPerCell, atoms)
+
+    for (a1 <- atoms) {
       
       val f = a1.force1
       a1.fx += f.x
       a1.fy += f.y
       a1.fz += f.z
       
-      for (a2 <- _grid.pointOffsetsWithinRange(a1, _globalCutoff)) {
+      for (a2 <- volume.atomsInRange(a1, cutoff)) {
         if (a1 != a2) {
 	  val (f1, f2) = a1.force2(a2)
           a1.fx += f1.x
@@ -112,13 +79,13 @@ class World() {
   
   def step() {
     println("pot: " + potentialEnergy)
-    
-    integrator.step()
+    integrator.step(dt)
+    time += dt
   }
   
   def visualize(viz: Visualizer, radius: Atom => Double, color: Atom => java.awt.Color) {
-    viz.setBounds(Bounds3d(Vec3.zero, Vec3(_grid.L, _grid.L, 1)))
-    viz.setParticles(_atoms.map(a => Visualizer.Sphere(a.pos, radius(a), color(a))))
+    viz.setBounds(volume.bounds)
+    viz.setParticles(atoms.map(a => Visualizer.Sphere(a.pos, radius(a), color(a))))
   }
 }
 

@@ -9,14 +9,7 @@ import kip.util.Interpreter
 
 object Visualizer {
   case class Sphere(pt: Vec3, radius: Double, color: Color, resolution: Int = 2)
-  
-  def main(args: Array[String]) {
-    val viz = new Visualizer()
-    viz.setParticles(Seq(Visualizer.Sphere(Vec3(0.2, 0.8, 1.0), 0.02, Color.RED)))
-    Interpreter.start(("molviz", viz))
-  }
-}
-
+}  
 
 class Visualizer {
   

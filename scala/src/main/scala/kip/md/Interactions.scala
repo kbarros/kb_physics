@@ -39,14 +39,15 @@ trait Interaction3 {
 // If potential and forces are symmetric between objects, then it is only necessary
 // to calculate each once per pair
 trait PairInteraction extends Interaction2 {
-
+  val world: World
+  
   override def potential(a: Atom, bint: T, b: Atom): Double = {
     if (a.idx == b.idx) {
       println("Error: Atoms %s and %s have the same index".format(a, b))
     }
     
     if (a.idx < b.idx) {
-      val r2 = sqr(b.x-a.x) + sqr(b.y-a.y) + sqr(b.z-a.z)
+      val r2 = world.volume.distance2(a, b)
       if (r2 < sqr(cutoff(bint))) pairPotential(a, bint, b) else 0
     }
     else 0
@@ -58,7 +59,7 @@ trait PairInteraction extends Interaction2 {
     }
     
     if (a.idx < b.idx) {
-      val r2 = sqr(b.x-a.x) + sqr(b.y-a.y) + sqr(b.z-a.z)
+      val r2 = world.volume.distance2(a, b)
       if (r2 < sqr(cutoff(bint))) {
         pairForce(a, bint, b) 
       }
@@ -88,7 +89,8 @@ object LennardJones {
 }
 
 
-class LennardJones(val eps:Double=1.0,
+class LennardJones(val world: World,
+                   val eps:Double=1.0,
                    val sigma:Double=1.0,
                    val sigma_cutoff:Double=3.0) extends PairInteraction {
   type T = LennardJones
