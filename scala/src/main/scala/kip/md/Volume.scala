@@ -50,6 +50,11 @@ object Volume {
         a.wx = wx
         a.wy = wy
         a.wz = wz
+        
+        if (!periodic && (wx != 0 || wy != 0 || wz != 0)) {
+          println("Atom <%s> escaped boundary. Exiting.".format(a))
+          exit(-1)
+        }
       }
     }
     
@@ -60,15 +65,10 @@ object Volume {
     def distance2(a: Atom, b: Atom): Double = {
       grid.distance2(a, b)
     }
-
+    
     def buildCells(atomsPerCell: Int, atoms: Seq[Atom]) {
-      assert(false) // need to implement 3d version
-      
-      // nx ny nz = atoms.size / atomsPerCell
-      // nx/ny = lx/ly, etc.
-      val nx = max(1, sqrt((lx/ly) * atoms.size / atomsPerCell).toInt)
-      val ny = max(1, sqrt((ly/lx) * atoms.size / atomsPerCell).toInt)
-      val nz = 
+      val ncells = max(1, atoms.size / atomsPerCell)
+      val (nx, ny, nz) = PointGrid2d.cellDimensions(lx, ly, lz, ncells)
       if (grid.nx != nx || grid.ny != ny)
         grid = new PointGrid2d(lx, ly, nx, ny, periodic)
       grid.loadPoints(atoms)

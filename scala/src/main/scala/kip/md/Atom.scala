@@ -19,6 +19,8 @@ class Atom(var idx: Int, var tag: Tag, var mass: Double = 1d,
   override def toString() = "Atom(%d, %s)".format(idx, pos)
   
   def pos = Vec3(x, y, z)
+
+  // TODO: move this stuff into World, and accumulate force implicitly
   
   def potential1(world: World): Double = {
     var ret = 0.0

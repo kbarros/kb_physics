@@ -13,7 +13,6 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
   
   def globalCutoff() = {
       val is = atoms.toSet[Atom].flatMap(_.tag.inter2)
-      println("Num interactions = "+is.size)
       (for (i <- is; j <- i.compatibleInteractions(is)) yield i.cutoff(j)).max
   }
 
@@ -74,8 +73,6 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
   
   
   def step() {
-    println("atoms" + atoms(0) + " " + atoms(1))
-    println("pot: " + potentialEnergy())
     integrator.singleStep(this)
     time += integrator.dt
   }

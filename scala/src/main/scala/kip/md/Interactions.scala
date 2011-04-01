@@ -1,5 +1,7 @@
 package kip.md
 
+import scala.math._
+
 import kip.math.Vec3
 import kip.math.Math._
 
@@ -75,51 +77,78 @@ trait PairInteraction extends Interaction2 {
 
 // #### LENNARD JONES #####
 
-object LennardJones {
-  val cutoff_sigma = 3 // cutoff in units of sigma
+
+class LennardJones(val eps:Double=1.0,
+                   val sigma_local:Double=1.0,
+                   val scaled_cutoff:Double=3.0) extends PairInteraction {
+  type T = LennardJones
   
   val shift = {
-    val a2 = 1/sqr(cutoff_sigma)
+    val a2 = 1/sqr(scaled_cutoff)
     val a6 = a2*a2*a2
     val a12 = a6*a6
     a12 - a6
   }
-}
-
-
-class LennardJones(val eps:Double=1.0,
-                   val sigma:Double=1.0,
-                   val sigma_cutoff:Double=3.0) extends PairInteraction {
-  type T = LennardJones
   
-  def sigma_effective(that: LennardJones) = (sigma + that.sigma)/2
-
+  def sigma(that: LennardJones) = (sigma_local + that.sigma_local)/2
+  
   override def compatibleInteractions(is: Traversable[Interaction2]): Traversable[LennardJones] = {
     is.collect { case i: LennardJones => i }
   }
   
   override def pairPotential(world: World, a: Atom, bint: T, b: Atom): Double = {
     val r2 = world.volume.distance2(a, b)
-    val sig = sigma_effective(bint)
-    val a2 = sqr(sig)/r2;
+    val a2 = sqr(sigma(bint))/r2;
     val a6 = a2*a2*a2
     val a12 = a6*a6
-    4*eps*((a12 - a6) - LennardJones.shift)
+    4*eps*((a12 - a6) - shift)
   }
   
   override def pairForce(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
     val d = world.volume.displacement(a, b)
     val r2 = d.norm2
-    val sig = sigma_effective(bint)
-    val a2 = sqr(sig)/r2
+    val a2 = sqr(sigma(bint))/r2
     val a6 = a2*a2*a2
     val a12 = a6*a6
-    val f = (24*eps*(a12 - 2*a6)/r2)
-    (d*f, d*(-f))
+    val f = 24*eps*(2*a12 - a6)/r2
+    (d*(-f), d*(f))
   }
 
   override def cutoff(that: LennardJones): Double = {
-    sigma_effective(that) * sigma_cutoff
+    sigma(that) * scaled_cutoff
+  }
+}
+
+
+// #### SOFT #####
+
+
+class PairSoft(val eps:Double=1.0,
+               val sigma_local:Double=1.0) extends PairInteraction {
+  type T = PairSoft
+  
+  def sigma(that: PairSoft) = (sigma_local + that.sigma_local)/2
+  
+  override def compatibleInteractions(is: Traversable[Interaction2]): Traversable[PairSoft] = {
+    is.collect { case i: PairSoft => i }
+  }
+  
+  override def pairPotential(world: World, a: Atom, bint: T, b: Atom): Double = {
+    val r = sqrt(world.volume.distance2(a, b))
+    val alpha = Pi/sigma(bint)
+    cos(alpha*r)+1
+  }
+  
+  override def pairForce(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
+    val d = world.volume.displacement(a, b)
+    val r = d.norm
+    val alpha = Pi/sigma(bint)
+    val f = alpha*sin(alpha*r)
+    (d*(-f/r), d*(f/r))
+  }
+
+  override def cutoff(that: PairSoft): Double = {
+    sigma(that)
   }
 }
 
