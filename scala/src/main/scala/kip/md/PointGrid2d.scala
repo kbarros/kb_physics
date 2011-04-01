@@ -89,25 +89,32 @@ class PointGrid2d[T <: PointGrid2d.Pt](val Lx: Double, val Ly: Double, val nx: I
     for (p <- points)
       _cells(pointToIndex(p.x, p.y)) += p
   }
-
-  def distance2(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
-    var dx = p2.x - p1.x
-    var dy = p2.y - p1.y
-    if (periodic) {
-      dx = PointGrid2d.periodicOffset(Lx, dx)
-      dy = PointGrid2d.periodicOffset(Ly, dy)
-    }
-    dx*dx + dy*dy
+  
+  def deltaX(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+    if (periodic)
+      PointGrid2d.periodicOffset(Lx, p2.x - p1.x)
+    else
+      p2.x - p1.x
   }
 
-  def displacement(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Vec3 = {
-    var dx = p2.x - p1.x
-    var dy = p2.y - p1.y
-    if (periodic) {
-      dx = PointGrid2d.periodicOffset(Lx, dx)
-      dy = PointGrid2d.periodicOffset(Ly, dy)
-    }
-    Vec3(dx, dy, 0)
+  def deltaY(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+    if (periodic)
+      PointGrid2d.periodicOffset(Ly, p2.y - p1.y)
+    else
+      p2.y - p1.y
+  }
+
+  def deltaZ(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+    // if (periodic) {
+    //   PointGrid2d.periodicOffset(Lz, p2.z - p1.z)
+    // }
+    // else
+    //   p2.z - p1.z
+    0
+  }
+  
+  def distance2(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+    sqr(deltaX(p1,p2)) + sqr(deltaY(p1,p2))
   }
   
   def pointOffsetsWithinRange(p: PointGrid2d.Pt, R: Double): ArrayBuffer[T] = {

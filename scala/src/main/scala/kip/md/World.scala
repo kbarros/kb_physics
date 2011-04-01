@@ -22,11 +22,16 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
     volume.buildCells(atomsPerCell, atoms)
     
     for (a1 <- atoms) {
-      ret += a1.potential1(this)
-
+      for (i <- a1.tag.inter1) {
+        ret += i.potential(this, a1)
+      }
+      
       for (a2 <- volume.atomsInRange(a1, cutoff)) {
 	if (a1 != a2) {
-	  ret += a1.potential2(this, a2)
+          for (i1 <- a1.tag.inter2;
+               i2 <- i1.compatibleInteractions(a2.tag.inter2)) {
+            ret += i1.potential(this, a1, i2, a2)
+          }
         }
       }
     }
@@ -51,21 +56,16 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
     volume.buildCells(atomsPerCell, atoms)
 
     for (a1 <- atoms) {
-      
-      val f = a1.force1(this)
-      a1.fx += f.x
-      a1.fy += f.y
-      a1.fz += f.z
+      for (i1 <- a1.tag.inter1) {
+        i1.accumForce(this, a1)
+      }
       
       for (a2 <- volume.atomsInRange(a1, cutoff)) {
         if (a1 != a2) {
-	  val (f1, f2) = a1.force2(this, a2)
-          a1.fx += f1.x
-          a1.fy += f1.y
-          a1.fz += f1.z
-          a2.fx += f2.x
-          a2.fy += f2.y
-          a2.fz += f2.z
+          for (i1 <- a1.tag.inter2;
+               i2 <- i1.compatibleInteractions(a2.tag.inter2)) {
+            i1.accumForce(this, a1, i2, a2)
+          }
         }
       }
     }

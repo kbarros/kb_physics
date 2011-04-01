@@ -8,7 +8,7 @@ import kip.math.Math._
 
 trait Interaction1 {
   def potential(world: World, a: Atom): Double
-  def force(world: World, a: Atom): Vec3
+  def accumForce(world: World, a: Atom)
 }
 
 trait Interaction2 {
@@ -16,11 +16,11 @@ trait Interaction2 {
   
   def compatibleInteractions(is: Traversable[Interaction2]): Traversable[T]
   
-  /** Returns potential for atoms (a,b) using interactions (this, bint) */
+  /** Returns potential for the ordered pair of atoms (a,b) */
   def potential(world: World, a: Atom, bint: T, b: Atom): Double
   
-  /** Returns forces on atoms (a, b) using interactions (this, bint) */
-  def force(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3)
+  /** Accumulates the force for the ordered per of atoms (a, b) */
+  def accumForce(world: World, a: Atom, bint: T, b: Atom)
   
   def cutoff(that: T): Double
 }
@@ -32,7 +32,7 @@ trait Interaction3 {
   
   def potential(world: World, a: Atom, bint: T, b: Atom, cint:T, c: Atom): Double
   
-  def force(world: World, a: Atom, bint: T, b: Atom, cint: T, c: Atom): (Vec3, Vec3, Vec3)
+  def accumForce(world: World, a: Atom, bint: T, b: Atom, cint: T, c: Atom)
   
   def cutoff(that1: T, that2: T): Double
 }
@@ -53,7 +53,7 @@ trait PairInteraction extends Interaction2 {
     else 0
   }
   
-  override def force(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
+  override def accumForce(world: World, a: Atom, bint: T, b: Atom) {
     if (a.idx == b.idx) {
       println("Error: Atoms %s and %s have the same index".format(a, b))
     }
@@ -61,17 +61,15 @@ trait PairInteraction extends Interaction2 {
     if (a.idx < b.idx) {
       val r2 = world.volume.distance2(a, b)
       if (r2 < sqr(cutoff(bint))) {
-        pairForce(world, a, bint, b) 
+        accumPairForce(world, a, bint, b) 
       }
-      else (Vec3.zero, Vec3.zero)
     }
-    else (Vec3.zero, Vec3.zero)
   }
 
 
   def pairPotential(world: World, a: Atom, bint: T, b: Atom): Double
   
-  def pairForce(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3)
+  def accumPairForce(world: World, a: Atom, bint: T, b: Atom)
 }
 
 
@@ -104,14 +102,21 @@ class LennardJones(val eps:Double=1.0,
     4*eps*((a12 - a6) - shift)
   }
   
-  override def pairForce(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
-    val d = world.volume.displacement(a, b)
-    val r2 = d.norm2
+  override def accumPairForce(world: World, a: Atom, bint: T, b: Atom) {
+    val dx = world.volume.deltaX(a, b)
+    val dy = world.volume.deltaY(a, b)
+    val dz = world.volume.deltaZ(a, b)
+    val r2 = dx*dx + dy*dy + dz*dz
     val a2 = sqr(sigma(bint))/r2
     val a6 = a2*a2*a2
     val a12 = a6*a6
     val f = 24*eps*(2*a12 - a6)/r2
-    (d*(-f), d*(f))
+    a.fx -= f*dx
+    a.fy -= f*dy
+    a.fz -= f*dz
+    b.fx += f*dx
+    b.fy += f*dy
+    b.fz += f*dz
   }
 
   override def cutoff(that: LennardJones): Double = {
@@ -139,12 +144,19 @@ class PairSoft(val eps:Double=1.0,
     cos(alpha*r)+1
   }
   
-  override def pairForce(world: World, a: Atom, bint: T, b: Atom): (Vec3, Vec3) = {
-    val d = world.volume.displacement(a, b)
-    val r = d.norm
+  override def accumPairForce(world: World, a: Atom, bint: T, b: Atom) {
+    val dx = world.volume.deltaX(a, b)
+    val dy = world.volume.deltaY(a, b)
+    val dz = world.volume.deltaZ(a, b)
+    val r = sqrt(dx*dx + dy*dy + dz*dz)
     val alpha = Pi/sigma(bint)
     val f = alpha*sin(alpha*r)
-    (d*(-f/r), d*(f/r))
+    a.fx -= f*dx/r
+    a.fy -= f*dy/r
+    a.fz -= f*dz/r
+    b.fx += f*dx/r
+    b.fy += f*dy/r
+    b.fz += f*dz/r
   }
 
   override def cutoff(that: PairSoft): Double = {

@@ -10,8 +10,11 @@ import scala.collection.mutable.ArrayBuffer
 trait Volume {
   def bounds: Bounds3d
   def wrapAtoms(atoms: Seq[Atom])
-  def displacement(a: Atom, b: Atom): Vec3
-  def distance2(a: Atom, b: Atom): Double
+  def deltaX(a: Atom, b: Atom): Double
+  def deltaY(a: Atom, b: Atom): Double
+  def deltaZ(a: Atom, b: Atom): Double
+  def displacement(a: Atom, b: Atom): Vec3 = Vec3(deltaX(a,b), deltaY(a,b), deltaZ(a,b))
+  def distance2(a: Atom, b: Atom): Double = sqr(deltaX(a,b)) + sqr(deltaY(a,b)) + sqr(deltaZ(a,b))
   def buildCells(atomsPerCell: Int, atoms: Seq[Atom])
   def atomsInRange(a: Atom, range: Double): ArrayBuffer[Atom]
 }
@@ -58,13 +61,9 @@ object Volume {
       }
     }
     
-    def displacement(a: Atom, b: Atom): Vec3 = {
-      grid.displacement(a, b)
-    }
-
-    def distance2(a: Atom, b: Atom): Double = {
-      grid.distance2(a, b)
-    }
+    def deltaX(p1: Atom, p2: Atom): Double = grid.deltaX(p1, p2)
+    def deltaY(p1: Atom, p2: Atom): Double = grid.deltaY(p1, p2)
+    def deltaZ(p1: Atom, p2: Atom): Double = grid.deltaZ(p1, p2)
     
     def buildCells(atomsPerCell: Int, atoms: Seq[Atom]) {
       val ncells = max(1, atoms.size / atomsPerCell)
