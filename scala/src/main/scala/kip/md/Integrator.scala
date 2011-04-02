@@ -1,6 +1,9 @@
 package kip.md
 
 
+import math._
+
+
 trait Integrator {
   def dt: Double
 
@@ -20,7 +23,16 @@ trait Integrator {
 }
 
 
-class Verlet(var dt: Double, var exclude: Set[Atom] = Set()) extends Integrator {
+object Verlet {
+  sealed abstract class Thermostat
+  case object ThermoNone extends Thermostat
+  case class ThermoLangevin(temp: Double, damp: Double, rand: util.Random) extends Thermostat
+  case class ThermoRescaling(temp: Double) extends Thermostat
+}
+
+class Verlet(var dt: Double,
+             var exclude: Set[Atom] = Set(),
+             var thermostat: Verlet.Thermostat = Verlet.ThermoNone) extends Integrator {
   
   def singleStep(world: World) {
     for (a <- world.atoms) {
@@ -31,6 +43,19 @@ class Verlet(var dt: Double, var exclude: Set[Atom] = Set()) extends Integrator 
     world.volume.wrapAtoms(world.atoms)
     
     world.calculateForces()
+    
+    thermostat match {
+      case Verlet.ThermoNone => ()
+      case Verlet.ThermoLangevin(temp, damp, rand) => {
+        for (a <- world.atoms) {
+          val drag = a.mass / damp
+          a.fx += - drag*a.vx + sqrt(temp*drag/dt)*rand.nextGaussian()
+          a.fy += - drag*a.vy + sqrt(temp*drag/dt)*rand.nextGaussian()
+          a.fz += - drag*a.vz + sqrt(temp*drag/dt)*rand.nextGaussian()
+        }
+      }
+      case Verlet.ThermoRescaling(temp) => ()
+    }
     
     for (a <- world.atoms) {
       val m = a.mass
