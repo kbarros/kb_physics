@@ -15,17 +15,23 @@ class Visualizer {
   
   var particles = Seq[Visualizer.Sphere]()
   var bds = Bounds3d(Vec3(0,0,0), Vec3(1,1,1))
-  
-  def setParticles(particles: Seq[Visualizer.Sphere]) {
-    this.particles = particles
-    scene.triggerRepaint()
-  }
+  var rasterString = ""
 
   def setBounds(bds: Bounds3d) {
     this.bds = bds;
     scene.triggerRepaint()
   }
-
+  
+  def setParticles(particles: Seq[Visualizer.Sphere]) {
+    this.particles = particles
+    scene.triggerRepaint()
+  }
+  
+  def setString(str: String) {
+    rasterString = str
+    scene.triggerRepaint()
+  }
+  
   val scene = new Scene() {
     def drawContent(gfx: GfxGL) {
       gfx.perspective3d(bds, rotation, translation*(bds.hi-bds.lo).norm)
@@ -38,7 +44,7 @@ class Visualizer {
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)
       val pixOffset = 4
-      gfx.rasterString("%d atoms".format(particles.size), pixOffset, pixOffset)
+      gfx.rasterString(rasterString, pixOffset, pixOffset)
     }
   }
   
@@ -68,7 +74,7 @@ class Visualizer {
     // panel.add(buildSlider(), BorderLayout.SOUTH);
     
     frame.add(panel)
-    frame.setSize(300, 300)
+    frame.setSize(600, 600)
     frame.setVisible(true)
     frame
   }
