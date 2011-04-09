@@ -46,6 +46,11 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
     ret
   }
   
+  def temperature(): Double = {
+    val dof = 3.0 * atoms.size
+    (2.0/dof) * kineticEnergy()
+  }
+  
   def calculateForces() {
     for (a <- atoms) {
       a.fx = 0
@@ -72,13 +77,10 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
   }
   
   
-  def step() {
-    integrator.singleStep(this)
-    time += integrator.dt
-  }
-  
-  def visualize(viz: Visualizer, radius: Atom => Double, color: Atom => java.awt.Color) {
-    viz.setBounds(volume.bounds)
-    viz.setParticles(atoms.map(a => Visualizer.Sphere(a.pos, radius(a), color(a))))
+  def step(steps: Int) {
+    for (i <- 0 until steps) {
+      integrator.singleStep(this)
+      time += integrator.dt
+    }
   }
 }

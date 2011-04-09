@@ -49,9 +49,9 @@ class Verlet(var dt: Double,
       case Verlet.ThermoLangevin(temp, damp, rand) => {
         for (a <- world.atoms) {
           val drag = a.mass / damp
-          a.fx += - drag*a.vx + sqrt(temp*drag/dt)*rand.nextGaussian()
-          a.fy += - drag*a.vy + sqrt(temp*drag/dt)*rand.nextGaussian()
-          a.fz += - drag*a.vz + sqrt(temp*drag/dt)*rand.nextGaussian()
+          a.fx += - drag*a.vx + sqrt(2*temp*drag/dt)*rand.nextGaussian()
+          a.fy += - drag*a.vy + sqrt(2*temp*drag/dt)*rand.nextGaussian()
+          a.fz += - drag*a.vz + sqrt(2*temp*drag/dt)*rand.nextGaussian()
         }
       }
       case Verlet.ThermoRescaling(temp) => ()
