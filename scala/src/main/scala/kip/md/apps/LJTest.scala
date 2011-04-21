@@ -54,6 +54,17 @@ object LJTest {
   }
   
   
+  def writeConfig(file: String, atoms: Seq[Atom]) {
+    import java.io._
+    val writer = new BufferedWriter(new FileWriter(file))
+    writer.write(atoms.size+"\n")
+    for (a <- atoms) {
+      writer.write("%f %f %f\n".format(a.x, a.y, a.z))
+    }
+    writer.close();
+  }
+  
+  
   def test2() {
     
     def initGrid(x0: Double, y0: Double, r: Double, rows: Int, cols: Int, atoms: Seq[Atom]) = {
@@ -74,7 +85,7 @@ object LJTest {
     
     val rand = new util.Random(0)
     
-    val thermoDamp = Verlet.ThermoLangevin(temp=0, damp=1, rand)
+    val thermoDamp = Verlet.ThermoLangevin(temp=0, damp=10, rand)
     val integrator = new Verlet(dt=0.01, thermostat=thermoDamp)
     
     val sizeAsymmetry = 1.1
@@ -105,15 +116,18 @@ object LJTest {
     val viz = new Visualizer()
     viz.setBounds(volume.bounds)
     
-    for (i <- 0 until 1000) {
-//      world.step(10)
+    //writeConfig("before.txt", atoms)
+    
+    for (i <- 0 until 500) {
+      world.step(10)
       viz.setString("Atoms=%d, Temp=%f".format(atoms.size, world.temperature()))
       viz.setParticles(atoms.map { a =>
         val (c, r) = if (a.tag==tag1) (Color.BLUE, r1) else (Color.RED, r2)
         Visualizer.Sphere(a.pos, radius=r, color=c)
       })
     }
-
+    
+    //writeConfig("after.txt", atoms)
     // kip.util.Util.time(for (i <- 0 until 500) world.step(), "500 steps")
   }
 
