@@ -207,7 +207,7 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
     slider.addChangeListener(new ChangeListener() {
       def stateChanged(e: ChangeEvent) {
 	goto(slider.getValue)
-	scene.triggerRepaint()
+	scene.display()
       }
     })
     slider
@@ -233,18 +233,17 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
   
   def goto(i: Int) {
     idx = i
-    scene.triggerRepaint()
+    scene.display()
   }
 
   def animate(molviz: MolViz) {
     for (i <- 500 until 2000) {
       molviz.goto(i)
-      molviz.scene.canvas match {
-        case comp: JComponent => {
-          val im = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
-          kip.graphics.Utilities.writeImage(im, "/Users/kbarros/Desktop/images/im"+i+".png")
-        }
-      }
+
+      // val im = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
+      val im = scene.captureImage()
+      javax.imageio.ImageIO.write(im, "PNG", new java.io.File("foo6.png"))
+
     }
   }
 }

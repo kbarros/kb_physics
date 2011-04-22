@@ -18,18 +18,19 @@ class Visualizer {
   var rasterString = ""
 
   def setBounds(bds: Bounds3d) {
-    this.bds = bds;
-    scene.triggerRepaint()
+    this.bds = bds
   }
   
   def setParticles(particles: Seq[Visualizer.Sphere]) {
     this.particles = particles
-    scene.triggerRepaint()
   }
   
   def setString(str: String) {
     rasterString = str
-    scene.triggerRepaint()
+  }
+  
+  def display() {
+    scene.display()
   }
   
   val scene = new Scene() {
