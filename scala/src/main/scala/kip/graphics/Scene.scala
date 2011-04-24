@@ -39,16 +39,25 @@ trait DragHandler extends MouseInputAdapter {
 abstract class Scene {
   var rotation: Quaternion = Quaternion.fromAxisAngle(0, 0, 0)
   var translation: Vec3 = Vec3(0, 0, 0)
+  private var _capturingNow: Boolean = false
+  private var _captureImage: java.awt.image.BufferedImage = _
   
   val (canvas, component) = initialize()
   
   def drawContent(gfx: GfxGL)
   
-  def triggerRepaint() {
-    canvas.repaint()
+  def captureImage(): java.awt.image.BufferedImage = {
+    _capturingNow = true
+    _captureImage = null
+    canvas.display()
+    _captureImage
   }
   
-  def initialize(): (Component, JPanel) = {
+  def display() {
+    canvas.display()
+  }
+  
+  def initialize(): (GLCanvas, JPanel) = {
     // val capabilities = new GLCapabilities();
     val canvas = new GLCanvas()
     // val canvas = new GLJPanel();
@@ -92,8 +101,13 @@ abstract class Scene {
         gl.glShadeModel(GL.GL_SMOOTH)
         drawContent(new GfxGL(drawable))
         gl.glFlush()
+        
+        if (_capturingNow) {
+          _capturingNow = false
+          _captureImage = com.sun.opengl.util.Screenshot.readToBufferedImage(canvas.getWidth(), canvas.getHeight())
+        }
       }
-
+      
       def displayChanged(drawable: GLAutoDrawable, modeChanged: Boolean, deviceChanged: Boolean) {
       }
     })
