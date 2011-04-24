@@ -73,7 +73,55 @@ trait PairInteraction extends Interaction2 {
 }
 
 
-// #### LENNARD JONES #####
+// ##### LJ WALL #####
+
+class LJWall(val pos: Vec3,
+             val normal: Vec3,
+             val eps: Double = 1.0,
+             val sigma: Double = 1.0,
+             val scaled_cutoff: Double = pow(2, 1./6)) extends Interaction1 {
+  
+  val shift = {
+    val a2 = 1/sqr(scaled_cutoff)
+    val a6 = a2*a2*a2
+    val a12 = a6*a6
+    a12 - a6
+  }
+  
+  def potential(world: World, a: Atom): Double = {
+    val delta = (pos - a.pos).projectOnto(normal)
+    val r2 = delta.norm2
+    if (r2 < sqr(cutoff)) {
+      val a2 = sqr(sigma)/r2;
+      val a6 = a2*a2*a2
+      val a12 = a6*a6
+      4*eps*((a12 - a6) - shift)
+    } else {
+      0
+    }
+  }
+  
+  def accumForce(world: World, a: Atom) {
+    val delta = (pos - a.pos).projectOnto(normal)
+    val r2 = delta.norm2
+    if (r2 < sqr(cutoff)) {
+      val a2 = sqr(sigma)/r2
+      val a6 = a2*a2*a2
+      val a12 = a6*a6
+      val f = 24*eps*(2*a12 - a6)/r2
+      a.fx -= f*delta.x
+      a.fy -= f*delta.y
+      a.fz -= f*delta.z
+    }
+  }
+
+  def cutoff: Double = {
+    sigma * scaled_cutoff
+  }
+}
+
+
+// ##### LENNARD JONES #####
 
 
 class LennardJones(val eps:Double=1.0,
@@ -125,7 +173,7 @@ class LennardJones(val eps:Double=1.0,
 }
 
 
-// #### SOFT #####
+// ##### SOFT #####
 
 
 class PairSoft(val eps:Double=1.0,
