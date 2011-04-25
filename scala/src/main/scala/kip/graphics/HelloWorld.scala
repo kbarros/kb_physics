@@ -33,7 +33,13 @@ class HelloWorld extends GLEventListener {
     gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f)
     gl.glClear(GL.GL_COLOR_BUFFER_BIT);
     gl.glColor3f(1.0f, 1.0f, 1.0f)
+
+    gl.glMatrixMode(GL.GL_PROJECTION)
+    gl.glLoadIdentity()
     gl.glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0)
+    gl.glMatrixMode(GL.GL_MODELVIEW)
+    gl.glLoadIdentity()
+    
     gl.glBegin(GL.GL_POLYGON)
     gl.glVertex2f(-0.5f, -0.5f)
     gl.glVertex2f(-0.5f, 0.5f)
