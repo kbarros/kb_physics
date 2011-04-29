@@ -55,13 +55,17 @@ class GridView {
       gl.glMatrixMode(GL.GL_MODELVIEW)
       gl.glLoadIdentity()
       
+      // allocate and bind texture
       gl.glEnable(GL.GL_TEXTURE_2D)
-      
-      // load texture
       val textures = new Array[Int](1)
       gl.glGenTextures(textures.size, textures, 0);
       gl.glBindTexture(GL.GL_TEXTURE_2D, textures(0))
+      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
+      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+      gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+      gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
       
+      // load texture
       val buffer = BufferUtil.newByteBuffer(4*data.a.size);
       buffer.clear()
       for (i <- 0 until data.a.size) {
@@ -72,12 +76,6 @@ class GridView {
         buffer.put(c.getAlpha().toByte)
       }
       buffer.flip()
-      
-      // TODO: move this init stuff up
-      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
-      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
-      gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
-      gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
       gl.glTexImage2D(
         GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, data.w, data.h,
         0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, buffer)
