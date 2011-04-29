@@ -65,6 +65,38 @@ object LJTest {
   }
   
   
+  def neighborList(atoms: Seq[Atom], volume: Volume, cutoff: Double): Seq[Set[Int]] = {
+    import kip.util.QHull._
+    
+    val tris = {
+      val pos = new Array[Double](atoms.size*2)
+      for (i <- 0 until atoms.size) {
+        pos(2*i+0) = atoms(i).x
+        pos(2*i+1) = atoms(i).y
+      }
+      delaunay2d(Vertices2d(pos))
+    }
+    
+    val links = Array.fill(atoms.size+1)(Set[Int]())
+    for (t <- 0 until tris.size/3) {
+      def addEdge(i: Int, j: Int) {
+        if (volume.distance2(atoms(i), atoms(j)) < cutoff*cutoff) {
+          links(i) += j
+          links(j) += i
+        }
+      }
+      val a0 = tris(3*t+0)
+      val a1 = tris(3*t+1)
+      val a2 = tris(3*t+2)
+      addEdge(a0,a1)
+      addEdge(a1,a2)
+      addEdge(a2,a0)
+    }
+
+    links
+  }
+  
+  
   def test2() {
     
     val rand = new util.Random(0)
@@ -148,19 +180,31 @@ object LJTest {
       setInteractions(sizeAsymmetry, wall1pos, wall2pos)
       
       world.step(20)
+      
+      val neighbors = neighborList(atoms, volume, cutoff=1.9)
+      
       viz.setString("Atoms=%d, Temp=%f".format(atoms.size, world.temperature()))
-      viz.setParticles(atoms.map { a =>
-        val (c, r) = if (a.idx < natoms1) (Color.BLUE, r1) else (Color.RED, r2)
+      
+      viz.setParticles(atoms.indices.map { i =>
+        val a = atoms(i)
+        val r = if (i < natoms1) r1 else r2
+        val c = neighbors(i).size match {
+          case 5 => Color.ORANGE
+          case 6 => if (i < natoms1) Color.BLUE else Color.RED
+          case 7 => Color.GREEN
+          case _ => Color.PINK
+        }
         Visualizer.Sphere(a.pos, radius=0.8*r, color=c)
       })
+      
       viz.setWalls(Seq(
         Visualizer.Wall(wall1norm, wall1pos, Color.ORANGE),
         Visualizer.Wall(wall2norm, wall2pos, Color.ORANGE)
       ))
       
       viz.display()
-      
-      javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/foo%d.png".format(i)))
+      // println(i)
+      // javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/foo%d.png".format(i)))
     }
   }
 }
