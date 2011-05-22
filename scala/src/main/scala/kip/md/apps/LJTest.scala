@@ -9,9 +9,9 @@ object LJTest {
     
     
   def main(args: Array[String]) {
-    test2()
+    test3(args.headOption)
   }
-
+  
   def test1() { 
     val L = 30
     val volume = new Volume.Cuboid(L, L, 0, periodic=true)
@@ -203,8 +203,131 @@ object LJTest {
       ))
       
       viz.display()
-      // println(i)
+      
       // javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/foo%d.png".format(i)))
     }
   }
+
+  def test3(dirname: Option[String]) {
+    
+    val rand = new util.Random(0)
+    
+    val thermoDamp = Verlet.ThermoLangevin(temp=0, damp=10, rand)
+    val integrator = new Verlet(dt=0.02, thermostat=thermoDamp)
+    
+
+    val sizeAsymmetryInit = 1.0
+    val r1 = pow(2, 1./6) / 2
+    val r2 = r1 * sizeAsymmetryInit
+
+    val rows1 = 10
+    val cols1 = 80
+    val rows2 = rows1
+    val cols2 = (cols1/sizeAsymmetryInit).toInt
+    
+    val layers = 4
+    val layerWidth = sqrt(3)*(r1*rows1 + r2*rows2)
+    
+    val natoms1 = layers*rows1*cols1
+    val natoms2 = layers*rows2*cols2
+    val atomsPerLayer = cols1*rows1 + cols2*rows2
+    
+    val off = cols1*r1/2
+    
+    // val wall1norm = Vec3(1,0,0)
+    // val wall2norm = Vec3(-1,0,0)
+    // var wall1posInit = Vec3(off-r1,0,0)
+    // var wall2posInit = Vec3(off+2*r1*cols1,0,0)
+
+    val wall1norm = Vec3(0,1,0)
+    val wall2norm = Vec3(0,-1,0)
+    var wall1posInit = Vec3(0, off-r1,0)
+    var wall2posInit = Vec3(0, off+layers*layerWidth, 0)
+    
+    val atoms = IndexedSeq.tabulate(natoms1+natoms2) { i:Int =>
+      new Atom(idx=i, tag=null)
+    }
+    
+    val volume = new Volume.Cuboid(2*r1*cols1+2*off, layers*layerWidth+2*off, 0, periodic=true)
+    val world = new World(volume, atoms, integrator)
+    val viz = new Visualizer()
+    viz.scene.translation = Vec3(0, 0, 0.5) // zoom in for improved movie frames
+    viz.setBounds(volume.bounds)
+    
+    def setInteractions(sizeAsymmetry: Double, wall1pos: Vec3, wall2pos: Vec3) = {
+      val pairlj1 = new LennardJones(eps=1, sigma_local=1, scaled_cutoff=3)
+      val pairlj2 = new LennardJones(eps=1, sigma_local=sizeAsymmetry, scaled_cutoff=3)
+      
+      val wallA1 = new LJWall(pos=wall1pos, normal=wall1norm, sigma=0.5*1)
+      val wallB1 = new LJWall(pos=wall2pos, normal=wall1norm, sigma=0.5*1)
+      val wallA2 = new LJWall(pos=wall1pos, normal=wall2norm, sigma=0.5*sizeAsymmetry)
+      val wallB2 = new LJWall(pos=wall2pos, normal=wall2norm, sigma=0.5*sizeAsymmetry)
+      
+      val tag1 = new Tag(inter1 = Seq(wallA1, wallB1), inter2 = Seq(pairlj1))
+      val tag2 = new Tag(inter1 = Seq(wallA2, wallB2), inter2 = Seq(pairlj2))
+      
+      for (a <- atoms) {
+        a.tag = if (a.idx < natoms1) tag1 else tag2
+      }
+    }
+    
+    def initGrid(x0: Double, y0: Double, r: Double, rows: Int, cols: Int, atoms: Seq[Atom]) = {
+      assert(atoms.size == rows*cols)
+      for (i <- 0 until rows;
+           j <- 0 until cols) {
+        val a = atoms(i*cols + j)
+        a.x = x0 + (i%2)*r + (2*r)*j
+        a.y = y0 + (sqrt(3)*r)*i
+        a.z = 0
+      }
+    }
+    
+    for (layer <- 0 until layers) {
+      initGrid(x0=off, y0=off+layer*layerWidth,
+               r=r1, rows=rows1, cols=cols1, atoms.view(layer*rows1*cols1, (layer+1)*rows1*cols1))
+    }
+    for (layer <- 0 until layers) {
+      initGrid(x0=off, y0=off+layer*layerWidth+(sqrt(3)*r1)*rows1,
+               r=r2, rows=rows2, cols=cols2, atoms.view(natoms1+layer*rows2*cols2, natoms1+(layer+1)*rows2*cols2))
+    }
+
+    for (i <- 0 until 1200) {
+      val wallSpeed = 0.02
+      val wallDelta = wallSpeed*world.time
+      val wall1pos = wall1posInit + wall1norm*wallDelta
+      val wall2pos = wall2posInit + wall2norm*wallDelta
+      
+      setInteractions(sizeAsymmetryInit, wall1pos, wall2pos)
+      
+      world.step(20)
+      
+      val neighbors = neighborList(atoms, volume, cutoff=1.9)
+      
+      viz.setString("Atoms=%d, Temp=%f".format(atoms.size, world.temperature()))
+      
+      viz.setParticles(atoms.indices.map { i =>
+        val a = atoms(i)
+        val r = if (i < natoms1) r1 else r2
+        val c = neighbors(i).size match {
+          case 5 => Color.ORANGE
+          case 6 => if (i < natoms1) Color.BLUE else Color.RED
+          case 7 => Color.GREEN
+          case _ => Color.PINK
+        }
+        Visualizer.Sphere(a.pos, radius=0.8*r, color=c)
+      })
+      
+      viz.setWalls(Seq(
+        Visualizer.Wall(wall1norm, wall1pos, Color.ORANGE),
+        Visualizer.Wall(wall2norm, wall2pos, Color.ORANGE)
+      ))
+      
+      viz.display()
+      
+      dirname.foreach { dirname => 
+        javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(dirname+"/snap%d.png".format(i)))
+      }
+    }
+  }
+
 }
