@@ -5,7 +5,7 @@ object StripLammpsLog {
     val (fname: String, minTime: Int) = args match {
       case Array(fname) => (fname, 0)
       case Array(fname, minTime) => (fname, minTime.toInt)
-      case _ => println("Usage: StripLammpsLog filename [minTime]"); exit(1)
+      case _ => println("Usage: StripLammpsLog filename [minTime]"); sys.exit(1)
     }
     
     val thermo: Seq[Thermo] = LammpsParser.readLammpsThermo(fname)

@@ -148,7 +148,7 @@ object MolViz {
       // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10-1/dump3-0.gz", 20)
       (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10-2/dump3-0.gz", 20)
     }
-    Interpreter.start(("molviz", makeMolviz(file, readEvery)))
+    Interpreter.break(List(("molviz", makeMolviz(file, readEvery))))
   }
   
   def makeMolviz(file: String, readEvery: Int): MolViz = {

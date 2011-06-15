@@ -1,14 +1,17 @@
 import sbt._
 
 class ProjectDef(info: ProjectInfo) extends DefaultProject(info) with JoglProject {
+  val scalaToolsSnapshotsRepo = "Scala Tools Snapshots" at "http://scala-tools.org/repo-snapshots/"
+  val scalaNLPRepo = "ScalaNLP" at "http://repo.scalanlp.org/repo/"
+  val ondexRepo = "Ondex" at "http://ondex.rothamsted.bbsrc.ac.uk/nexus/content/groups/public/"
+
+  val jna = "net.java.dev.jna" % "jna" % "3.2.3"
   val json = "com.twitter" % "json" % "2.1.3"
+  val scalala = "org.scalala" %% "scalala" % "1.0.0.RC2-SNAPSHOT"
+  // val scala = "org.scala-lang" % "scala-compiler" % "2.9.0"
   
   override def compileOptions: Seq[CompileOption] = Deprecation :: Unchecked :: Nil
   
-  // non-standard source directories
-  // override def mainScalaSourcePath = "src" // default = src/main/scala
-  // override def mainJavaSourcePath = "src-java" // default = src/main/java
-
   // needed for Jogl dependencies
   val javaLibraryPath = Path.makeString(Seq(managedDependencyPath / "compile"))
   val jvmOptions = Seq("-Djava.library.path="+javaLibraryPath)

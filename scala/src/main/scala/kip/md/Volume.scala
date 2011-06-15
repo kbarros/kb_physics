@@ -35,7 +35,7 @@ object Volume {
         else {
           if (x < -l || x >= 2*l) {
             println("Simulation exploded: coordinate %f outside range [%f, %f]".format(x, -l, 2*l))
-            exit(-1)
+            sys.exit(-1)
           }
           if (x >= l) (x-l, wx+1)
           else if (x < 0) (x+l, wx-1)
@@ -56,7 +56,7 @@ object Volume {
         
         if (!periodic && (wx != 0 || wy != 0 || wz != 0)) {
           println("Atom <%s> escaped boundary. Exiting.".format(a))
-          exit(-1)
+          sys.exit(-1)
         }
       }
     }

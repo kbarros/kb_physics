@@ -6,7 +6,7 @@ case class JsonInspector(tree: Any) {
       case v:Int    => v.toDouble
       case v:Double => v
       case v:BigDecimal => v.toDouble
-      case v:AnyRef => error("Cannot convert class "+v.getClass+" to double")
+      case v:AnyRef => sys.error("Cannot convert class "+v.getClass+" to double")
     }
   }
   

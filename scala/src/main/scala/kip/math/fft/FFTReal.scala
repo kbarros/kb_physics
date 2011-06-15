@@ -29,7 +29,7 @@ object FFTReal {
     val a = Array[Double](1,2,3)
     val b = Array[Double](1,2,1)
     val dst = new Array[Double](3)
-    FFT.convolve(dim, a, b, dst)
+    FFTReal.convolve(dim, a, b, dst)
   }
   
 }
