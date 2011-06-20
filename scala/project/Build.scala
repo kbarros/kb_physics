@@ -11,8 +11,12 @@ object HelloBuild extends Build {
       writer.println(str)
       writer.close()
     }
+    
+    val jarStrs = cp.map(_.data.toString).filter(_.endsWith(".jar"))
+    val ensimeString = jarStrs.map("\""+_+"\"").mkString(":compile-jars("," ",")")
+    writeFile((target / "ensime-classpath").asFile, ensimeString)
+
     val cpString = cp.map(_.data).mkString(":")
-    writeFile((target / "sbt-classpath").asFile, cpString)
     val launchString = """
 CLASSPATH="%s"
 JOGL_LIBRARY_PATH="/Users/kbarros/dev/repo/scala/lib"
