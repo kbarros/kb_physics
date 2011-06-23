@@ -36,9 +36,9 @@ class Verlet(var dt: Double,
   
   def singleStep(world: World) {
     for (a <- world.atoms) {
-      a.x += dt*a.vx
-      a.y += dt*a.vy
-      a.z += dt*a.vz
+      a.pos.x += dt*a.v.x
+      a.pos.y += dt*a.v.y
+      a.pos.z += dt*a.v.z
     }
     world.volume.wrapAtoms(world.atoms)
     
@@ -49,9 +49,9 @@ class Verlet(var dt: Double,
       case Verlet.ThermoLangevin(temp, damp, rand) => {
         for (a <- world.atoms) {
           val drag = a.mass / damp
-          a.fx += - drag*a.vx + sqrt(2*temp*drag/dt)*rand.nextGaussian()
-          a.fy += - drag*a.vy + sqrt(2*temp*drag/dt)*rand.nextGaussian()
-          a.fz += - drag*a.vz + sqrt(2*temp*drag/dt)*rand.nextGaussian()
+          a.f.x += - drag*a.v.x + sqrt(2*temp*drag/dt)*rand.nextGaussian()
+          a.f.y += - drag*a.v.y + sqrt(2*temp*drag/dt)*rand.nextGaussian()
+          a.f.z += - drag*a.v.z + sqrt(2*temp*drag/dt)*rand.nextGaussian()
         }
       }
       case Verlet.ThermoRescaling(temp) => ()
@@ -59,9 +59,9 @@ class Verlet(var dt: Double,
     
     for (a <- world.atoms) {
       val m = a.mass
-      a.vx += dt*a.fx/m
-      a.vy += dt*a.fy/m
-      a.vz += dt*a.fz/m
+      a.v.x += dt*a.f.x/m
+      a.v.y += dt*a.f.y/m
+      a.v.z += dt*a.f.z/m
     }
   }
 }

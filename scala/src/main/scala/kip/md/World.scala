@@ -27,7 +27,7 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
       }
       
       for (a2 <- volume.atomsInRange(a1, cutoff)) {
-	if (a1 != a2) {
+	if (a1.idx < a2.idx) {
           for (i1 <- a1.tag.inter2;
                i2 <- i1.compatibleInteractions(a2.tag.inter2)) {
             ret += i1.potential(this, a1, i2, a2)
@@ -41,7 +41,7 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
   def kineticEnergy(): Double = {
     var ret = 0.0
     for (a <- atoms) {
-      ret += 0.5*a.mass*(sqr(a.vx) + sqr(a.vy) + sqr(a.vz))
+      ret += 0.5*a.mass*(sqr(a.v.x) + sqr(a.v.y) + sqr(a.v.z))
     }
     ret
   }
@@ -51,25 +51,38 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
     (2.0/dof) * kineticEnergy()
   }
   
+  def forceOnObject(inter1: Interaction1): Vec3 = {
+    val f = Vec3.zero.toMutable
+    for (a <- atoms)
+      inter1.accumForce(this, a, f)
+    f
+  }
+  
   def calculateForces() {
-    for (a <- atoms) {
-      a.fx = 0
-      a.fy = 0
-      a.fz = 0
-    }
+    for (a <- atoms)
+      a.f.reset()
     val cutoff = globalCutoff()
     volume.buildCells(atomsPerCell, atoms)
-
+    val f = mutable.Vec3.zero
+    
     for (a1 <- atoms) {
       for (i1 <- a1.tag.inter1) {
-        i1.accumForce(this, a1)
+        i1.accumForce(this, a1, a1.f)
       }
       
       for (a2 <- volume.atomsInRange(a1, cutoff)) {
         if (a1 != a2) {
           for (i1 <- a1.tag.inter2;
                i2 <- i1.compatibleInteractions(a2.tag.inter2)) {
-            i1.accumForce(this, a1, i2, a2)
+            if (!i1.symmetric) {
+              i1.accumForce(this, a1, i2, a2, a1.f)
+            }
+            else if (a1.idx < a2.idx) {
+              f.reset()
+              i1.accumForce(this, a1, i2, a2, f)
+              a1.f += f
+              a2.f -= f
+            }
           }
         }
       }

@@ -44,12 +44,12 @@ object Volume {
       }
       
       for (a <- atoms) {
-        val (x, wx) = wrap(lx, a.x, a.wx)
-        val (y, wy) = wrap(ly, a.y, a.wy)
-        val (z, wz) = wrap(lz, a.z, a.wz)
-        a.x = x
-        a.y = y
-        a.z = z
+        val (x, wx) = wrap(lx, a.pos.x, a.wx)
+        val (y, wy) = wrap(ly, a.pos.y, a.wy)
+        val (z, wz) = wrap(lz, a.pos.z, a.wz)
+        a.pos.x = x
+        a.pos.y = y
+        a.pos.z = z
         a.wx = wx
         a.wy = wy
         a.wz = wz

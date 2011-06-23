@@ -2,17 +2,23 @@ package kip.math
 
 
 object Vec3 {
-  val zero = Vec3(0,0,0)
+  val zero: Vec3 = Vec3(0,0,0)
+  def apply(x: Double, y: Double, z: Double): Vec3 = immutable.Vec3(x,y,z)
 }
 
-case class Vec3(x: Double, y: Double, z: Double) {
+
+trait Vec3 {
   import Math._
+
+  def x: Double
+  def y: Double
+  def z: Double
   
   def norm2: Double = x*x + y*y + z*z
   def norm:  Double = math.sqrt(norm2)
   
   def normalize: Vec3 = this / norm
-  def unary_- :  Vec3 = new Vec3(-x, -y, -z)
+  def unary_- :  Vec3 = Vec3(-x, -y, -z)
   
   def *(a: Double): Vec3 = Vec3(x*a, y*a, z*a)
   def /(a: Double): Vec3 = Vec3(x/a, y/a, z/a)
@@ -33,4 +39,6 @@ case class Vec3(x: Double, y: Double, z: Double) {
     val vp = q.conj * Quaternion.fromVec3(this) * q
     Vec3(vp.x, vp.y, vp.z)
   }
+  
+  def toMutable = mutable.Vec3(x, y, z)
 }

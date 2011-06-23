@@ -1,6 +1,6 @@
 package kip.md
 
-import kip.math.Vec3
+import kip.math.mutable
 
 
 case class Tag(
@@ -11,14 +11,11 @@ case class Tag(
 
 
 class Atom(var idx: Int, var tag: Tag, var mass: Double = 1d,
-           var x: Double = 0, var y: Double = 0, var z: Double = 0) extends PointGrid2d.Pt {
+           val pos: mutable.Vec3 = mutable.Vec3.zero) extends PointGrid2d.Pt {
   var wx, wy, wz: Int = 0 // wrapping indices
-  var vx, vy, vz: Double = 0 // velocity
-  var fx, fy, fz: Double = 0 // instantaneous force
+  val v = mutable.Vec3.zero
+  var f = mutable.Vec3.zero // instantaneous force
   
   override def toString() = "Atom(%d, %s)".format(idx, pos)
-  
-  def pos = Vec3(x, y, z)
-
 }
 

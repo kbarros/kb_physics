@@ -2,7 +2,7 @@ package kip.md.apps
 
 import java.awt._
 import kip.md._
-import kip.math.{Vec3, Quaternion}
+import kip.math.{Vec3, Quaternion, mutable}
 import scala.math._
 
 object LJTest {
@@ -27,7 +27,7 @@ object LJTest {
     val tag2 = new Tag(inter2 = Seq(pairlj))
     
     val atoms = Seq.tabulate(800) { i:Int =>
-      new Atom(idx=i, tag=tag1, x=(L*rand.nextDouble), y=(L*rand.nextDouble), z=(L*rand.nextDouble))
+      new Atom(idx=i, tag=tag1, pos=mutable.Vec3(L*rand.nextDouble, L*rand.nextDouble, L*rand.nextDouble))
     }
     
     val world = new World(volume, atoms, integrator)
@@ -59,7 +59,7 @@ object LJTest {
     val writer = new BufferedWriter(new FileWriter(file))
     writer.write(atoms.size+"\n")
     for (a <- atoms) {
-      writer.write("%f %f %f\n".format(a.x, a.y, a.z))
+      writer.write("%f %f %f\n".format(a.pos.x, a.pos.y, a.pos.z))
     }
     writer.close();
   }
@@ -71,8 +71,8 @@ object LJTest {
     val tris = {
       val pos = new Array[Double](atoms.size*2)
       for (i <- 0 until atoms.size) {
-        pos(2*i+0) = atoms(i).x
-        pos(2*i+1) = atoms(i).y
+        pos(2*i+0) = atoms(i).pos.x
+        pos(2*i+1) = atoms(i).pos.y
       }
       delaunay2d(Vertices2d(pos))
     }
@@ -158,9 +158,9 @@ object LJTest {
       for (i <- 0 until rows;
            j <- 0 until cols) {
         val a = atoms(i*cols + j)
-        a.x = x0 + (i%2)*r + (2*r)*j
-        a.y = y0 + (sqrt(3)*r)*i
-        a.z = 0
+        a.pos.x = x0 + (i%2)*r + (2*r)*j
+        a.pos.y = y0 + (sqrt(3)*r)*i
+        a.pos.z = 0
       }
     }
     
@@ -221,11 +221,11 @@ object LJTest {
     val r2 = r1 * sizeAsymmetryInit
 
     val rows1 = 10
-    val cols1 = 80
+    val cols1 = 20 // 80
     val rows2 = rows1
     val cols2 = (cols1/sizeAsymmetryInit).toInt
     
-    val layers = 4
+    val layers = 1 // 4
     val layerWidth = sqrt(3)*(r1*rows1 + r2*rows2)
     
     val natoms1 = layers*rows1*cols1
@@ -276,9 +276,9 @@ object LJTest {
       for (i <- 0 until rows;
            j <- 0 until cols) {
         val a = atoms(i*cols + j)
-        a.x = x0 + (i%2)*r + (2*r)*j
-        a.y = y0 + (sqrt(3)*r)*i
-        a.z = 0
+        a.pos.x = x0 + (i%2)*r + (2*r)*j
+        a.pos.y = y0 + (sqrt(3)*r)*i
+        a.pos.z = 0
       }
     }
     
