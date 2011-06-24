@@ -10,7 +10,7 @@ import kip.util.Interpreter
 object Visualizer {
   case class Sphere(pt: Vec3, radius: Double, color: Color, resolution: Int = 2)
   case class Wall(norm: Vec3, pos: Vec3, color: Color)
-}  
+}
 
 class Visualizer {
   
