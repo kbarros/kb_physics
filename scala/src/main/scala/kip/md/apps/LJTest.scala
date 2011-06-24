@@ -300,6 +300,7 @@ object LJTest {
       setInteractions(sizeAsymmetryInit, wall1pos, wall2pos)
       
       world.step(20)
+      // kip.util.Util.time(world.step(100), "1000 steps")
       
       val neighbors = neighborList(atoms, volume, cutoff=1.9)
       

@@ -23,7 +23,7 @@ trait Volume {
 object Volume {
 
   class Cuboid(lx: Double, ly: Double, lz: Double, periodic: Boolean = false) extends Volume {
-    var grid: PointGrid2d[Atom] = new PointGrid2d(lx, ly, nx=1, ny=1, periodic)
+    var grid: PointGrid2d[Atom] = new PointGrid2d(lx, ly, nx=1, ny=1, periodic)(_.pos)
     
     def bounds: Bounds3d = Bounds3d(Vec3.zero, Vec3(lx, ly, lz))
 
@@ -61,18 +61,18 @@ object Volume {
       }
     }
     
-    def deltaX(p1: Atom, p2: Atom): Double = grid.deltaX(p1, p2)
-    def deltaY(p1: Atom, p2: Atom): Double = grid.deltaY(p1, p2)
-    def deltaZ(p1: Atom, p2: Atom): Double = grid.deltaZ(p1, p2)
+    def deltaX(p1: Atom, p2: Atom): Double = grid.deltaX(p1.pos, p2.pos)
+    def deltaY(p1: Atom, p2: Atom): Double = grid.deltaY(p1.pos, p2.pos)
+    def deltaZ(p1: Atom, p2: Atom): Double = grid.deltaZ(p1.pos, p2.pos)
     
     def buildCells(atomsPerCell: Int, atoms: Seq[Atom]) {
       val ncells = max(1, atoms.size / atomsPerCell)
       val (nx, ny, nz) = PointGrid2d.cellDimensions(lx, ly, lz, ncells)
       if (grid.nx != nx || grid.ny != ny)
-        grid = new PointGrid2d(lx, ly, nx, ny, periodic)
+        grid = new PointGrid2d(lx, ly, nx, ny, periodic)(_.pos)
       grid.loadPoints(atoms)
     }
     
-    def atomsInRange(a: Atom, range: Double): ArrayBuffer[Atom] = grid.pointOffsetsWithinRange(a, range)
+    def atomsInRange(a: Atom, range: Double): ArrayBuffer[Atom] = grid.pointOffsetsWithinRange(a.pos, range)
   }
 }

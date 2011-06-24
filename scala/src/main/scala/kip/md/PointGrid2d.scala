@@ -7,10 +7,6 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object PointGrid2d {
-  trait Pt {
-    def pos: Vec3
-  }
-
   def periodicOffset(L: Double, dx: Double) = {
     if (dx > L/2)
       dx-L
@@ -19,7 +15,6 @@ object PointGrid2d {
     else
       dx;
   }
-  
   
   def cellDimensions(lx: Double, ly: Double, lz:Double, ncells:Int): (Int, Int, Int) = {
     assert (ncells > 0)
@@ -70,7 +65,7 @@ object PointGrid2d {
   }
 }
 
-class PointGrid2d[T <: PointGrid2d.Pt](val Lx: Double, val Ly: Double, val nx: Int, val ny: Int, val periodic: Boolean) {
+class PointGrid2d[T <% Vec3](val Lx: Double, val Ly: Double, val nx: Int, val ny: Int, val periodic: Boolean) {
   assert (nx > 0 && ny > 0)
   
   private var _dx = Lx / nx
@@ -86,24 +81,24 @@ class PointGrid2d[T <: PointGrid2d.Pt](val Lx: Double, val Ly: Double, val nx: I
     for (c <- _cells)
       c.clear()
     for (p <- points)
-      _cells(pointToIndex(p.pos.x, p.pos.y)) += p
+      _cells(pointToIndex(p.x, p.y)) += p
   }
   
-  def deltaX(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+  def deltaX(p1: Vec3, p2: Vec3): Double = {
     if (periodic)
-      PointGrid2d.periodicOffset(Lx, p2.pos.x - p1.pos.x)
+      PointGrid2d.periodicOffset(Lx, p2.x - p1.x)
     else
-      p2.pos.x - p1.pos.x
+      p2.x - p1.x
   }
 
-  def deltaY(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+  def deltaY(p1: Vec3, p2: Vec3): Double = {
     if (periodic)
-      PointGrid2d.periodicOffset(Ly, p2.pos.y - p1.pos.y)
+      PointGrid2d.periodicOffset(Ly, p2.y - p1.y)
     else
-      p2.pos.y - p1.pos.y
+      p2.y - p1.y
   }
 
-  def deltaZ(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+  def deltaZ(p1: Vec3, p2: Vec3): Double = {
     // if (periodic) {
     //   PointGrid2d.periodicOffset(Lz, p2.z - p1.z)
     // }
@@ -112,18 +107,18 @@ class PointGrid2d[T <: PointGrid2d.Pt](val Lx: Double, val Ly: Double, val nx: I
     0
   }
   
-  def distance2(p1: PointGrid2d.Pt, p2: PointGrid2d.Pt): Double = {
+  def distance2(p1: Vec3, p2: Vec3): Double = {
     sqr(deltaX(p1,p2)) + sqr(deltaY(p1,p2))
   }
   
-  def pointOffsetsWithinRange(p: PointGrid2d.Pt, R: Double): ArrayBuffer[T] = {
+  def pointOffsetsWithinRange(p: Vec3, R: Double): ArrayBuffer[T] = {
     val imax = if (Lx == 0.0) 0 else (R/_dx+1.0).toInt
     val jmax = if (Ly == 0.0) 0 else (R/_dy+1.0).toInt
     if (2*imax+1 > nx || 2*jmax+1 > ny)
       return pointOffsetsWithinRangeSlow(p, R)
     
-    val x = (p.pos.x+Lx)%Lx
-    val y = (p.pos.y+Ly)%Ly
+    val x = (p.x+Lx)%Lx
+    val y = (p.y+Ly)%Ly
     val index = pointToIndex(x, y)
     val i1 = index%nx
     val j1 = index/nx
@@ -157,8 +152,8 @@ class PointGrid2d[T <: PointGrid2d.Pt](val Lx: Double, val Ly: Double, val nx: I
             val cell = _cells(nx*j2+i2)
             for (i <- 0 until cell.length) {
               val p2 = cell(i)
-              val dx = p2.pos.x - p.pos.x + (i1+di-i2)*_dx
-              val dy = p2.pos.y - p.pos.y + (j1+dj-j2)*_dy
+              val dx = p2.x - p.x + (i1+di-i2)*_dx
+              val dy = p2.y - p.y + (j1+dj-j2)*_dy
               if (dx*dx + dy*dy < R*R)
                 ret += p2
             }
@@ -174,7 +169,7 @@ class PointGrid2d[T <: PointGrid2d.Pt](val Lx: Double, val Ly: Double, val nx: I
   }
   
   
-  def pointOffsetsWithinRangeSlow(p: PointGrid2d.Pt, R: Double): ArrayBuffer[T] = {
+  def pointOffsetsWithinRangeSlow(p: Vec3, R: Double): ArrayBuffer[T] = {
     val ret = new ArrayBuffer[T]()
     
     for (i <- 0 until points.length) {

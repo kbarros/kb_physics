@@ -11,7 +11,7 @@ case class Tag(
 
 
 class Atom(var idx: Int, var tag: Tag, var mass: Double = 1d,
-           val pos: mutable.Vec3 = mutable.Vec3.zero) extends PointGrid2d.Pt {
+           val pos: mutable.Vec3 = mutable.Vec3.zero) {
   var wx, wy, wz: Int = 0 // wrapping indices
   val v = mutable.Vec3.zero
   var f = mutable.Vec3.zero // instantaneous force
