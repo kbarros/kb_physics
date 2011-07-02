@@ -80,9 +80,7 @@ class LJWall(val pos: Vec3,
       val a6 = a2*a2*a2
       val a12 = a6*a6
       val f = 24*eps*(2*a12 - a6)/r2
-      accum.x -= f*delta.x
-      accum.y -= f*delta.y
-      accum.z -= f*delta.z
+      accum -= delta*f
     }
   }
 

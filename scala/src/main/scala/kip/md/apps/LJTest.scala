@@ -207,7 +207,16 @@ object LJTest {
       // javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/foo%d.png".format(i)))
     }
   }
-
+  
+  def analyzeDislocations(fives: Seq[Atom], sevens: Seq[Atom], cutoff: Double) {
+    val dislocations = for (t1 <- fives;
+         t2 <- sevens;
+         if ((t1.pos - t2.pos).norm2 < cutoff*cutoff)) yield {
+      (t1.pos+t2.pos)/2
+    }
+    println("num dislocations: "+dislocations.size)
+  }
+    
   def test3(dirname: Option[String]) {
     
     val rand = new util.Random(0)
@@ -216,7 +225,7 @@ object LJTest {
     val integrator = new Verlet(dt=0.02, thermostat=thermoDamp)
     
 
-    val sizeAsymmetryInit = 1.0
+    val sizeAsymmetryInit = 1.2
     val r1 = pow(2, 1./6) / 2
     val r2 = r1 * sizeAsymmetryInit
 
@@ -253,8 +262,12 @@ object LJTest {
     val viz = new Visualizer()
     viz.scene.translation = Vec3(0, 0, 0.5) // zoom in for improved movie frames
     viz.setBounds(volume.bounds)
+
+    val forcePlot = new scikit.graphics.dim2.Plot("Force")
+    scikit.util.Utilities.frame(forcePlot.getComponent(), forcePlot.getTitle())
+    val forceHistory = new scikit.dataset.DynamicArray()
     
-    def setInteractions(sizeAsymmetry: Double, wall1pos: Vec3, wall2pos: Vec3) = {
+    def setInteractions(sizeAsymmetry: Double, wall1pos: Vec3, wall2pos: Vec3) {
       val pairlj1 = new LennardJones(eps=1, sigma_local=1, scaled_cutoff=3)
       val pairlj2 = new LennardJones(eps=1, sigma_local=sizeAsymmetry, scaled_cutoff=3)
       
@@ -290,19 +303,31 @@ object LJTest {
       initGrid(x0=off, y0=off+layer*layerWidth+(sqrt(3)*r1)*rows1,
                r=r2, rows=rows2, cols=cols2, atoms.view(natoms1+layer*rows2*cols2, natoms1+(layer+1)*rows2*cols2))
     }
-
-    for (i <- 0 until 1200) {
+    
+    def averageWallForce(): Double = {
+      val inter1s = atoms.flatMap(_.tag.inter1).distinct
+      val force1s = inter1s.map(inter => (world.forceOnObject(inter)).norm)
+      val wallForce = force1s.sum / force1s.size
+      wallForce
+    }
+    
+    for (i <- 0 until 1200) kip.util.Util.time2("Iterating") {
       val wallSpeed = 0.02
       val wallDelta = wallSpeed*world.time
       val wall1pos = wall1posInit + wall1norm*wallDelta
       val wall2pos = wall2posInit + wall2norm*wallDelta
-      
       setInteractions(sizeAsymmetryInit, wall1pos, wall2pos)
       
       world.step(20)
-      // kip.util.Util.time(world.step(100), "1000 steps")
+
+      forceHistory.append2(world.time, averageWallForce())
+      forcePlot.registerLines("Data", forceHistory, java.awt.Color.BLACK)
       
-      val neighbors = neighborList(atoms, volume, cutoff=1.9)
+      val cutoff = 1.9
+      val neighbors = neighborList(atoms, volume, cutoff)
+      val fives  = atoms.indices.filter(neighbors(_).size == 5).map(atoms(_))
+      val sevens = atoms.indices.filter(neighbors(_).size == 7).map(atoms(_))
+      analyzeDislocations(fives, sevens, cutoff)
       
       viz.setString("Atoms=%d, Temp=%f".format(atoms.size, world.temperature()))
       
@@ -324,10 +349,10 @@ object LJTest {
       ))
       
       viz.display()
-      
-      dirname.foreach { dirname => 
-        javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(dirname+"/snap%d.png".format(i)))
-      }
+
+      // dirname.foreach { dirname => 
+      //   javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(dirname+"/snap%d.png".format(i)))
+      // }
     }
   }
 

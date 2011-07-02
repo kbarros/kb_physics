@@ -13,6 +13,16 @@ object Util {
     println(" done. Elapsed time "+(t2-t1)/1000.+"s");
     ret
   }
+
+  def time2[A](s: String)(f: => A): A = {
+    print("Timing '"+s+"'...")
+    val t1 = System.currentTimeMillis
+    val ret = f
+    val t2 = System.currentTimeMillis
+    println(" done. Elapsed time "+(t2-t1)/1000.+"s");
+    ret
+  }
+
   
   def tr[A](v: A, str: String) = {
     println(str + v)
