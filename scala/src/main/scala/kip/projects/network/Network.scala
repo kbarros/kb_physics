@@ -13,19 +13,19 @@ object Network {
   
   case class Msg(r1: Rank, r2: Rank, size: Double)
 
-  case class Topology(w: Int, h: Int, d: Int, periodic: Boolean = true) {
-    val size = w*h*d // number of nodes
+  case class Topology(lx: Int, ly: Int, lz: Int, periodic: Boolean = true) {
+    val size = lx*ly*lz // number of nodes
     
     def node2coords(node: Node): (Int, Int, Int) = {
       val n = node
-      val x = n % w
-      val y = (n / w) % h
-      val z = (n / w / h) % d
+      val x = n % lx
+      val y = (n / lx) % ly
+      val z = (n / lx / ly) % lz
       (x, y, z)
     }
     
     def coords2node(x: Int, y: Int, z:Int): Node = {
-      z*w*h + y*w + x
+      z*lx*ly + y*lx + x
     }
     
     def delta(node1: Node, node2: Node): (Int, Int, Int) = {
@@ -36,7 +36,7 @@ object Network {
       val dz = c2._3 - c1._3
       def wrap(d: Int, len: Int) = if (d > len/2) (d - len) else if (d < -len/2) (d + len) else d
       if (periodic)
-        (wrap(dx, w), wrap(dy, h), wrap(dz, d))
+        (wrap(dx, lx), wrap(dy, ly), wrap(dz, lz))
       else
         (dx, dy, dz)
     }
@@ -52,9 +52,9 @@ object Network {
         bldr ++= s
         bldr ++= (Seq.fill(colWidth-s.size)(' '))
       }
-      for (z <- 0 until d) {
-        for (y <- 0 until h) {
-          for (x <- 0 until w) {
+      for (z <- 0 until lz) {
+        for (y <- 0 until ly) {
+          for (x <- 0 until lx) {
             val node = coords2node(x, y, z)
             writeColumn(fn(node))
           }
@@ -80,12 +80,12 @@ object Network {
       assign.indices.map(cost(_)).sum
     }
     
-    def formatAssignment: String = {
+    def ppAssignment: String = {
       val node2rank = assign.zipWithIndex.toMap
       top.format(n => node2rank(n).toString)
     }
     
-    def formatCost: String = {
+    def ppCost: String = {
       val node2rank = assign.zipWithIndex.toMap
       top.format(n => cost(node2rank(n)).toString)
     }
@@ -138,7 +138,7 @@ object MCOptimize {
   import Network._
   
   val rand = new Random(1)
-  val top = Topology(w=4, h=4, d=4)
+  val top = Topology(lx=4, ly=4, lz=4)
   val trace = readTrace(sys.props("user.home")+"/Desktop/network/4x4x4-mesh.dat")
   val assign = randomAssignment(numRanks=trace.keys.max+1, rand)
   val conf = Config(top, trace, assign)
