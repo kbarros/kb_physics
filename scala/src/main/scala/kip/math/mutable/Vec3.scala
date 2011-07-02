@@ -6,13 +6,13 @@ object Vec3 {
 }
 
 case class Vec3(var x: Double, var y: Double, var z: Double) extends kip.math.Vec3 {
-  def +=(v: Vec3) {
+  def +=(v: kip.math.Vec3) {
     x += v.x
     y += v.y
     z += v.z
   }
 
-  def -=(v: Vec3) {
+  def -=(v: kip.math.Vec3) {
     x -= v.x
     y -= v.y
     z -= v.z

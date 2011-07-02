@@ -2,7 +2,8 @@
 // java -jar jnaerator-0.9.7.jar -library FFTW3 /usr/local/include/fftw3.h -o . -v -noJar -noComp -noPrimitiveArrays -noMangling -structsInLibrary -runtime JNA -sizeAsLong -Dfftw_complex=double -Dfftwf_complex=float
 // Small manual modifications were made at the top of the file to remove jnaerator depencies
 
-package fftw3;
+package kip.fftw3;
+
 //import com.ochafik.lang.jnaerator.runtime.LibraryExtractor;
 //import com.ochafik.lang.jnaerator.runtime.MangledFunctionMapper;
 import com.sun.jna.Callback;
@@ -30,8 +31,8 @@ public interface FFTW3Library extends Library {
     //	public static final NativeLibrary JNA_NATIVE_LIB = NativeLibrary.getInstance(fftw3.FFTW3Library.JNA_LIBRARY_NAME, com.ochafik.lang.jnaerator.runtime.MangledFunctionMapper.DEFAULT_OPTIONS);
     //	public static final FFTW3Library INSTANCE = (FFTW3Library)Native.loadLibrary(fftw3.FFTW3Library.JNA_LIBRARY_NAME, fftw3.FFTW3Library.class, com.ochafik.lang.jnaerator.runtime.MangledFunctionMapper.DEFAULT_OPTIONS);
 	public static final String JNA_LIBRARY_NAME = "fftw3";
-	public static final NativeLibrary JNA_NATIVE_LIB = NativeLibrary.getInstance(fftw3.FFTW3Library.JNA_LIBRARY_NAME);
-	public static final FFTW3Library INSTANCE = (FFTW3Library)Native.loadLibrary(fftw3.FFTW3Library.JNA_LIBRARY_NAME, fftw3.FFTW3Library.class);
+	public static final NativeLibrary JNA_NATIVE_LIB = NativeLibrary.getInstance(kip.fftw3.FFTW3Library.JNA_LIBRARY_NAME);
+	public static final FFTW3Library INSTANCE = (FFTW3Library)Native.loadLibrary(kip.fftw3.FFTW3Library.JNA_LIBRARY_NAME, kip.fftw3.FFTW3Library.class);
 	/**
 	 * <i>native declaration : /usr/local/Cellar/fftw/3.2.2/include/fftw3.h:87</i><br>
 	 * enum values

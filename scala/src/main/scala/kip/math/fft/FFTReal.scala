@@ -1,6 +1,6 @@
 package kip.math.fft
 
-import fftw3.{FFTW3Library => FFTW}
+import kip.fftw3.{FFTW3Library => FFTW}
 import FFTW.{INSTANCE => fft}
 
 import com.sun.jna._
