@@ -1,15 +1,35 @@
 package kip.math
 package linalg
 
-//import org.netlib.blas._;
-//import org.netlib.lapack._;
-//import org.netlib.util.intW
+import kip.netlib.{BlasLibrary => Blas}
+import kip.netlib.BlasLibrary.{INSTANCE => blas}
 
 
 trait DenseComplexMatrixImplicits {
-  implicit def tuple2ToComplexRow(t: Tuple2[Complex, Complex]): DenseComplexMatrix = {
-    val data: Seq[Complex] = Seq(t._1, t._2)
-    new DenseComplexMatrix(1, 2, DenseComplexMatrix.complexToDoubleArray(data))
+  def c2r(a: Seq[Complex]): Array[Double] = DenseComplexMatrix.complexToDoubleArray(a)
+
+  implicit def tuple2ToRow[T <% Complex](t: Tuple2[T, T]): DenseComplexMatrix = {
+    new DenseComplexMatrix(1, 2, c2r(Seq(t._1, t._2)))
+  }
+
+  implicit def tuple3ToRow[T <% Complex](t: Tuple3[T, T, T]): DenseComplexMatrix = {
+    new DenseComplexMatrix(1, 3, c2r(Seq(t._1, t._2, t._3)))
+  }
+
+  implicit def tuple4ToRow[T <% Complex](t: Tuple4[T, T, T, T]): DenseComplexMatrix = {
+    new DenseComplexMatrix(1, 4, c2r(Seq(t._1, t._2, t._3, t._4)))
+  }
+
+  implicit def tuple5ToRow[T <% Complex](t: Tuple5[T, T, T, T, T]): DenseComplexMatrix = {
+    new DenseComplexMatrix(1, 5, c2r(Seq(t._1, t._2, t._3, t._4, t._5)))
+  }
+
+  implicit def traversableToRow(t: Traversable[Complex]): DenseComplexMatrix = {
+    new DenseComplexMatrix(1, t.size, c2r(t.toSeq))
+  }
+
+  implicit def arrayToRow(a: Array[Complex]): DenseComplexMatrix = {
+    new DenseComplexMatrix(1, a.size, c2r(a))
   }
 }
 
@@ -22,7 +42,6 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
       ret(2*i+0) = a(i).re
       ret(2*i+1) = a(i).im
     }
-    println("array is "+ret.toSeq.toString)
     ret
   }
 
@@ -68,74 +87,70 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
   
   // Native operations
   
-  // TODO: generalize and require() check
-  def blasDgemm(c: DenseMatrix, a: DenseMatrix, b: DenseMatrix) {
+  
+  def blasZgemm(c: DenseComplexMatrix, a: DenseComplexMatrix, b: DenseComplexMatrix) {
     if (b.numCols == 1) {
-      // TODO: optimize using dgemv
+      // TODO: optimize using cgemv
     }
-/*
-    val blas = BLAS.getInstance()
     
-    // C := alpha A B + beta C
-    BLAS.getInstance().dgemm(
-      "n", "n", // no transposes
-      c.numRows, c.numCols, // dimension of return matrix
-      a.numCols, // dimension of summation index
-      1.0, // alpha 
-      a.data, a.numRows, // A matrix
-      b.data, b.numRows, // B matrix
-      0.0, // beta
-      c.data, c.numRows // C matrix
-    )
-    */
+    // c = alpha*a*b + beta*c
+    blas.cblas_zgemm(Blas.CblasColMajor,
+                     Blas.CblasNoTrans, Blas.CblasNoTrans,
+                     c.numRows, c.numCols, // dimension of return matrix
+                     a.numCols, // dimension of summation index
+                     Array(1.0, 0.0), // alpha 
+                     a.data, a.numRows, // A matrix
+                     b.data, b.numRows, // B matrix
+                     Array(0.0, 0.0), // beta
+                     c.data, c.numRows // C matrix
+                   )
   }
   
   
   /** X := A \ V */
-  def QRSolve(X : DenseMatrix, A : DenseMatrix, V : DenseMatrix, transpose : Boolean) = {
+  def QRSolve(X : DenseComplexMatrix, A : DenseComplexMatrix, V : DenseComplexMatrix, transpose : Boolean) = {
     require(X.numRows == A.numCols, "Wrong number of rows in return value");
     require(X.numCols == V.numCols, "Wrong number of rows in return value");
-/*
+    
+    import com.sun.jna.ptr.IntByReference
+    implicit def intToIntByReference(a: Int) = new IntByReference(a)
+    
     val nrhs = V.numCols;
     
     // allocate temporary solution matrix
-    val Xtmp = DenseMatrix.zeros(math.max(A.numRows, A.numCols), nrhs);
+    val Xtmp = DenseComplexMatrix.zeros(math.max(A.numRows, A.numCols), nrhs); // HOW COMPILE WITH REAL?
     val M = if (!transpose) A.numRows else A.numCols;
-    for (j <- 0 until nrhs; i <- 0 until M) { Xtmp(i,j) = V(i,j); }
+    for (j <- 0 until nrhs; i <- 0 until M) { Xtmp(i,j) = V(i,j): Complex; }
 
     val newData = A.data.clone();
 
     // query optimal workspace
-    val queryWork = new Array[Double](1);
-    val queryInfo = new intW(0);
-    LAPACK.getInstance().dgels(
+    val queryWork = new Array[Double](2);
+    val queryInfo = new IntByReference(0);
+    blas.zgels_(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
       newData, math.max(1,A.numRows),
       Xtmp.data, math.max(1,math.max(A.numRows,A.numCols)),
-      queryWork, -1, queryInfo);
-
+      queryWork, -1, queryInfo)
+    
     // allocate workspace
-    val work = {
-      val lwork = {
-        if (queryInfo.`val` != 0)
-          math.max(1, math.min(A.numRows, A.numCols) + math.max(math.min(A.numRows, A.numCols), nrhs));
-        else
-          math.max(queryWork(0).toInt, 1);
-      }
-      new Array[Double](lwork);
-    }
-
+    val workSize = 
+      if (queryInfo.getValue != 0)
+        math.max(1, math.min(A.numRows, A.numCols) + math.max(math.min(A.numRows, A.numCols), nrhs));
+      else
+        math.max(queryWork(0).toInt, 1);
+    val work = new Array[Double](2*workSize); // multiply by two for re/im parts
+    
     // compute factorization
-    val info = new intW(0);
-    LAPACK.getInstance().dgels(
+    blas.zgels_(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
       newData, math.max(1,A.numRows),
       Xtmp.data, math.max(1,math.max(A.numRows,A.numCols)),
-      work, work.length, info);
-
-    if (info.`val` < 0)
+      work, workSize, queryInfo);
+    
+    if (queryInfo.getValue< 0)
       throw new IllegalArgumentException;
 
     // extract solution
@@ -143,7 +158,6 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
     for (j <- 0 until nrhs; i <- 0 until N) X(i,j) = Xtmp(i,j);
 
     X;
-*/
   }
 }
 
@@ -219,6 +233,25 @@ class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Dou
     ret
   }
   
+  def conj : DenseComplexMatrix = {
+    val ret = DenseComplexMatrix.zeros(numRows, numCols)
+    for (i <- 0 until numRows;
+         j <- 0 until numCols) {
+      ret(i, j) = this(i, j).conj
+    }
+    ret
+  }
+  
+  def dagger : DenseComplexMatrix = {
+    // conjugate transpose
+    val ret = DenseComplexMatrix.zeros(numCols, numRows)
+    for (i <- 0 until numRows;
+         j <- 0 until numCols) {
+      ret(j, i) = this(i, j).conj
+    }
+    ret
+  }
+  
   def +(that: DenseComplexMatrix): DenseComplexMatrix = {
     require(numRows == that.numRows && numCols == that.numCols)
     val ret = DenseComplexMatrix.zeros(numCols, numRows)
@@ -230,11 +263,13 @@ class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Dou
   }
 
   def *(that: DenseComplexMatrix): DenseComplexMatrix = {
-    require(numCols == that.numRows)
+    require(numCols == that.numRows,
+            "Cannot form product of dimension [%d,%d]x[%d,%d]".format(
+              numRows, numCols, that.numRows, that.numCols))
     val ret = DenseComplexMatrix.zeros(numRows, that.numCols)
     val useBlas = false
     if (useBlas) {
-      // DenseMatrix.blasDgemm(ret, this, that)
+      DenseComplexMatrix.blasZgemm(ret, this, that)
     }
     else {
       for (i <- 0 until numRows;
@@ -247,11 +282,12 @@ class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Dou
   }
   
   def \(that: DenseComplexMatrix): DenseComplexMatrix = {
-    require(false)
-    require(numCols == that.numRows)
-    require(that.numCols == 1)
+    require(numCols == that.numRows,
+          "Cannot form quotient of dimension [%d,%d]\\[%d,%d]".format(
+            numRows, numCols, that.numRows, that.numCols))
+    require(that.numCols == 1, "TODO: fuller division")
     val ret = DenseComplexMatrix.zeros(numRows, 1)
-//    DenseMatrix.QRSolve(ret, this, that, false)
+    DenseComplexMatrix.QRSolve(ret, this, that, false)
     ret
   }
   

@@ -37,11 +37,13 @@ public interface BlasLibrary extends Library {
                             double beta,
                             double[] C, int ldc);
 
-    public void cblas_cgemm(int Order, int TransA,
-                            int TransB, int M, int N,
-                            int K, double[] alpha, double[] A,
-                            int lda, double[] B, int ldb,
-                            double[] beta, double[] C, int ldc);
+    public void cblas_zgemm(int Order, int TransA, int TransB,
+                            int M, int N, int K,
+                            double[] alpha,
+                            double[] A, int lda,
+                            double[] B, int ldb,
+                            double[] beta,
+                            double[] C, int ldc);
     
     //
     // LAPACK
@@ -49,6 +51,13 @@ public interface BlasLibrary extends Library {
     
     
     public int dgels_(String trans,
+                      IntByReference m, IntByReference n, 
+                      IntByReference nrhs,
+                      double[] a, IntByReference lda,
+                      double[] b, IntByReference ldb, 
+                      double[] work, IntByReference lwork, IntByReference info);
+
+    public int zgels_(String trans,
                       IntByReference m, IntByReference n, 
                       IntByReference nrhs,
                       double[] a, IntByReference lda,

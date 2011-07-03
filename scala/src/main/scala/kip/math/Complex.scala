@@ -31,11 +31,12 @@ case class Complex(re: Double, im: Double) {
     case re : Float => re == re && im == 0
     case _ => false
   }
-
+  
   override def toString = {
-    if (im == 0.0)
+    val Tol = 1e-12
+    if (math.abs(im) < Tol)
       re.toString
-    else if (re == 0.0)
+    else if (math.abs(re) < Tol)
       im+"i"
     else {
       if (im >= 0)

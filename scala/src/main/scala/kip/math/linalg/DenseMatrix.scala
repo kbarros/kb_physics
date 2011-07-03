@@ -1,6 +1,5 @@
 package kip.math.linalg
 
-//import org.netlib.blas._;
 import kip.netlib.{BlasLibrary => Blas}
 import kip.netlib.BlasLibrary.{INSTANCE => blas}
 
@@ -28,10 +27,6 @@ trait DenseMatrixImplicits {
 
   implicit def arrayToRow(a: Array[Double]): DenseMatrix = {
     new DenseMatrix(1, a.size, a)
-  }
-  
-  implicit def complexify[T <% DenseMatrix](m: T): DenseComplexMatrix = {
-    m.toComplex
   }
 }
 
@@ -80,6 +75,7 @@ object DenseMatrix extends DenseMatrixImplicits {
       // TODO: optimize using dgemv
     }
     
+    // c = alpha*a*b + beta*c
     blas.cblas_dgemm(Blas.CblasColMajor,
                      Blas.CblasNoTrans, Blas.CblasNoTrans,
                      c.numRows, c.numCols, // dimension of return matrix
@@ -90,25 +86,11 @@ object DenseMatrix extends DenseMatrixImplicits {
                      0.0, // beta
                      c.data, c.numRows // C matrix
                    )
-/*
-    // C := alpha A B + beta C
-    BLAS.getInstance().dgemm(
-      "n", "n", // no transposes
-      c.numRows, c.numCols, // dimension of return matrix
-      a.numCols, // dimension of summation index
-      1.0, // alpha 
-      a.data, a.numRows, // A matrix
-      b.data, b.numRows, // B matrix
-      0.0, // beta
-      c.data, c.numRows // C matrix
-    )
-*/
-    
   }
   
 
   /** X := A \ V */
-  def QRSolve2(X : DenseMatrix, A : DenseMatrix, V : DenseMatrix, transpose : Boolean) = {
+  def QRSolve(X : DenseMatrix, A : DenseMatrix, V : DenseMatrix, transpose : Boolean) = {
     require(X.numRows == A.numCols, "Wrong number of rows in return value");
     require(X.numCols == V.numCols, "Wrong number of rows in return value");
 
@@ -258,7 +240,7 @@ class DenseMatrix(val numRows: Int, val numCols: Int, val data: Array[Double]) {
     require(numCols == that.numRows)
     require(that.numCols == 1)
     val ret = DenseMatrix.zeros(numRows, 1)
-    DenseMatrix.QRSolve2(ret, this, that, false)
+    DenseMatrix.QRSolve(ret, this, that, false)
     ret
   }
   
