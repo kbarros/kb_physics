@@ -1,7 +1,5 @@
-package kip.math.linalg
-
-import kip.netlib.{BlasLibrary => Blas}
-import kip.netlib.BlasLibrary.{INSTANCE => blas}
+package kip.math
+package linalg
 
 
 trait DenseMatrixImplicits {
@@ -76,16 +74,15 @@ object DenseMatrix extends DenseMatrixImplicits {
     }
     
     // c = alpha*a*b + beta*c
-    blas.cblas_dgemm(Blas.CblasColMajor,
-                     Blas.CblasNoTrans, Blas.CblasNoTrans,
-                     c.numRows, c.numCols, // dimension of return matrix
-                     a.numCols, // dimension of summation index
-                     1.0, // alpha 
-                     a.data, a.numRows, // A matrix
-                     b.data, b.numRows, // B matrix
-                     0.0, // beta
-                     c.data, c.numRows // C matrix
-                   )
+    Netlib.blas.dgemm("N", "N",
+                      c.numRows, c.numCols, // dimension of return matrix
+                      a.numCols, // dimension of summation index
+                      1.0, // alpha 
+                      a.data, a.numRows, // A matrix
+                      b.data, b.numRows, // B matrix
+                      0.0, // beta
+                      c.data, c.numRows // C matrix
+                    )
   }
   
 
@@ -94,9 +91,6 @@ object DenseMatrix extends DenseMatrixImplicits {
     require(X.numRows == A.numCols, "Wrong number of rows in return value");
     require(X.numCols == V.numCols, "Wrong number of rows in return value");
 
-    import com.sun.jna.ptr.IntByReference
-    implicit def intToIntByReference(a: Int) = new IntByReference(a)
-    
     val nrhs = V.numCols;
     
     // allocate temporary solution matrix
@@ -108,8 +102,8 @@ object DenseMatrix extends DenseMatrixImplicits {
 
     // query optimal workspace
     val queryWork = new Array[Double](1);
-    val queryInfo = new IntByReference(0);
-    blas.dgels_(
+    val queryInfo = new com.sun.jna.ptr.IntByReference(0);
+    Netlib.lapack.dgels(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
       newData, math.max(1,A.numRows),
@@ -117,26 +111,22 @@ object DenseMatrix extends DenseMatrixImplicits {
       queryWork, -1, queryInfo)
     
     // allocate workspace
-    val work = {
-      val lwork = {
-        if (queryInfo.getValue != 0)
-          math.max(1, math.min(A.numRows, A.numCols) + math.max(math.min(A.numRows, A.numCols), nrhs));
-        else
-          math.max(queryWork(0).toInt, 1);
-      }
-      new Array[Double](lwork);
-    }
+    val workSize =
+      if (queryInfo.getValue != 0)
+        math.max(1, math.min(A.numRows, A.numCols) + math.max(math.min(A.numRows, A.numCols), nrhs));
+      else
+        math.max(queryWork(0).toInt, 1);
+    val work = new Array[Double](workSize);
 
     // compute factorization
-    val info = new IntByReference(0);
-    blas.dgels_(
+    Netlib.lapack.dgels(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
       newData, math.max(1,A.numRows),
       Xtmp.data, math.max(1,math.max(A.numRows,A.numCols)),
-      work, work.length, info);
+      work, workSize, queryInfo);
 
-    if (info.getValue< 0)
+    if (queryInfo.getValue< 0)
       throw new IllegalArgumentException;
 
     // extract solution

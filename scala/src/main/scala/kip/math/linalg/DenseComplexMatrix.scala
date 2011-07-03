@@ -1,9 +1,6 @@
 package kip.math
 package linalg
 
-import kip.netlib.{BlasLibrary => Blas}
-import kip.netlib.BlasLibrary.{INSTANCE => blas}
-
 
 trait DenseComplexMatrixImplicits {
   def c2r(a: Seq[Complex]): Array[Double] = DenseComplexMatrix.complexToDoubleArray(a)
@@ -87,23 +84,21 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
   
   // Native operations
   
-  
   def blasZgemm(c: DenseComplexMatrix, a: DenseComplexMatrix, b: DenseComplexMatrix) {
     if (b.numCols == 1) {
       // TODO: optimize using cgemv
     }
     
     // c = alpha*a*b + beta*c
-    blas.cblas_zgemm(Blas.CblasColMajor,
-                     Blas.CblasNoTrans, Blas.CblasNoTrans,
-                     c.numRows, c.numCols, // dimension of return matrix
-                     a.numCols, // dimension of summation index
-                     Array(1.0, 0.0), // alpha 
-                     a.data, a.numRows, // A matrix
-                     b.data, b.numRows, // B matrix
-                     Array(0.0, 0.0), // beta
-                     c.data, c.numRows // C matrix
-                   )
+    Netlib.blas.zgemm("N", "N",
+                      c.numRows, c.numCols, // dimension of return matrix
+                      a.numCols, // dimension of summation index
+                      Array(1.0, 0.0), // alpha 
+                      a.data, a.numRows, // A matrix
+                      b.data, b.numRows, // B matrix
+                      Array(0.0, 0.0), // beta
+                      c.data, c.numRows // C matrix
+                    )
   }
   
   
@@ -111,9 +106,6 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
   def QRSolve(X : DenseComplexMatrix, A : DenseComplexMatrix, V : DenseComplexMatrix, transpose : Boolean) = {
     require(X.numRows == A.numCols, "Wrong number of rows in return value");
     require(X.numCols == V.numCols, "Wrong number of rows in return value");
-    
-    import com.sun.jna.ptr.IntByReference
-    implicit def intToIntByReference(a: Int) = new IntByReference(a)
     
     val nrhs = V.numCols;
     
@@ -126,8 +118,8 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
 
     // query optimal workspace
     val queryWork = new Array[Double](2);
-    val queryInfo = new IntByReference(0);
-    blas.zgels_(
+    val queryInfo = new com.sun.jna.ptr.IntByReference(0);
+    Netlib.lapack.zgels(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
       newData, math.max(1,A.numRows),
@@ -143,7 +135,7 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
     val work = new Array[Double](2*workSize); // multiply by two for re/im parts
     
     // compute factorization
-    blas.zgels_(
+    Netlib.lapack.zgels(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
       newData, math.max(1,A.numRows),
@@ -267,7 +259,7 @@ class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Dou
             "Cannot form product of dimension [%d,%d]x[%d,%d]".format(
               numRows, numCols, that.numRows, that.numCols))
     val ret = DenseComplexMatrix.zeros(numRows, that.numCols)
-    val useBlas = false
+    val useBlas = true
     if (useBlas) {
       DenseComplexMatrix.blasZgemm(ret, this, that)
     }
