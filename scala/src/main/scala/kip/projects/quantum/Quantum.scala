@@ -1,5 +1,6 @@
 package kip.projects.quantum
 
+/*
 import scalala.scalar._
 import scalala.tensor.::
 import scalala.tensor.mutable._
@@ -125,3 +126,4 @@ object StochasticTrace extends CalculateTrace {
 object Quantum {
   
 }
+*/
