@@ -51,4 +51,17 @@ public interface VecLib extends Library {
                       double[] b, IntByReference ldb, 
                       double[] work, IntByReference lwork, IntByReference info);
 
+    public int dgeev_(String jobvl, String jobvr, IntByReference n,
+                      double[] a, IntByReference lda,
+                      double[] wr, double[] wi,
+                      double[] vl, IntByReference ldvl,
+                      double[] vr, IntByReference ldvr,
+                      double[] work, IntByReference lwork, IntByReference info);
+
+    public int zgeev_(String jobvl, String jobvr, IntByReference n,
+                      double[] a, IntByReference lda,
+                      double[] wr, double[] wi,
+                      double[] vl, IntByReference ldvl,
+                      double[] vr, IntByReference ldvr,
+                      double[] work, IntByReference lwork, IntByReference info);
 }

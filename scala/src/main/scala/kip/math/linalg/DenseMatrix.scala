@@ -1,6 +1,8 @@
 package kip.math
 package linalg
 
+import com.sun.jna.ptr.IntByReference
+
 
 trait DenseMatrixImplicits {
   implicit def tuple2ToRow[T <% Double](t: Tuple2[T, T]): DenseMatrix = {
@@ -30,14 +32,20 @@ trait DenseMatrixImplicits {
 
 
 object DenseMatrix extends DenseMatrixImplicits {
+
   def fill(numRows: Int, numCols: Int)(x: Double) = {
     val elems = Array.fill(numRows*numCols)(x)
     new DenseMatrix(numRows, numCols, elems)
   }
   
   def zeros(numRows: Int, numCols: Int) = {
-    val elems = Array.fill(numRows*numCols)(0d)
-    new DenseMatrix(numRows, numCols, elems)
+    fill(numRows, numCols)(0)
+  }
+  
+  def tabulate(numRows: Int, numCols: Int)(f: (Int, Int) => Double) = {
+    val m = zeros(numRows, numCols)
+    for (j <- 0 until numCols; i <- 0 until numRows) m(i, j) = f(i, j)
+    m
   }
 
   def eye(numRows: Int) = {
@@ -68,12 +76,8 @@ object DenseMatrix extends DenseMatrixImplicits {
   
   // Native operations
   
+  // c = alpha*a*b + beta*c
   def blasDgemm(c: DenseMatrix, a: DenseMatrix, b: DenseMatrix) {
-    if (b.numCols == 1) {
-      // TODO: optimize using dgemv
-    }
-    
-    // c = alpha*a*b + beta*c
     Netlib.blas.dgemm("N", "N",
                       c.numRows, c.numCols, // dimension of return matrix
                       a.numCols, // dimension of summation index
@@ -102,7 +106,7 @@ object DenseMatrix extends DenseMatrixImplicits {
 
     // query optimal workspace
     val queryWork = new Array[Double](1);
-    val queryInfo = new com.sun.jna.ptr.IntByReference(0);
+    val queryInfo = new IntByReference(0);
     Netlib.lapack.dgels(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
@@ -135,11 +139,62 @@ object DenseMatrix extends DenseMatrixImplicits {
 
     X;
   }
+
+  def eig(m : DenseMatrix): (DenseMatrix, DenseMatrix, DenseMatrix) = {
+    require(m.numRows == m.numCols, "Operation 'eig' requires square matrix")
+
+    val n = m.numRows;
+
+    // Allocate space for the decomposition
+    var Wr = DenseMatrix.zeros(n, 1);
+    var Wi = DenseMatrix.zeros(n, 1);
+    var Vr = DenseMatrix.zeros(n, n);
+
+    // Find the needed workspace
+    val worksize = Array.ofDim[Double](1);
+    val info = new IntByReference(0);
+    Netlib.lapack.dgeev(
+      "N", "V", n,
+      Array.empty[Double], math.max(1,n),
+      Array.empty[Double], Array.empty[Double],
+      Array.empty[Double], math.max(1,n),
+      Array.empty[Double], math.max(1,n),
+      worksize, -1, info);
+
+    // Allocate the workspace
+    val lwork: Int = if (info.getValue != 0)
+      math.max(1,4*n);
+    else
+      math.max(1,worksize(0).toInt);
+    val work = Array.ofDim[Double](lwork);
+
+    // Factor it!
+    Netlib.lapack.dgeev(
+      "N", "V", n,
+      m.clone().data, math.max(1,n),
+      Wr.data, Wi.data,
+      Array.empty[Double], math.max(1,n),
+      Vr.data, math.max(1,n),
+      work, lwork, info);
+
+    require(info.getValue >= 0, "Error in dgeev argument %d".format(-info.getValue))
+    require(info.getValue <= 0, "Not converged dgeev; only %d of %d eigenvalues computed".format(info.getValue, m.numRows))
+    
+    (Wr, Wi, Vr)
+  }
 }
 
 
-class DenseMatrix(val numRows: Int, val numCols: Int, val data: Array[Double]) {
+class DenseMatrix(val numRows: Int, val numCols: Int, val data: Array[Double]) extends Cloneable {
   require(numRows*numCols == data.size)
+  
+  override def clone(): DenseMatrix = {
+    new DenseMatrix(numRows, numCols, data.clone())
+  }
+  
+  def toComplex: DenseComplexMatrix = {
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i,j) => this(i,j) }
+  }
   
   def checkKey(i: Int, j: Int) {
     require(0 <= i && i < numRows)
@@ -156,13 +211,11 @@ class DenseMatrix(val numRows: Int, val numCols: Int, val data: Array[Double]) {
   }
   
   def apply(i: Int, _slice: Slice): DenseMatrix = {
-    val elems = Array.tabulate[Double](numCols)(j => this(i,j))
-    new DenseMatrix(1, numCols, elems)
+    DenseMatrix.tabulate(1, numCols) { (_,j) => this(i,j) }
   }
   
   def apply(_slice: Slice, j: Int): DenseMatrix = {
-    val elems = Array.tabulate[Double](numRows)(i => this(i,j))
-    new DenseMatrix(numRows, 1, elems)
+    DenseMatrix.tabulate(numRows, 1) { (i,_) => this(i,j) }
   }
 
   def update(i: Int, j: Int, x: Double) {
@@ -171,67 +224,55 @@ class DenseMatrix(val numRows: Int, val numCols: Int, val data: Array[Double]) {
   
   def update(i: Int, _slice: Slice, x: DenseMatrix) {
     require(x.numRows == 1 && x.numCols == numCols)
-    for (j <- 0 until numCols)
-      this(i, j) = x(0, j)
+    for (j <- 0 until numCols) this(i, j) = x(0, j)
   }
 
   def update(_slice: Slice, j: Int, x: DenseMatrix) {
     require(x.numRows == numRows && x.numCols == 1)
-    for (i <- 0 until numRows)
-      this(i, j) = x(i, 0)
-  }
-  
-  def toComplex: DenseComplexMatrix = {
-    val elems = new Array[Double](2*data.size)
-    for (idx <- data.indices) {
-      elems(2*idx+0) = data(idx)
-      elems(2*idx+1) = 0
-    }
-    new DenseComplexMatrix(numRows, numCols, elems)
+    for (i <- 0 until numRows) this(i, j) = x(i, 0)
   }
   
   def transpose: DenseMatrix = {
-    val ret = DenseMatrix.zeros(numCols, numRows)
-    for (i <- 0 until numRows;
-         j <- 0 until numCols) {
-      ret(j, i) = this(i, j)
-    }
-    ret
+    DenseMatrix.tabulate(numRows, numCols) { (i, j) => this(j, i) }
   }
   
   def +(that: DenseMatrix): DenseMatrix = {
     require(numRows == that.numRows && numCols == that.numCols)
-    val ret = DenseMatrix.zeros(numCols, numRows)
-    for (i <- 0 until numRows;
-         j <- 0 until numCols) {
-      ret(i, j) = this(i, j) + that(i, j)
-    }
-    ret
+    DenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j) + that(i, j) }
+  }
+
+  def -(that: DenseMatrix): DenseMatrix = {
+    require(numRows == that.numRows && numCols == that.numCols)
+    DenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j) - that(i, j) }
   }
 
   def *(that: DenseMatrix): DenseMatrix = {
-    require(numCols == that.numRows)
+    require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, numRows))
     val ret = DenseMatrix.zeros(numRows, that.numCols)
-    val useBlas = true
-    if (useBlas) {
-      DenseMatrix.blasDgemm(ret, this, that)
-    }
-    else {
-      for (i <- 0 until numRows;
-           k <- 0 until numCols;
-           j <- 0 until that.numCols) {
-        ret(i, j) += this(i, k)*that(k, j)
-      }
-    }
+    DenseMatrix.blasDgemm(ret, this, that)
+    // equivalent to:
+    // for (i <- 0 until numRows;
+    //      k <- 0 until numCols;
+    //      j <- 0 until that.numCols) {
+    //   ret(i, j) += this(i, k)*that(k, j)
+    // }
     ret
   }
   
   def \(that: DenseMatrix): DenseMatrix = {
-    require(numCols == that.numRows)
+    require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, numRows))
     require(that.numCols == 1)
     val ret = DenseMatrix.zeros(numRows, 1)
     DenseMatrix.QRSolve(ret, this, that, false)
     ret
+  }
+
+  def *(that: Double): DenseMatrix = {
+    DenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j)*that }
+  }
+
+  def /(that: Double): DenseMatrix = {
+    DenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j)/that }
   }
   
   override def toString = {

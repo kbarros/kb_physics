@@ -35,6 +35,20 @@ trait Lapack {
             A: Array[Double], LDA: Int,
             B: Array[Double], LDB: Int,
             WORK: Array[Double], LWORK: Int, INFO: IntByReference)
+
+  def dgeev(JOBVL: String, JOBVR: String,
+            N: Int, A: Array[Double], LDA: Int,
+            WR: Array[Double], WI: Array[Double],
+            VL: Array[Double], LDVL: Int,
+            VR: Array[Double], LDVR: Int,
+            WORK: Array[Double], LWORK: Int, INFO: IntByReference)
+
+  def zgeev(JOBVL: String, JOBVR: String,
+            N: Int, A: Array[Double], LDA: Int,
+            WR: Array[Double], WI: Array[Double],
+            VL: Array[Double], LDVL: Int,
+            VR: Array[Double], LDVR: Int,
+            WORK: Array[Double], LWORK: Int, INFO: IntByReference)
 }
 
 
@@ -96,16 +110,33 @@ object Netlib {
                 A: Array[Double], LDA: Int,
                 B: Array[Double], LDB: Int,
                 WORK: Array[Double], LWORK: Int, INFO: IntByReference) {
-                  vecLib.dgels_(TRANS, M, N, NRHS, A, LDA, B, LDB, WORK, LWORK, INFO)
+        vecLib.dgels_(TRANS, M, N, NRHS, A, LDA, B, LDB, WORK, LWORK, INFO)
       }
 
       def zgels(TRANS: String, M: Int, N: Int, NRHS: Int,
                 A: Array[Double], LDA: Int,
                 B: Array[Double], LDB: Int,
                 WORK: Array[Double], LWORK: Int, INFO: IntByReference) {
-                  vecLib.zgels_(TRANS, M, N, NRHS, A, LDA, B, LDB, WORK, LWORK, INFO)
+        vecLib.zgels_(TRANS, M, N, NRHS, A, LDA, B, LDB, WORK, LWORK, INFO)
+      }
+
+      def dgeev(JOBVL: String, JOBVR: String,
+                N: Int, A: Array[Double], LDA: Int,
+                WR: Array[Double], WI: Array[Double],
+                VL: Array[Double], LDVL: Int,
+                VR: Array[Double], LDVR: Int,
+                WORK: Array[Double], LWORK: Int, INFO: IntByReference) {
+        vecLib.dgeev_(JOBVL, JOBVR, N, A, LDA, WR, WI, VL, LDVL, VR, LDVR, WORK, LWORK, INFO)
+      }
+
+      def zgeev(JOBVL: String, JOBVR: String,
+                N: Int, A: Array[Double], LDA: Int,
+                WR: Array[Double], WI: Array[Double],
+                VL: Array[Double], LDVL: Int,
+                VR: Array[Double], LDVR: Int,
+                WORK: Array[Double], LWORK: Int, INFO: IntByReference) {
+        vecLib.zgeev_(JOBVL, JOBVR, N, A, LDA, WR, WI, VL, LDVL, VR, LDVR, WORK, LWORK, INFO)
       }
     }
   }
-
 }

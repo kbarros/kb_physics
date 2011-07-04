@@ -1,6 +1,8 @@
 package kip.math
 package linalg
 
+import com.sun.jna.ptr.IntByReference
+
 
 trait DenseComplexMatrixImplicits {
   def c2r(a: Seq[Complex]): Array[Double] = DenseComplexMatrix.complexToDoubleArray(a)
@@ -43,17 +45,18 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
   }
 
   def fill(numRows: Int, numCols: Int)(x: Complex) = {
-    val elems = new Array[Double](2*numRows*numCols)
-    for (i <- 0 until numRows*numCols) {
-      elems(2*i+0) = x.re
-      elems(2*i+1) = x.im
-    }
+    val elems = complexToDoubleArray(Array.fill(numRows*numCols)(x))
     new DenseComplexMatrix(numRows, numCols, elems)
   }
   
   def zeros(numRows: Int, numCols: Int) = {
-    val elems = Array.fill(2*numRows*numCols)(0d)
-    new DenseComplexMatrix(numRows, numCols, elems)
+    fill(numRows, numCols)(0)
+  }
+  
+  def tabulate(numRows: Int, numCols: Int)(f: (Int, Int) => Complex) = {
+    val m = zeros(numRows, numCols)
+    for (j <- 0 until numCols; i <- 0 until numRows) m(i, j) = f(i, j)
+    m
   }
   
   def eye(numRows: Int) = {
@@ -118,7 +121,7 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
 
     // query optimal workspace
     val queryWork = new Array[Double](2);
-    val queryInfo = new com.sun.jna.ptr.IntByReference(0);
+    val queryInfo = new IntByReference(0);
     Netlib.lapack.zgels(
       if (!transpose) "N" else "T",
       A.numRows, A.numCols, nrhs,
@@ -151,11 +154,16 @@ object DenseComplexMatrix extends DenseComplexMatrixImplicits {
 
     X;
   }
+
 }
 
 
 class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Double]) {
   require(2*numRows*numCols == data.size)
+  
+  override def clone(): DenseComplexMatrix = {
+    new DenseComplexMatrix(numRows, numCols, data.clone())
+  }
   
   def checkKey(i: Int, j: Int) {
     require(0 <= i && i < numRows)
@@ -171,25 +179,13 @@ class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Dou
     val idx = index(i, j)
     Complex(data(2*idx+0), data(2*idx+1))
   }
-  
+
   def apply(i: Int, _slice: Slice): DenseComplexMatrix = {
-    val elems = new Array[Double](2*numCols)
-    for (j <- 0 until numCols) {
-      val idx = index(i, j)
-      elems(2*j+0) = data(2*idx+0)
-      elems(2*j+1) = data(2*idx+1)
-    }
-    new DenseComplexMatrix(1, numCols, elems)
+    DenseComplexMatrix.tabulate(1, numCols) { (_,j) => this(i,j) }
   }
   
   def apply(_slice: Slice, j: Int): DenseComplexMatrix = {
-    val elems = new Array[Double](2*numRows)
-    for (i <- 0 until numRows) {
-      val idx = index(i, j)
-      elems(2*i+0) = data(2*idx+0)
-      elems(2*i+1) = data(2*idx+1)
-    }
-    new DenseComplexMatrix(numRows, 1, elems)
+    DenseComplexMatrix.tabulate(numRows, 1) { (i,_) => this(i,j) }
   }
 
   def update(i: Int, j: Int, x: Complex) {
@@ -200,87 +196,63 @@ class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Dou
   
   def update(i: Int, _slice: Slice, x: DenseComplexMatrix) {
     require(x.numRows == 1 && x.numCols == numCols)
-    for (j <- 0 until numCols) {
-      val idx = index(i, j)
-      data(2*idx+0) = x.data(2*j+0)
-      data(2*idx+1) = x.data(2*j+1)
-    }
+    for (j <- 0 until numCols) this(i, j) = x(0, j)
   }
 
   def update(_slice: Slice, j: Int, x: DenseComplexMatrix) {
     require(x.numRows == numRows && x.numCols == 1)
-    for (i <- 0 until numRows) {
-      val idx = index(i, j)
-      data(2*idx+0) = x.data(2*i+0)
-      data(2*idx+1) = x.data(2*i+1)
-    }
+    for (i <- 0 until numRows) this(i, j) = x(i, 0)
   }
   
   def transpose: DenseComplexMatrix = {
-    val ret = DenseComplexMatrix.zeros(numCols, numRows)
-    for (i <- 0 until numRows;
-         j <- 0 until numCols) {
-      ret(j, i) = this(i, j)
-    }
-    ret
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i, j) => this(j, i) }
   }
   
   def conj : DenseComplexMatrix = {
-    val ret = DenseComplexMatrix.zeros(numRows, numCols)
-    for (i <- 0 until numRows;
-         j <- 0 until numCols) {
-      ret(i, j) = this(i, j).conj
-    }
-    ret
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j).conj }
   }
   
   def dagger : DenseComplexMatrix = {
-    // conjugate transpose
-    val ret = DenseComplexMatrix.zeros(numCols, numRows)
-    for (i <- 0 until numRows;
-         j <- 0 until numCols) {
-      ret(j, i) = this(i, j).conj
-    }
-    ret
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i, j) => this(j, i).conj }
   }
   
   def +(that: DenseComplexMatrix): DenseComplexMatrix = {
     require(numRows == that.numRows && numCols == that.numCols)
-    val ret = DenseComplexMatrix.zeros(numCols, numRows)
-    for (i <- 0 until numRows;
-         j <- 0 until numCols) {
-      ret(i, j) = this(i, j) + that(i, j)
-    }
-    ret
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j) + that(i, j) }
+  }
+
+  def -(that: DenseComplexMatrix): DenseComplexMatrix = {
+    require(numRows == that.numRows && numCols == that.numCols)
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j) - that(i, j) }
   }
 
   def *(that: DenseComplexMatrix): DenseComplexMatrix = {
-    require(numCols == that.numRows,
-            "Cannot form product of dimension [%d,%d]x[%d,%d]".format(
-              numRows, numCols, that.numRows, that.numCols))
+    require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, that.numRows))
     val ret = DenseComplexMatrix.zeros(numRows, that.numCols)
-    val useBlas = true
-    if (useBlas) {
-      DenseComplexMatrix.blasZgemm(ret, this, that)
-    }
-    else {
-      for (i <- 0 until numRows;
-           k <- 0 until numCols;
-           j <- 0 until that.numCols) {
-        ret(i, j) += this(i, k)*that(k, j)
-      }
-    }
+    DenseComplexMatrix.blasZgemm(ret, this, that)
+    // equivalent to:
+    // for (i <- 0 until numRows;
+    //      k <- 0 until numCols;
+    //      j <- 0 until that.numCols) {
+    //   ret(i, j) += this(i, k)*that(k, j)
+    // }
     ret
   }
   
   def \(that: DenseComplexMatrix): DenseComplexMatrix = {
-    require(numCols == that.numRows,
-          "Cannot form quotient of dimension [%d,%d]\\[%d,%d]".format(
-            numRows, numCols, that.numRows, that.numCols))
-    require(that.numCols == 1, "TODO: fuller division")
+    require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, that.numRows))
+    require(that.numCols == 1)
     val ret = DenseComplexMatrix.zeros(numRows, 1)
     DenseComplexMatrix.QRSolve(ret, this, that, false)
     ret
+  }
+
+  def *(that: Complex): DenseComplexMatrix = {
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j)*that }
+  }
+
+  def /(that: Double): DenseComplexMatrix = {
+    DenseComplexMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j)/that }
   }
   
   override def toString = {
