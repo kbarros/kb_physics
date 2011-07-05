@@ -11,20 +11,26 @@ scalaVersion := "2.9.0"
 
 
 libraryDependencies ++= Seq(
-  "net.java.dev.jna" % "jna" % "3.2.3",
+  "net.java.dev.jna" % "jna" % "3.3.0",
   "com.twitter" % "json" % "2.1.3",
   "org.scala-lang" % "scala-compiler" % "2.9.0",
   "org.scala-lang" % "jline" % "2.9.0"
 )
 
 resolvers ++= Seq(
-  "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
+  "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots",
+  "download.java.net" at "http://download.java.net/maven/2"
 )
 
 scalacOptions ++= Seq(
   "-deprecation", "-unchecked"
 )
 
+javacOptions ++= Seq(
+  "-Xlint:unchecked"
+)
+
+retrieveManaged := true
 
 // define the statements initially evaluated when entering 'console', 'console-quick', or 'console-project'
 initialCommands := """
