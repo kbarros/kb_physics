@@ -4,6 +4,16 @@ package linalg
 import com.sun.jna.ptr.IntByReference
 import java.nio._
 
+/*
+ * FUTURE WORK:
+ *
+ * - Make ScalarData extend Scalar : Associate operations with type of Matrix
+ * - LAPACK operations
+ * - CanBuildFrom for matrices
+ * - Sparse matrices
+ * - Generics for float precision
+ * 
+ * */
 
 // ----------------------------------
 // Scalar
@@ -35,24 +45,24 @@ trait ComplexScalar extends Scalar[Complex] {
   def zero: Complex = 0
 }
 
+/*
+ * TODO: move into Scalar
 object ScalarOps {
   trait ScalarOps[@specialized(Float, Double) A] {
     val lhs: A
     val n: Scalar[A]
-
     def +(rhs:A) = n.add(lhs, rhs)
     def -(rhs:A) = n.sub(lhs, rhs)
     def *(rhs:A) = n.mul(lhs, rhs)
     def /(rhs:A) = n.div(lhs, rhs)
     def unary_-() = n.negate(lhs)
   }
-
   implicit def infixScalarOps[@specialized(Float, Double) A: Scalar](a: A): ScalarOps[A] = new ScalarOps[A] {
     val lhs = a
     val n = implicitly[Scalar[A]]
   }
 }
-
+*/
 
 object Scalar {
   // def scalar[@specialized(Float, Double) A: Scalar]() = implicitly[Scalar[A]]
@@ -80,13 +90,11 @@ trait Data[@specialized(Float, Double) A, B <: Data[A, B]] {
   def dispose(): Unit
   
   def madd(i0: Int, a1: B, i1: Int, a2: B, i2: Int) {
-    import ScalarOps._
-    this(i0) += a1(i1)*a2(i2)
+    this(i0) = scalar.add(this(i0), scalar.mul(a1(i1), a2(i2)))
   }
   
   def madd(i0: Int, a1: B, i1: Int, a2: A) {
-    import ScalarOps._
-    this(i0) += a1(i1)*a2
+    this(i0) = scalar.add(this(i0), scalar.mul(a1(i1), a2))
   }
 }
 
@@ -151,19 +159,21 @@ trait ComplexDataFactory extends DataFactory[ComplexData] {
 
 
 object MyDenseMatrix {
-  def fill[@specialized(Float, Double) A: Scalar, B <: Data[A, B]: DataFactory]
+  def fill[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
       (numRows: Int, numCols: Int)(x: A): MyDenseMatrix[A, B] = {
-    val elems = implicitly[DataFactory[B]].alloc(numRows*numCols)
-    for (i <- 0 until elems.size) elems(i) = x
-    new MyDenseMatrix(numRows, numCols, elems)
+    val data = implicitly[DataFactory[B]].alloc(numRows*numCols)
+    for (i <- 0 until data.size) data(i) = x
+    new MyDenseMatrix[A, B](numRows, numCols, data)
   }
 
-  def zeros[@specialized(Float, Double) A: Scalar, B <: Data[A, B]: DataFactory]
+  def zeros[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
       (numRows: Int, numCols: Int): MyDenseMatrix[A, B] = {
-    fill(numRows, numCols)(implicitly[Scalar[A]].zero)
+    val data = implicitly[DataFactory[B]].alloc(numRows*numCols)
+    for (i <- 0 until data.size) data(i) = data.scalar.zero
+    new MyDenseMatrix[A, B](numRows, numCols, data)
   }
 
-  def tabulate[@specialized(Float, Double) A: Scalar, B <: Data[A, B]: DataFactory]
+  def tabulate[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
       (numRows: Int, numCols: Int) (f: (Int, Int) => A): MyDenseMatrix[A, B] = {
     val m = zeros[A, B](numRows, numCols)
     for (j <- 0 until numCols; i <- 0 until numRows) m(i, j) = f(i, j)
@@ -171,10 +181,9 @@ object MyDenseMatrix {
   }
 }
 
-class MyDenseMatrix[@specialized(Float, Double) A: Scalar, B <: Data[A, B]: DataFactory]
+class MyDenseMatrix[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
     (val numRows: Int, val numCols: Int, val data: B) {
 
-  import ScalarOps._
   def factory = implicitly[DataFactory[B]]
   
   require(numRows*numCols == data.size)
@@ -231,12 +240,12 @@ class MyDenseMatrix[@specialized(Float, Double) A: Scalar, B <: Data[A, B]: Data
   
   def +(that: MyDenseMatrix[A, B]): MyDenseMatrix[A, B] = {
     require(numRows == that.numRows && numCols == that.numCols)
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j) + that(i, j) }
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.add(this(i, j), that(i, j)) }
   }
 
   def -(that: MyDenseMatrix[A, B]): MyDenseMatrix[A, B] = {
     require(numRows == that.numRows && numCols == that.numCols)
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j) - that(i, j) }
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.sub(this(i, j), that(i, j)) }
   }
 
   def *(that: MyDenseMatrix[A, B]): MyDenseMatrix[A, B] = {
@@ -261,11 +270,11 @@ class MyDenseMatrix[@specialized(Float, Double) A: Scalar, B <: Data[A, B]: Data
   }
 
   def *(that: A): MyDenseMatrix[A, B] = {
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j)*that }
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.mul(this(i, j), that) }
   }
 
   def /(that: A): MyDenseMatrix[A, B] = {
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => this(i, j)/that }
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.div(this(i, j), that) }
   }
   
   override def toString = {
