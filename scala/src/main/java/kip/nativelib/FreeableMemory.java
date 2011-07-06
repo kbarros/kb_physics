@@ -5,12 +5,12 @@ import com.sun.jna.Pointer;
 import com.sun.jna.Native;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import java.util.Collections;
 import java.util.Map;
 
 public class FreeableMemory extends Memory {
     
+    // Need a WeakIdentityHashMap to avoid bug described in http://java.net/jira/browse/JNA-179
     private static Map<ByteBuffer, FreeableMemory> buffers = Collections.synchronizedMap(new WeakIdentityHashMap<ByteBuffer, FreeableMemory>());
     
     /** Force cleanup of memory that has associated NIO Buffers which have
