@@ -11,7 +11,8 @@ import java.nio._
  * - LAPACK operations
  * - CanBuildFrom for matrices
  * - Sparse matrices
- * - Generics for float precision
+ * - Unify ops names
+ *   - Generics for float precision
  * 
  * */
 
@@ -66,48 +67,52 @@ object ScalarOps {
 
 object Scalar {
   // def scalar[@specialized(Float, Double) A: Scalar]() = implicitly[Scalar[A]]
-  // def factory[B: Factory]() = implicitly[Factory[B]]
 
   implicit object DoubleScalar extends DoubleScalar
-  implicit object DoubleDataFactory extends DoubleDataFactory
-
   implicit object ComplexScalar extends ComplexScalar
-  implicit object ComplexDataFactory extends ComplexDataFactory
+
+  implicit object DoubleData extends DoubleData
+//  implicit object ComplexData extends ComplexData
 }
 
 
 // ----------------------------------
 // Data
 
-trait Data[@specialized(Float, Double) A, B <: Data[A, B]] {
-  implicit def scalar: Scalar[A]
-  def data: Any
-  def copyTo(that: B, start: Int, len: Int): Unit
-  def copyElemTo(that: B, i: Int): Unit
-  def update(i: Int, x: A): Unit
-  def apply(i: Int): A
-  def size: Int
-  def dispose(): Unit
+trait Data[@specialized(Float, Double) A, B] extends Scalar[A] {
+  def alloc(size: Int): B
+  def copyTo(src: B, dst: B, start: Int, len: Int): Unit
+  def copyElemTo(src: B, dst: B, i: Int): Unit
+  def update(a: B, i: Int, x: A): Unit
+  def apply(a: B, i: Int): A
+  def size(a: B): Int
+  def dispose(a: B): Unit
   
-  def madd(i0: Int, a1: B, i1: Int, a2: B, i2: Int) {
-    this(i0) = scalar.add(this(i0), scalar.mul(a1(i1), a2(i2)))
+  def madd(a0: B, i0: Int, a1: B, i1: Int, a2: B, i2: Int) {
+    val x0 = apply(a0, i0)
+    val x1 = apply(a1, i1)
+    val x2 = apply(a2, i2)
+    update(a0, i0, add(x0, mul(x1, x2)))
   }
   
-  def madd(i0: Int, a1: B, i1: Int, a2: A) {
-    this(i0) = scalar.add(this(i0), scalar.mul(a1(i1), a2))
+  def madd(a0: B, i0: Int, a1: B, i1: Int, x2: A) {
+    val x0 = apply(a0, i0)
+    val x1 = apply(a1, i1)
+    update(a0, i0, add(x0, mul(x1, x2)))
   }
 }
 
-class DoubleData(val data: Array[Double]) extends Data[Double, DoubleData] {
-  def scalar = Scalar.DoubleScalar
-  def copyTo(that: DoubleData, start: Int, len: Int) { data.copyToArray(that.data, start, len) }
-  def copyElemTo(that: DoubleData, i: Int) { that.data(i) = data(i) }
-  def update(i: Int, x: Double) { data(i) = x }
-  def apply(i: Int): Double = data(i)
-  def size = data.size
-  def dispose() { }
+class DoubleData extends Data[Double, Array[Double]] with DoubleScalar {
+  def alloc(size: Int) = new Array[Double](size)
+  def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, start, len) }
+  def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) { dst(i) = src(i) }
+  def update(a: Array[Double], i: Int, x: Double) { a(i) = x }
+  def apply(a: Array[Double], i: Int): Double = a(i)
+  def size(a: Array[Double]) = a.size
+  def dispose(a: Array[Double]) { }
 }
 
+/*
 class ComplexData(val data: Array[Double]) extends Data[Complex, ComplexData] {
   def scalar = Scalar.ComplexScalar
   def copyTo(that: ComplexData, start: Int, len: Int) { data.copyToArray(that.data, 2*start, 2*len) }
@@ -132,65 +137,46 @@ class ComplexData(val data: Array[Double]) extends Data[Complex, ComplexData] {
     data(2*i0+1) += a1_re*a2_im + a1_im*a2_re
   }
 }
-
-
-// ----------------------------------
-// DataFactory
-
-trait DataFactory[B] {
-  def alloc(size: Int): B
-}
-
-trait DoubleDataFactory extends DataFactory[DoubleData] {
-  def alloc(size: Int): DoubleData = {
-    new DoubleData(new Array[Double](size))
-  }
-}
-
-trait ComplexDataFactory extends DataFactory[ComplexData] {
-  def alloc(size: Int): ComplexData = {
-    new ComplexData(new Array[Double](2*size))
-  }
-}
+*/
 
 
 // ----------------------------------
 // Matrix impl
 
-
 object MyDenseMatrix {
-  def fill[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
-      (numRows: Int, numCols: Int)(x: A): MyDenseMatrix[A, B] = {
-    val data = implicitly[DataFactory[B]].alloc(numRows*numCols)
-    for (i <- 0 until data.size) data(i) = x
-    new MyDenseMatrix[A, B](numRows, numCols, data)
+  def fill[@specialized(Float, Double) A, B, C <: Data[A, B]]
+      (numRows: Int, numCols: Int)(x: A)
+      (implicit ops: C): MyDenseMatrix[A, B, C] = {
+    val data = ops.alloc(numRows*numCols)
+    for (i <- 0 until ops.size(data)) ops.update(data, i, x)
+    new MyDenseMatrix[A, B, C](numRows, numCols, data)
   }
 
-  def zeros[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
-      (numRows: Int, numCols: Int): MyDenseMatrix[A, B] = {
-    val data = implicitly[DataFactory[B]].alloc(numRows*numCols)
-    for (i <- 0 until data.size) data(i) = data.scalar.zero
-    new MyDenseMatrix[A, B](numRows, numCols, data)
+  def zeros[@specialized(Float, Double) A, B, C <: Data[A, B]]
+      (numRows: Int, numCols: Int)
+      (implicit ops: C): MyDenseMatrix[A, B, C] = {
+    fill(numRows, numCols)(ops.zero)
   }
 
-  def tabulate[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
-      (numRows: Int, numCols: Int) (f: (Int, Int) => A): MyDenseMatrix[A, B] = {
-    val m = zeros[A, B](numRows, numCols)
+  def tabulate[@specialized(Float, Double) A, B, C <: Data[A, B]]
+      (numRows: Int, numCols: Int)(f: (Int, Int) => A)
+      (implicit ops: C): MyDenseMatrix[A, B, C] = {
+    val m = zeros[A, B, C](numRows, numCols)
     for (j <- 0 until numCols; i <- 0 until numRows) m(i, j) = f(i, j)
     m
   }
 }
 
-class MyDenseMatrix[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
-    (val numRows: Int, val numCols: Int, val data: B) {
 
-  def factory = implicitly[DataFactory[B]]
+class MyDenseMatrix[@specialized(Float, Double) A, B, C <: Data[A, B]]
+    (val numRows: Int, val numCols: Int, val data: B)
+    (implicit ops: C) {
+
+  require(numRows*numCols == ops.size(data))
   
-  require(numRows*numCols == data.size)
-  
-  override def clone(): MyDenseMatrix[A, B] = {
-    val newData: B = factory.alloc(data.size)
-    data.copyTo(newData, 0, data.size)
+  override def clone(): MyDenseMatrix[A, B, C] = {
+    val newData: B = ops.alloc(ops.size(data))
+    ops.copyTo(data, newData, 0, ops.size(data))
     new MyDenseMatrix(numRows, numCols, newData)
   }
   
@@ -209,72 +195,72 @@ class MyDenseMatrix[@specialized(Float, Double) A, B <: Data[A, B]: DataFactory]
   }
 
   def apply(i: Int, j: Int): A = {
-    data(index(i, j))
+    ops.apply(data, index(i, j))
   }
   
-  def apply(i: Int, _slice: Slice): MyDenseMatrix[A, B] = {
+  def apply(i: Int, _slice: Slice): MyDenseMatrix[A, B, C] = {
     MyDenseMatrix.tabulate(1, numCols) { (_,j) => this(i,j) }
   }
   
-  def apply(_slice: Slice, j: Int): MyDenseMatrix[A, B] = {
+  def apply(_slice: Slice, j: Int): MyDenseMatrix[A, B, C] = {
     MyDenseMatrix.tabulate(numRows, 1) { (i,_) => this(i,j) }
   }
 
   def update(i: Int, j: Int, x: A) {
-    data(index(i, j)) = x
+    ops.update(data, index(i, j), x)
   }
   
-  def update(i: Int, _slice: Slice, x: MyDenseMatrix[A, B]) {
+  def update(i: Int, _slice: Slice, x: MyDenseMatrix[A, B, C]) {
     require(x.numRows == 1 && x.numCols == numCols)
     for (j <- 0 until numCols) this(i, j) = x(0, j)
   }
 
-  def update(_slice: Slice, j: Int, x: MyDenseMatrix[A, B]) {
+  def update(_slice: Slice, j: Int, x: MyDenseMatrix[A, B, C]) {
     require(x.numRows == numRows && x.numCols == 1)
     for (i <- 0 until numRows) this(i, j) = x(i, 0)
   }
   
-  def transpose: MyDenseMatrix[A, B] = {
+  def transpose: MyDenseMatrix[A, B, C] = {
     MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => this(j, i) }
   }
   
-  def +(that: MyDenseMatrix[A, B]): MyDenseMatrix[A, B] = {
+  def +(that: MyDenseMatrix[A, B, C]): MyDenseMatrix[A, B, C] = {
     require(numRows == that.numRows && numCols == that.numCols)
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.add(this(i, j), that(i, j)) }
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => ops.add(this(i, j), that(i, j)) }
   }
 
-  def -(that: MyDenseMatrix[A, B]): MyDenseMatrix[A, B] = {
+  def -(that: MyDenseMatrix[A, B, C]): MyDenseMatrix[A, B, C] = {
     require(numRows == that.numRows && numCols == that.numCols)
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.sub(this(i, j), that(i, j)) }
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => ops.sub(this(i, j), that(i, j)) }
   }
 
-  def *(that: MyDenseMatrix[A, B]): MyDenseMatrix[A, B] = {
+  def *(that: MyDenseMatrix[A, B, C]): MyDenseMatrix[A, B, C] = {
     require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, numRows))
-    val ret = MyDenseMatrix.zeros[A, B](numRows, that.numCols)
+    val ret = MyDenseMatrix.zeros[A, B, C](numRows, that.numCols)
 //    MyDenseMatrix.blasDgemm(ret, this, that)
     for (i <- 0 until numRows;
          k <- 0 until numCols;
          j <- 0 until that.numCols) {
       // equivalent to: ret(i, j) += this(i, k)*that(k, j)
-      ret.data.madd(index(i, j), this.data, index(i, k), that.data, index(k, j))
+      ops.madd(ret.data, index(i, j), this.data, index(i, k), that.data, index(k, j))
     }
     ret
   }
   
-  def \(that: MyDenseMatrix[A, B]): MyDenseMatrix[A, B] = {
+  def \(that: MyDenseMatrix[A, B, C]): MyDenseMatrix[A, B, C] = {
     require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, numRows))
     require(that.numCols == 1)
-    val ret = MyDenseMatrix.zeros[A, B](numRows, 1)
+    val ret = MyDenseMatrix.zeros[A, B, C](numRows, 1)
 //    MyDenseMatrix.QRSolve(ret, this, that, false)
     ret
   }
 
-  def *(that: A): MyDenseMatrix[A, B] = {
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.mul(this(i, j), that) }
+  def *(that: A): MyDenseMatrix[A, B, C] = {
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => ops.mul(this(i, j), that) }
   }
 
-  def /(that: A): MyDenseMatrix[A, B] = {
-    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => data.scalar.div(this(i, j), that) }
+  def /(that: A): MyDenseMatrix[A, B, C] = {
+    MyDenseMatrix.tabulate(numRows, numCols) { (i, j) => ops.div(this(i, j), that) }
   }
   
   override def toString = {
