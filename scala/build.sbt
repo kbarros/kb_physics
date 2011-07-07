@@ -34,20 +34,8 @@ retrieveManaged := true
 
 // define the statements initially evaluated when entering 'console', 'console-quick', or 'console-project'
 initialCommands := """
-  import kip.math.linalg._
-  import DenseMatrix._
-/*
-  import scalala.scalar._
-  import scalala.tensor.::
-  import scalala.tensor.mutable._
-  import scalala.tensor.dense._
-  import scalala.tensor.sparse._
-  import scalala.library.Library._
-  import scalala.library.LinearAlgebra._
-  import scalala.library.Statistics._
-  import scalala.library.Plotting._
-  import scalala.operators.Implicits._
-*/
+//  import kip.math.linalg._
+//  import DenseMatrix._
   import System.{currentTimeMillis => now}
   def time[T](f: => T): T = {
     val start = now
