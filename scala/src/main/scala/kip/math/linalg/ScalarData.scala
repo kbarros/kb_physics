@@ -36,7 +36,7 @@ trait ScalarData[@specialized(Float, Double) A, B] extends Scalar[A] {
 // ------------------------------------------------------------
 // Real
 
-class RealDblData extends ScalarData[Double, Array[Double]] with RealDblTC {
+trait RealDblData extends ScalarData[Double, Array[Double]] with RealDblTC {
   def alloc(size: Int) = new Array[Double](size)
   def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, start, len) }
   def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) { dst(i) = src(i) }
@@ -46,7 +46,7 @@ class RealDblData extends ScalarData[Double, Array[Double]] with RealDblTC {
   def dispose(a: Array[Double]) { }
 }
 
-class RealFltData extends ScalarData[Float, Array[Float]] with RealFltTC {
+trait RealFltData extends ScalarData[Float, Array[Float]] with RealFltTC {
   def alloc(size: Int) = new Array[Float](size)
   def copyTo(src: Array[Float], dst: Array[Float], start: Int, len: Int) { src.copyToArray(dst, start, len) }
   def copyElemTo(src: Array[Float], dst: Array[Float], i: Int) { dst(i) = src(i) }
@@ -60,7 +60,7 @@ class RealFltData extends ScalarData[Float, Array[Float]] with RealFltTC {
 // ------------------------------------------------------------
 // Complex
 
-class ComplexDblData extends ScalarData[Complex, Array[Double]] with ComplexTC {
+trait ComplexDblData extends ScalarData[Complex, Array[Double]] with ComplexTC {
   def alloc(size: Int) = new Array[Double](2*size)
   def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, 2*start, 2*len) }
   def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) {
@@ -90,7 +90,7 @@ class ComplexDblData extends ScalarData[Complex, Array[Double]] with ComplexTC {
   }
 }
 
-class ComplexFltData extends ScalarData[Complex, Array[Float]] with ComplexTC {
+trait ComplexFltData extends ScalarData[Complex, Array[Float]] with ComplexTC {
   def alloc(size: Int) = new Array[Float](2*size)
   def copyTo(src: Array[Float], dst: Array[Float], start: Int, len: Int) { src.copyToArray(dst, 2*start, 2*len) }
   def copyElemTo(src: Array[Float], dst: Array[Float], i: Int) {
