@@ -3,7 +3,7 @@ package linalg
 
 import com.sun.jna.ptr.IntByReference
 
-
+/*
 trait DenseComplexMatrixImplicits {
   def c2r(a: Seq[Complex]): Array[Double] = DenseComplexMatrix.complexToDoubleArray(a)
 
@@ -279,3 +279,4 @@ class DenseComplexMatrix(val numRows: Int, val numCols: Int, val data: Array[Dou
   }
 }
 
+*/

@@ -7,144 +7,18 @@ import java.nio._
 /*
  * FUTURE WORK:
  *
- * - Make ScalarData extend Scalar : Associate operations with type of Matrix
+ * - Nicer syntax, type inference
  * - LAPACK operations
  * - CanBuildFrom for matrices
  * - Sparse matrices
- * - Unify ops names
- *   - Generics for float precision
  * 
  * */
-
-// ----------------------------------
-// Scalar
-
-trait Scalar[@specialized(Float, Double) A] {
-  def add(a: A, b: A): A
-  def sub(a: A, b: A): A
-  def mul(a: A, b: A): A
-  def div(a: A, b: A): A
-  def negate(a: A): A
-  def zero: A
-}
-
-trait DoubleScalar extends Scalar[Double] {
-  def add(a: Double, b: Double): Double = a + b
-  def sub(a: Double, b: Double): Double = a - b
-  def mul(a: Double, b: Double): Double = a * b
-  def div(a: Double, b: Double): Double = a / b
-  def negate(a: Double): Double = -a
-  def zero: Double = 0.0
-}
-
-trait ComplexScalar extends Scalar[Complex] {
-  def add(a: Complex, b: Complex): Complex = a + b
-  def sub(a: Complex, b: Complex): Complex = a - b
-  def mul(a: Complex, b: Complex): Complex = a * b
-  def div(a: Complex, b: Complex): Complex = a / b
-  def negate(a: Complex): Complex = -a
-  def zero: Complex = 0
-}
-
-/*
- * TODO: move into Scalar
-object ScalarOps {
-  trait ScalarOps[@specialized(Float, Double) A] {
-    val lhs: A
-    val n: Scalar[A]
-    def +(rhs:A) = n.add(lhs, rhs)
-    def -(rhs:A) = n.sub(lhs, rhs)
-    def *(rhs:A) = n.mul(lhs, rhs)
-    def /(rhs:A) = n.div(lhs, rhs)
-    def unary_-() = n.negate(lhs)
-  }
-  implicit def infixScalarOps[@specialized(Float, Double) A: Scalar](a: A): ScalarOps[A] = new ScalarOps[A] {
-    val lhs = a
-    val n = implicitly[Scalar[A]]
-  }
-}
-*/
-
-object Scalar {
-  // def scalar[@specialized(Float, Double) A: Scalar]() = implicitly[Scalar[A]]
-
-  implicit object DoubleScalar extends DoubleScalar
-  implicit object ComplexScalar extends ComplexScalar
-
-  implicit object DoubleData extends DoubleData
-//  implicit object ComplexData extends ComplexData
-}
-
-
-// ----------------------------------
-// Data
-
-trait Data[@specialized(Float, Double) A, B] extends Scalar[A] {
-  def alloc(size: Int): B
-  def copyTo(src: B, dst: B, start: Int, len: Int): Unit
-  def copyElemTo(src: B, dst: B, i: Int): Unit
-  def update(a: B, i: Int, x: A): Unit
-  def apply(a: B, i: Int): A
-  def size(a: B): Int
-  def dispose(a: B): Unit
-  
-  def madd(a0: B, i0: Int, a1: B, i1: Int, a2: B, i2: Int) {
-    val x0 = apply(a0, i0)
-    val x1 = apply(a1, i1)
-    val x2 = apply(a2, i2)
-    update(a0, i0, add(x0, mul(x1, x2)))
-  }
-  
-  def madd(a0: B, i0: Int, a1: B, i1: Int, x2: A) {
-    val x0 = apply(a0, i0)
-    val x1 = apply(a1, i1)
-    update(a0, i0, add(x0, mul(x1, x2)))
-  }
-}
-
-class DoubleData extends Data[Double, Array[Double]] with DoubleScalar {
-  def alloc(size: Int) = new Array[Double](size)
-  def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, start, len) }
-  def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) { dst(i) = src(i) }
-  def update(a: Array[Double], i: Int, x: Double) { a(i) = x }
-  def apply(a: Array[Double], i: Int): Double = a(i)
-  def size(a: Array[Double]) = a.size
-  def dispose(a: Array[Double]) { }
-}
-
-/*
-class ComplexData(val data: Array[Double]) extends Data[Complex, ComplexData] {
-  def scalar = Scalar.ComplexScalar
-  def copyTo(that: ComplexData, start: Int, len: Int) { data.copyToArray(that.data, 2*start, 2*len) }
-  def copyElemTo(that: ComplexData, i: Int) {
-    that.data(2*i+0) = data(2*i+0)
-    that.data(2*i+1) = data(2*i+1)
-  }
-  def update(i: Int, x: Complex) {
-    data(2*i+0) = x.re
-    data(2*i+1) = x.im
-  }
-  def apply(i: Int): Complex = Complex(data(2*i+0), data(2*i+1))
-  def size = data.size/2
-  def dispose() { }
-  
-  override def madd(i0: Int, a1: ComplexData, i1: Int, a2: ComplexData, i2: Int) {
-    val a1_re = a1.data(2*i1+0)
-    val a1_im = a1.data(2*i1+1)
-    val a2_re = a2.data(2*i1+0)
-    val a2_im = a2.data(2*i1+1)
-    data(2*i0+0) += a1_re*a2_re - a1_im*a2_im
-    data(2*i0+1) += a1_re*a2_im + a1_im*a2_re
-  }
-}
-*/
-
 
 // ----------------------------------
 // Matrix impl
 
 object MyDenseMatrix {
-  def fill[@specialized(Float, Double) A, B, C <: Data[A, B]]
+  def fill[@specialized(Float, Double) A, B, C <: ScalarData[A, B]]
       (numRows: Int, numCols: Int)(x: A)
       (implicit ops: C): MyDenseMatrix[A, B, C] = {
     val data = ops.alloc(numRows*numCols)
@@ -152,13 +26,13 @@ object MyDenseMatrix {
     new MyDenseMatrix[A, B, C](numRows, numCols, data)
   }
 
-  def zeros[@specialized(Float, Double) A, B, C <: Data[A, B]]
+  def zeros[@specialized(Float, Double) A, B, C <: ScalarData[A, B]]
       (numRows: Int, numCols: Int)
       (implicit ops: C): MyDenseMatrix[A, B, C] = {
     fill(numRows, numCols)(ops.zero)
   }
 
-  def tabulate[@specialized(Float, Double) A, B, C <: Data[A, B]]
+  def tabulate[@specialized(Float, Double) A, B, C <: ScalarData[A, B]]
       (numRows: Int, numCols: Int)(f: (Int, Int) => A)
       (implicit ops: C): MyDenseMatrix[A, B, C] = {
     val m = zeros[A, B, C](numRows, numCols)
@@ -168,7 +42,7 @@ object MyDenseMatrix {
 }
 
 
-class MyDenseMatrix[@specialized(Float, Double) A, B, C <: Data[A, B]]
+class MyDenseMatrix[@specialized(Float, Double) A, B, C <: ScalarData[A, B]]
     (val numRows: Int, val numCols: Int, val data: B)
     (implicit ops: C) {
 
@@ -286,3 +160,16 @@ class MyDenseMatrix[@specialized(Float, Double) A, B, C <: Data[A, B]]
     sb.toString
   }
 }
+
+
+/*
+trait ScalarTypeclass {
+  type T
+  def foo(x: T): Unit
+}
+object Test {
+  def test[C <: ScalarTypeclass](scalar: C, x: C#T) = scalar.foo(x)
+}
+
+*/
+

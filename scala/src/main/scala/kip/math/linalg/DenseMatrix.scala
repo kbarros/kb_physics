@@ -3,7 +3,7 @@ package linalg
 
 import com.sun.jna.ptr.IntByReference
 
-
+/*
 trait DenseMatrixImplicits {
   implicit def tuple2ToRow[T <% Double](t: Tuple2[T, T]): DenseMatrix = {
     new DenseMatrix(1, 2, Array(t._1, t._2))
@@ -299,3 +299,4 @@ class DenseMatrix(val numRows: Int, val numCols: Int, val data: Array[Double]) e
   }
 }
 
+*/
