@@ -13,13 +13,18 @@ trait ScalarData[@specialized(Float, Double) A, B] extends Scalar[A] {
   type Buf
   def alloc(size: Int): B
   def buffer(a: B): Buf
-  def copyTo(src: B, dst: B, start: Int, len: Int): Unit
-  def copyElemTo(src: B, dst: B, i: Int): Unit
+  def copy(src: B, srcPos: Int, dst: B, dstPos: Int, length: Int): Unit
   def update(a: B, i: Int, x: A): Unit
   def apply(a: B, i: Int): A
   def size(a: B): Int
   def dispose(a: B): Unit
   
+  def clone(a: B): B = {
+    val ret = alloc(size(a))
+    copy(a, 0, ret, 0, size(a))
+    ret
+  }
+    
   def madd(a0: B, i0: Int, a1: B, i1: Int, a2: B, i2: Int) {
     val x0 = apply(a0, i0)
     val x1 = apply(a1, i1)
@@ -53,8 +58,9 @@ trait ScalarBufferedFlt {
 trait RealDblData extends ScalarData[Double, Array[Double]] with ScalarBufferedDbl with RealDblTC {
   def alloc(size: Int) = new Array[Double](size)
   def buffer(a: Array[Double]) = a
-  def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, start, len) }
-  def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) { dst(i) = src(i) }
+  def copy(src: Array[Double], srcPos: Int, dst: Array[Double], dstPos: Int, length: Int) {
+    System.arraycopy(src, srcPos, dst, dstPos, length)
+  }
   def update(a: Array[Double], i: Int, x: Double) { a(i) = x }
   def apply(a: Array[Double], i: Int): Double = a(i)
   def size(a: Array[Double]) = a.size
@@ -64,8 +70,9 @@ trait RealDblData extends ScalarData[Double, Array[Double]] with ScalarBufferedD
 trait RealFltData extends ScalarData[Float, Array[Float]] with ScalarBufferedFlt with RealFltTC {
   def alloc(size: Int) = new Array[Float](size)
   def buffer(a: Array[Float]) = a
-  def copyTo(src: Array[Float], dst: Array[Float], start: Int, len: Int) { src.copyToArray(dst, start, len) }
-  def copyElemTo(src: Array[Float], dst: Array[Float], i: Int) { dst(i) = src(i) }
+  def copy(src: Array[Float], srcPos: Int, dst: Array[Float], dstPos: Int, length: Int) {
+    System.arraycopy(src, srcPos, dst, dstPos, length)
+  }
   def update(a: Array[Float], i: Int, x: Float) { a(i) = x }
   def apply(a: Array[Float], i: Int): Float = a(i)
   def size(a: Array[Float]) = a.size
@@ -79,10 +86,8 @@ trait RealFltData extends ScalarData[Float, Array[Float]] with ScalarBufferedFlt
 trait ComplexDblData extends ScalarData[Complex, Array[Double]] with ScalarBufferedDbl with ComplexTC {
   def alloc(size: Int) = new Array[Double](2*size)
   def buffer(a: Array[Double]) = a
-  def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, 2*start, 2*len) }
-  def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) {
-    dst(2*i+0) = src(2*i+0)
-    dst(2*i+1) = src(2*i+1)
+  def copy(src: Array[Double], srcPos: Int, dst: Array[Double], dstPos: Int, length: Int) {
+    System.arraycopy(src, 2*srcPos, dst, 2*dstPos, 2*length)
   }
   def update(a: Array[Double], i: Int, x: Complex) {
     a(2*i+0) = x.re
@@ -110,10 +115,8 @@ trait ComplexDblData extends ScalarData[Complex, Array[Double]] with ScalarBuffe
 trait ComplexFltData extends ScalarData[Complex, Array[Float]] with ScalarBufferedFlt with ComplexTC {
   def alloc(size: Int) = new Array[Float](2*size)
   def buffer(a: Array[Float]) = a
-  def copyTo(src: Array[Float], dst: Array[Float], start: Int, len: Int) { src.copyToArray(dst, 2*start, 2*len) }
-  def copyElemTo(src: Array[Float], dst: Array[Float], i: Int) {
-    dst(2*i+0) = src(2*i+0)
-    dst(2*i+1) = src(2*i+1)
+  def copy(src: Array[Float], srcPos: Int, dst: Array[Float], dstPos: Int, length: Int) {
+    System.arraycopy(src, 2*srcPos, dst, 2*dstPos, 2*length)
   }
   def update(a: Array[Float], i: Int, x: Complex) {
     a(2*i+0) = x.re.toFloat
