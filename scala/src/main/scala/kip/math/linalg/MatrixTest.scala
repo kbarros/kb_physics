@@ -214,8 +214,7 @@ class DenseMatrix[@specialized(Float, Double) A, B]
   
   def \(that: DenseMatrix[A, B]): DenseMatrix[A, B] = {
     require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, numRows))
-    require(that.numCols == 1)
-    val ret = matrix.zeros(numRows, 1)
+    val ret = matrix.zeros(numRows, numCols)
     DenseMatrix.QRSolve(ret, this, that, false)
     ret
   }

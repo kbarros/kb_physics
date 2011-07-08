@@ -11,6 +11,7 @@ object ScalarData {
 
 trait ScalarData[@specialized(Float, Double) A, B] extends Scalar[A] {
   type Buf
+  
   def alloc(size: Int): B
   def buffer(a: B): Buf
   def copy(src: B, srcPos: Int, dst: B, dstPos: Int, length: Int): Unit
