@@ -1,9 +1,6 @@
 package kip.math
 package linalg
 
-import com.sun.jna.ptr.IntByReference
-import java.nio._
-
 /*
  * FUTURE WORK:
  *
@@ -14,12 +11,12 @@ import java.nio._
  * */
 
 object DenseMatrix {
-  implicit object RealDbl    extends Builder[Double,  Array[Double]] ()(ScalarData.RealDbl, LapackOps.RealDbl)
-//  implicit object RealFlt    extends Builder[Float,   Array[Float]]  ()(ScalarData.RealFlt, LapackOps.RealFlt)
-//  implicit object ComplexDbl extends Builder[Complex, Array[Double]] ()(ScalarData.ComplexDbl, LapackOps.ComplexDbl)
-//  implicit object ComplexFlt extends Builder[Complex, Array[Float]]  ()(ScalarData.ComplexFlt, LapackOps.ComplexFlt)
+  implicit object RealDbl    extends Builder[Double,  Array[Double]] ()(ScalarData.RealDbl, NetlibOps.RealDbl)
+  implicit object RealFlt    extends Builder[Float,   Array[Float]]  ()(ScalarData.RealFlt, NetlibOps.RealFlt)
+  implicit object ComplexDbl extends Builder[Complex, Array[Double]] ()(ScalarData.ComplexDbl, NetlibOps.ComplexDbl)
+  implicit object ComplexFlt extends Builder[Complex, Array[Float]]  ()(ScalarData.ComplexFlt, NetlibOps.ComplexFlt)
 
-  class Builder[@specialized(Float, Double) A, B](implicit scalar: ScalarData[A, B], lapack: LapackOps[A, B]) {
+  class Builder[@specialized(Float, Double) A, B](implicit scalar: ScalarData[A, B], netlib: NetlibOps[A, B]) {
     def fill(numRows: Int, numCols: Int)(x: A): DenseMatrix[A, B] = {
       val data = scalar.alloc(numRows*numCols)
       for (i <- 0 until scalar.size(data)) scalar.update(data, i, x)
@@ -67,7 +64,7 @@ object DenseMatrix {
 
 class DenseMatrix[@specialized(Float, Double) A, B]
     (val numRows: Int, val numCols: Int, val data: B)
-    (implicit scalar: ScalarData[A, B], lapack: LapackOps[A, B]) {
+    (implicit scalar: ScalarData[A, B], netlib: NetlibOps[A, B]) {
 
   require(numRows*numCols == scalar.size(data))
   val matrix = new DenseMatrix.Builder
@@ -132,7 +129,8 @@ class DenseMatrix[@specialized(Float, Double) A, B]
   def *(that: DenseMatrix[A, B]): DenseMatrix[A, B] = {
     require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, numRows))
     val ret = matrix.zeros(numRows, that.numCols)
-    lapack.gemm("N", "N",
+    import CblasLib._
+    netlib.gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
                 ret.numRows, ret.numCols, // dimension of return matrix
                 numCols, // dimension of summation index
                 scalar.one, // alpha
@@ -210,22 +208,38 @@ class DenseMatrix[@specialized(Float, Double) A, B]
 
 // ------------------
 
-object LapackOps {
-  implicit object RealDbl extends LapackRealDbl[Array[Double]]
-  implicit object RealFlt extends LapackRealFlt[Array[Float]]
-//  implicit object ComplexDbl extends LapackOps[Complex, Array[Double]]
-//  implicit object ComplexFlt extends LapackOps[Complex, Array[Float]]
+import kip.nativelib.VecLib
+import com.sun.jna.ptr.IntByReference
+import com.sun.jna.Native
+
+
+object NetlibOps {
+  implicit object RealFlt extends NetlibRealFltOps[Array[Float]]
+  implicit object RealDbl extends NetlibRealDblOps[Array[Double]]
+  implicit object ComplexFlt extends NetlibComplexFltOps[Array[Float]]
+  implicit object ComplexDbl extends NetlibComplexDblOps[Array[Double]]
+  
+  lazy val cblas: CblasLib = Native.loadLibrary("vecLib", classOf[CblasLib]).asInstanceOf[CblasLib]
+  lazy val lapack: LapackLib = Native.loadLibrary("vecLib", classOf[LapackLib]).asInstanceOf[LapackLib]
+  
+  object Implicits {
+    implicit def intToIntByReference(a: Int) = new IntByReference(a)
+    implicit def complexToDoubleArray(c: Complex) = Array[Double](c.re, c.im)
+    implicit def complexToFloatArray(c: Complex) = Array[Float](c.re.toFloat, c.im.toFloat)
+  }
 }
 
-// TODO: remove B parameter?
-trait LapackOps[@specialized(Float, Double) A, B] {
-  def gemm(TRANSA: String,TRANSB: String,
-            M: Int, N: Int, K: Int,
-            ALPHA: A,
-            A: B, LDA: Int,
-            B: B, LDB: Int,
-            BETA: A,
-            C: B, LDC: Int)
+
+trait NetlibOps[@specialized(Float, Double) A, B] {
+
+  def gemm(Order: Int, TransA: Int, TransB: Int,
+           M: Int, N: Int, K: Int,
+           alpha: A,
+           A: B, lda: Int,
+           B: B, ldb: Int,
+           beta: A,
+           C: B, ldc: Int)
+
 /*
   def gels[Buf](TRANS: String, M: Int, N: Int, NRHS: Int,
             A: Buf, LDA: Int,
@@ -241,30 +255,61 @@ trait LapackOps[@specialized(Float, Double) A, B] {
 */
 }
 
-class LapackRealDbl[B](implicit s: ScalarData[Double, B] with ScalarBufferedDbl) extends LapackOps[Double, B] {
-  val blas = kip.math.Netlib.blas
+
+class NetlibRealFltOps[B](implicit s: ScalarData[Float, B] with ScalarBufferedFlt) extends NetlibOps[Float, B] {
+  import NetlibOps.cblas._
   
-  def gemm(TRANSA: String,TRANSB: String,
-            M: Int, N: Int, K: Int,
-            ALPHA: Double,
-            A: B, LDA: Int,
-            B: B, LDB: Int,
-            BETA: Double,
-            C: B, LDC: Int) = {
-    blas.dgemm(TRANSA, TRANSB, M, N, K, ALPHA, s.buffer(A), LDA, s.buffer(B), LDB, BETA, s.buffer(C), LDC)
-  }
+  def gemm(Order: Int, TransA: Int, TransB: Int,
+           M: Int, N: Int, K: Int,
+           alpha: Float,
+           A: B, lda: Int,
+           B: B, ldb: Int,
+           beta: Float,
+           C: B, ldc: Int) =
+    cblas_sgemm(Order, TransA, TransB, M, N, K, alpha, s.buffer(A), lda, s.buffer(B), ldb, beta, s.buffer(C), ldc)
 }
 
-class LapackRealFlt[B](implicit s: ScalarData[Float, B] with ScalarBufferedFlt) extends LapackOps[Float, B] {
-  val blas = kip.math.Netlib.blas
+
+class NetlibRealDblOps[B](implicit s: ScalarData[Double, B] with ScalarBufferedDbl) extends NetlibOps[Double, B] {
+  import NetlibOps.cblas._
   
-  def gemm(TRANSA: String,TRANSB: String,
-            M: Int, N: Int, K: Int,
-            ALPHA: Float,
-            A: B, LDA: Int,
-            B: B, LDB: Int,
-            BETA: Float,
-            C: B, LDC: Int) = {
-    blas.sgemm(TRANSA, TRANSB, M, N, K, ALPHA, s.buffer(A), LDA, s.buffer(B), LDB, BETA, s.buffer(C), LDC)
-  }
+  def gemm(Order: Int, TransA: Int, TransB: Int,
+           M: Int, N: Int, K: Int,
+           alpha: Double,
+           A: B, lda: Int,
+           B: B, ldb: Int,
+           beta: Double,
+           C: B, ldc: Int) =
+    cblas_dgemm(Order, TransA, TransB, M, N, K, alpha, s.buffer(A), lda, s.buffer(B), ldb, beta, s.buffer(C), ldc)
 }
+
+
+class NetlibComplexFltOps[B](implicit s: ScalarData[Complex, B] with ScalarBufferedFlt) extends NetlibOps[Complex, B] {
+  import NetlibOps.cblas._
+  import NetlibOps.Implicits._
+  
+  def gemm(Order: Int, TransA: Int, TransB: Int,
+           M: Int, N: Int, K: Int,
+           alpha: Complex,
+           A: B, lda: Int,
+           B: B, ldb: Int,
+           beta: Complex,
+           C: B, ldc: Int) =
+    cblas_cgemm(Order, TransA, TransB, M, N, K, alpha, s.buffer(A), lda, s.buffer(B), ldb, beta, s.buffer(C), ldc)
+}
+
+
+class NetlibComplexDblOps[B](implicit s: ScalarData[Complex, B] with ScalarBufferedDbl) extends NetlibOps[Complex, B] {
+  import NetlibOps.cblas._
+  import NetlibOps.Implicits._
+  
+  def gemm(Order: Int, TransA: Int, TransB: Int,
+           M: Int, N: Int, K: Int,
+           alpha: Complex,
+           A: B, lda: Int,
+           B: B, ldb: Int,
+           beta: Complex,
+           C: B, ldc: Int) =
+    cblas_zgemm(Order, TransA, TransB, M, N, K, alpha, s.buffer(A), lda, s.buffer(B), ldb, beta, s.buffer(C), ldc)
+}
+
