@@ -3,14 +3,16 @@ package linalg
 
 
 object ScalarData {
-  implicit object RealDblData extends RealDblData
-  implicit object RealFltData extends RealFltData
-  implicit object ComplexDblData extends ComplexDblData
-  implicit object ComplexFltData extends ComplexFltData
+  implicit object RealDbl extends RealDblData
+  implicit object RealFlt extends RealFltData
+  implicit object ComplexDbl extends ComplexDblData
+  implicit object ComplexFlt extends ComplexFltData
 }
 
 trait ScalarData[@specialized(Float, Double) A, B] extends Scalar[A] {
+  type Buf
   def alloc(size: Int): B
+  def buffer(a: B): Buf
   def copyTo(src: B, dst: B, start: Int, len: Int): Unit
   def copyElemTo(src: B, dst: B, i: Int): Unit
   def update(a: B, i: Int, x: A): Unit
@@ -34,10 +36,23 @@ trait ScalarData[@specialized(Float, Double) A, B] extends Scalar[A] {
 
 
 // ------------------------------------------------------------
+// Element types of packaged buffer
+
+trait ScalarBufferedDbl {
+  type Buf = Array[Double] // java.nio.DoubleBuffer
+}
+
+trait ScalarBufferedFlt {
+  type Buf = Array[Float] // java.nio.FloatBuffer
+}
+
+
+// ------------------------------------------------------------
 // Real
 
-trait RealDblData extends ScalarData[Double, Array[Double]] with RealDblTC {
+trait RealDblData extends ScalarData[Double, Array[Double]] with ScalarBufferedDbl with RealDblTC {
   def alloc(size: Int) = new Array[Double](size)
+  def buffer(a: Array[Double]) = a
   def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, start, len) }
   def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) { dst(i) = src(i) }
   def update(a: Array[Double], i: Int, x: Double) { a(i) = x }
@@ -46,8 +61,9 @@ trait RealDblData extends ScalarData[Double, Array[Double]] with RealDblTC {
   def dispose(a: Array[Double]) { }
 }
 
-trait RealFltData extends ScalarData[Float, Array[Float]] with RealFltTC {
+trait RealFltData extends ScalarData[Float, Array[Float]] with ScalarBufferedFlt with RealFltTC {
   def alloc(size: Int) = new Array[Float](size)
+  def buffer(a: Array[Float]) = a
   def copyTo(src: Array[Float], dst: Array[Float], start: Int, len: Int) { src.copyToArray(dst, start, len) }
   def copyElemTo(src: Array[Float], dst: Array[Float], i: Int) { dst(i) = src(i) }
   def update(a: Array[Float], i: Int, x: Float) { a(i) = x }
@@ -60,8 +76,9 @@ trait RealFltData extends ScalarData[Float, Array[Float]] with RealFltTC {
 // ------------------------------------------------------------
 // Complex
 
-trait ComplexDblData extends ScalarData[Complex, Array[Double]] with ComplexTC {
+trait ComplexDblData extends ScalarData[Complex, Array[Double]] with ScalarBufferedDbl with ComplexTC {
   def alloc(size: Int) = new Array[Double](2*size)
+  def buffer(a: Array[Double]) = a
   def copyTo(src: Array[Double], dst: Array[Double], start: Int, len: Int) { src.copyToArray(dst, 2*start, 2*len) }
   def copyElemTo(src: Array[Double], dst: Array[Double], i: Int) {
     dst(2*i+0) = src(2*i+0)
@@ -90,8 +107,9 @@ trait ComplexDblData extends ScalarData[Complex, Array[Double]] with ComplexTC {
   }
 }
 
-trait ComplexFltData extends ScalarData[Complex, Array[Float]] with ComplexTC {
+trait ComplexFltData extends ScalarData[Complex, Array[Float]] with ScalarBufferedFlt with ComplexTC {
   def alloc(size: Int) = new Array[Float](2*size)
+  def buffer(a: Array[Float]) = a
   def copyTo(src: Array[Float], dst: Array[Float], start: Int, len: Int) { src.copyToArray(dst, 2*start, 2*len) }
   def copyElemTo(src: Array[Float], dst: Array[Float], i: Int) {
     dst(2*i+0) = src(2*i+0)

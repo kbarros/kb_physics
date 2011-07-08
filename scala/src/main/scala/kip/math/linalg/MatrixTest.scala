@@ -14,12 +14,12 @@ import java.nio._
  * */
 
 object DenseMatrix {
-  implicit object RealDbl    extends Builder[Double,  Array[Double]] ()(ScalarData.RealDblData)
-  implicit object RealFlt    extends Builder[Float,   Array[Float]]  ()(ScalarData.RealFltData)
-  implicit object ComplexDbl extends Builder[Complex, Array[Double]] ()(ScalarData.ComplexDblData)
-  implicit object ComplexFlt extends Builder[Complex, Array[Float]]  ()(ScalarData.ComplexFltData)
+  implicit object RealDbl    extends Builder[Double,  Array[Double]] ()(ScalarData.RealDbl, LapackOps.RealDbl)
+//  implicit object RealFlt    extends Builder[Float,   Array[Float]]  ()(ScalarData.RealFlt, LapackOps.RealFlt)
+//  implicit object ComplexDbl extends Builder[Complex, Array[Double]] ()(ScalarData.ComplexDbl, LapackOps.ComplexDbl)
+//  implicit object ComplexFlt extends Builder[Complex, Array[Float]]  ()(ScalarData.ComplexFlt, LapackOps.ComplexFlt)
 
-  class Builder[@specialized(Float, Double) A, B](implicit scalar: ScalarData[A, B]) {
+  class Builder[@specialized(Float, Double) A, B](implicit scalar: ScalarData[A, B], lapack: LapackOps[A, B]) {
     def fill(numRows: Int, numCols: Int)(x: A): DenseMatrix[A, B] = {
       val data = scalar.alloc(numRows*numCols)
       for (i <- 0 until scalar.size(data)) scalar.update(data, i, x)
@@ -67,7 +67,7 @@ object DenseMatrix {
 
 class DenseMatrix[@specialized(Float, Double) A, B]
     (val numRows: Int, val numCols: Int, val data: B)
-    (implicit scalar: ScalarData[A, B]) {
+    (implicit scalar: ScalarData[A, B], lapack: LapackOps[A, B]) {
 
   require(numRows*numCols == scalar.size(data))
   val matrix = new DenseMatrix.Builder
@@ -89,7 +89,6 @@ class DenseMatrix[@specialized(Float, Double) A, B]
   }
   
   def index(i: Int, j: Int) = {
-    println("getting key %d %d for dim %d %d\n".format(i, j, numRows, numCols))
     checkKey(i, j)
     i + j*numRows // fortran column major convention
   }
@@ -133,13 +132,22 @@ class DenseMatrix[@specialized(Float, Double) A, B]
   def *(that: DenseMatrix[A, B]): DenseMatrix[A, B] = {
     require(numCols == that.numRows, "Size mismatch: cols %d != rows %d".format(numCols, numRows))
     val ret = matrix.zeros(numRows, that.numCols)
-//    matrix.blasDgemm(ret, this, that)
+    lapack.gemm("N", "N",
+                ret.numRows, ret.numCols, // dimension of return matrix
+                numCols, // dimension of summation index
+                scalar.one, // alpha
+                data, numRows, // A matrix
+                that.data, that.numRows, // B matrix
+                scalar.zero, // beta
+                ret.data, ret.numRows // C matrix
+              )
+/*
     for (i <- 0 until numRows;
          k <- 0 until numCols;
          j <- 0 until that.numCols) {
-      // equivalent to: ret(i, j) += this(i, k)*that(k, j)
       scalar.madd(ret.data, ret.index(i, j), data, index(i, k), that.data, that.index(k, j))
     }
+*/
     ret
   }
   
@@ -199,3 +207,64 @@ class DenseMatrix[@specialized(Float, Double) A, B]
   }
 }
 
+
+// ------------------
+
+object LapackOps {
+  implicit object RealDbl extends LapackRealDbl[Array[Double]]
+  implicit object RealFlt extends LapackRealFlt[Array[Float]]
+//  implicit object ComplexDbl extends LapackOps[Complex, Array[Double]]
+//  implicit object ComplexFlt extends LapackOps[Complex, Array[Float]]
+}
+
+// TODO: remove B parameter?
+trait LapackOps[@specialized(Float, Double) A, B] {
+  def gemm(TRANSA: String,TRANSB: String,
+            M: Int, N: Int, K: Int,
+            ALPHA: A,
+            A: B, LDA: Int,
+            B: B, LDB: Int,
+            BETA: A,
+            C: B, LDC: Int)
+/*
+  def gels[Buf](TRANS: String, M: Int, N: Int, NRHS: Int,
+            A: Buf, LDA: Int,
+            B: Buf, LDB: Int,
+            WORK: Buf, LWORK: Int, INFO: IntByReference)
+
+  def geev[Buf](JOBVL: String, JOBVR: String,
+            N: Int, A: Buf, LDA: Int,
+            WR: Buf, WI: Array[Double],
+            VL: Buf, LDVL: Int,
+            VR: Buf, LDVR: Int,
+            WORK: Buf, LWORK: Int, INFO: IntByReference)
+*/
+}
+
+class LapackRealDbl[B](implicit s: ScalarData[Double, B] with ScalarBufferedDbl) extends LapackOps[Double, B] {
+  val blas = kip.math.Netlib.blas
+  
+  def gemm(TRANSA: String,TRANSB: String,
+            M: Int, N: Int, K: Int,
+            ALPHA: Double,
+            A: B, LDA: Int,
+            B: B, LDB: Int,
+            BETA: Double,
+            C: B, LDC: Int) = {
+    blas.dgemm(TRANSA, TRANSB, M, N, K, ALPHA, s.buffer(A), LDA, s.buffer(B), LDB, BETA, s.buffer(C), LDC)
+  }
+}
+
+class LapackRealFlt[B](implicit s: ScalarData[Float, B] with ScalarBufferedFlt) extends LapackOps[Float, B] {
+  val blas = kip.math.Netlib.blas
+  
+  def gemm(TRANSA: String,TRANSB: String,
+            M: Int, N: Int, K: Int,
+            ALPHA: Float,
+            A: B, LDA: Int,
+            B: B, LDB: Int,
+            BETA: Float,
+            C: B, LDC: Int) = {
+    blas.sgemm(TRANSA, TRANSB, M, N, K, ALPHA, s.buffer(A), LDA, s.buffer(B), LDB, BETA, s.buffer(C), LDC)
+  }
+}

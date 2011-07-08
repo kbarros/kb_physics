@@ -6,6 +6,13 @@ import com.sun.jna.ptr.IntByReference
 trait Blas {
   def nativeArray: Boolean
   
+  def sgemm(TRANSA: String,TRANSB: String,
+            M: Int, N: Int, K: Int,
+            ALPHA: Float,
+            A: Array[Float], LDA: Int,
+            B: Array[Float], LDB: Int,
+            BETA: Float,
+            C: Array[Float], LDC: Int)
   def dgemm(TRANSA: String,TRANSB: String,
             M: Int, N: Int, K: Int,
             ALPHA: Double,
@@ -13,13 +20,19 @@ trait Blas {
             B: Array[Double], LDB: Int,
             BETA: Double,
             C: Array[Double], LDC: Int)
-  
+  def cgemm(TRANSA: String,TRANSB: String,
+            M: Int, N: Int, K: Int,
+            ALPHA: Complex,
+            A: Array[Float], LDA: Int,
+            B: Array[Float], LDB: Int,
+            BETA: Complex,
+            C: Array[Float], LDC: Int)
   def zgemm(TRANSA: String,TRANSB: String,
             M: Int, N: Int, K: Int,
-            ALPHA: Array[Double],
+            ALPHA: Complex,
             A: Array[Double], LDA: Int,
             B: Array[Double], LDB: Int,
-            BETA: Array[Double],
+            BETA: Complex,
             C: Array[Double], LDC: Int)
 }
 
@@ -58,13 +71,17 @@ object Netlib {
   
   object Implicits {
     implicit def intToIntByReference(a: Int) = new IntByReference(a)
+    implicit def complexToDoubleArray(c: Complex) = Array[Double](c.re, c.im)
+    implicit def complexToFloatArray(c: Complex) = Array[Float](c.re.toFloat, c.im.toFloat)
   }
   
   lazy val blas: Blas = {
     val vecLib = Native.loadLibrary("vecLib", classOf[VecLib]).asInstanceOf[VecLib]
     
     new Blas {
-
+      
+      import Implicits._
+      
       def transToEnum(t: String) = t match {
         case "N" | "n" => VecLib.CblasNoTrans
         case "T" | "t" => VecLib.CblasTrans
@@ -74,6 +91,16 @@ object Netlib {
       
       def nativeArray = true
       
+      def sgemm(TRANSA: String, TRANSB: String,
+            M: Int, N: Int, K: Int,
+            ALPHA: Float,
+            A: Array[Float], LDA: Int,
+            B: Array[Float], LDB: Int,
+            BETA: Float,
+            C: Array[Float], LDC: Int) {
+        vecLib.cblas_sgemm(VecLib.CblasColMajor, transToEnum(TRANSA), transToEnum(TRANSB),
+                           M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+      }
       def dgemm(TRANSA: String, TRANSB: String,
             M: Int, N: Int, K: Int,
             ALPHA: Double,
@@ -81,16 +108,25 @@ object Netlib {
             B: Array[Double], LDB: Int,
             BETA: Double,
             C: Array[Double], LDC: Int) {
-              vecLib.cblas_dgemm(VecLib.CblasColMajor, transToEnum(TRANSA), transToEnum(TRANSB),
-                                 M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+        vecLib.cblas_dgemm(VecLib.CblasColMajor, transToEnum(TRANSA), transToEnum(TRANSB),
+                           M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
       }
-      
+      def cgemm(TRANSA: String,TRANSB: String,
+                M: Int, N: Int, K: Int,
+                ALPHA: Complex,
+                A: Array[Float], LDA: Int,
+                B: Array[Float], LDB: Int,
+                BETA: Complex,
+                C: Array[Float], LDC: Int) {
+        vecLib.cblas_cgemm(VecLib.CblasColMajor, transToEnum(TRANSA), transToEnum(TRANSB),
+                           M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+      }
       def zgemm(TRANSA: String,TRANSB: String,
                 M: Int, N: Int, K: Int,
-                ALPHA: Array[Double],
+                ALPHA: Complex,
                 A: Array[Double], LDA: Int,
                 B: Array[Double], LDB: Int,
-                BETA: Array[Double],
+                BETA: Complex,
                 C: Array[Double], LDC: Int) {
         vecLib.cblas_zgemm(VecLib.CblasColMajor, transToEnum(TRANSA), transToEnum(TRANSB),
                            M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)

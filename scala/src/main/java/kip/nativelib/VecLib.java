@@ -15,8 +15,13 @@ public interface VecLib extends Library {
     // BLAS
     //
     
-    public double cblas_dasum(int N, double[] X, int incX);
-
+    public void cblas_sgemm(int Order, int TransA, int TransB,
+                            int M, int N, int K,
+                            float alpha,
+                            float[] A, int lda,
+                            float[] B, int ldb,
+                            float beta,
+                            float[] C, int ldc);
     public void cblas_dgemm(int Order, int TransA, int TransB,
                             int M, int N, int K,
                             double alpha,
@@ -24,7 +29,13 @@ public interface VecLib extends Library {
                             double[] B, int ldb,
                             double beta,
                             double[] C, int ldc);
-
+    public void cblas_cgemm(int Order, int TransA, int TransB,
+                            int M, int N, int K,
+                            float[] alpha,
+                            float[] A, int lda,
+                            float[] B, int ldb,
+                            float[] beta,
+                            float[] C, int ldc);
     public void cblas_zgemm(int Order, int TransA, int TransB,
                             int M, int N, int K,
                             double[] alpha,
