@@ -3,176 +3,6 @@ package kip.math.linalg2
 import kip.math.Complex
 
 
-// ----------
-
-object ScalarOps {
-  implicit object RealDbl extends RealDbl
-  implicit object RealFlt extends RealFlt
-  implicit object ComplexDbl extends ComplexDbl
-
-  trait RealDbl extends ScalarOps[Double] {
-    def add(a: Double, b: Double): Double = a + b
-    def sub(a: Double, b: Double): Double = a - b
-    def mul(a: Double, b: Double): Double = a * b
-    def div(a: Double, b: Double): Double = a / b
-    def neg(a: Double): Double = -a
-    def conj(a: Double): Double = a
-    def zero: Double = 0.0
-    def one: Double = 1.0
-  }
-
-  trait RealFlt extends ScalarOps[Float] {
-    def add(a: Float, b: Float): Float = a + b
-    def sub(a: Float, b: Float): Float = a - b
-    def mul(a: Float, b: Float): Float = a * b
-    def div(a: Float, b: Float): Float = a / b
-    def neg(a: Float): Float = -a
-    def conj(a: Float): Float = a
-    def zero: Float = 0.0f
-    def one: Float = 1.0f
-  }
-
-  trait ComplexDbl extends ScalarOps[Complex] {
-    def add(a: Complex, b: Complex): Complex = a + b
-    def sub(a: Complex, b: Complex): Complex = a - b
-    def mul(a: Complex, b: Complex): Complex = a * b
-    def div(a: Complex, b: Complex): Complex = a / b
-    def neg(a: Complex): Complex = -a
-    def conj(a: Complex): Complex = a.conj
-    def zero: Complex = 0
-    def one: Complex = 1
-  }
-
-}
-
-trait ScalarOps[@specialized(Float, Double) T] {
-  def add(a: T, b: T): T
-  def sub(a: T, b: T): T
-  def mul(a: T, b: T): T
-  def div(a: T, b: T): T
-  def neg(a: T): T
-  def conj(a: T): T
-  def zero: T
-  def one: T
-}
-
-
-// -----------
-
-
-object ScalarData {
-  // Builder
-  
-  object Builder {
-    implicit val RealFlt = new Builder[Float, Float] {
-      def build(size: Int) = new RealFlt(size)
-    }
-    implicit val RealDbl = new Builder[Double, Double] {
-      def build(size: Int) = new RealDbl(size)
-    }
-    implicit val ComplexFlt = new Builder[Complex, Float] {
-      def build(size: Int) = new ComplexFlt(size)
-    }
-    implicit val ComplexDbl = new Builder[Complex, Double] {
-      def build(size: Int) = new ComplexDbl(size)
-    }
-  }
-  
-  trait Builder[@specialized(Float, Double) A, @specialized(Float, Double) Raw] {
-    def build(size: Int): ScalarData[A, Raw]
-  }  
-  
-  // ScalarData Implementations                                          
-
-  class RealFlt(size: Int) extends ScalarData[Float, Float] {
-    val scalar = ScalarOps.RealFlt
-    
-    val raw = new Array[Float](size)
-    def rawApply(i: Int): Float = raw(i)
-    def rawUpdate(i: Int, x: Float) { raw(i) = x }
-    
-    def apply(i: Int): Float = raw(i)
-    def update(i: Int, x: Float) = raw(i) = x
-    override def madd(i0: Int, a1: ScalarData[Float, Float], i1: Int, a2: ScalarData[Float, Float], i2: Int) {
-      raw(i0) += a1.rawApply(i1)*a2.rawApply(i2)
-    }
-  }
-
-  class RealDbl(size: Int) extends ScalarData[Double, Double] {
-    val scalar = ScalarOps.RealDbl
-    
-    val raw = new Array[Double](size)
-    def rawApply(i: Int): Double = raw(i)
-    def rawUpdate(i: Int, x: Double) { raw(i) = x }
-    
-    def apply(i: Int): Double = raw(i)
-    def update(i: Int, x: Double) = raw(i) = x
-    override def madd(i0: Int, a1: ScalarData[Double, Double], i1: Int, a2: ScalarData[Double, Double], i2: Int) {
-      raw(i0) += a1.rawApply(i1)*a2.rawApply(i2)
-    }
-  }
-
-  class ComplexFlt(size: Int) extends ScalarData[Complex, Float] {
-    val scalar = ScalarOps.ComplexDbl
-    
-    val raw = new Array[Float](2*size)
-    def rawApply(i: Int): Float = raw(i)
-    def rawUpdate(i: Int, x: Float) { raw(i) = x }
-    
-    def apply(i: Int) = Complex(raw(2*i+0), raw(2*i+1))
-    def update(i: Int, x: Complex) {
-      raw(2*i+0) = x.re.toFloat
-      raw(2*i+1) = x.im.toFloat
-    }
-    override def madd(i0: Int, a1: ScalarData[Complex, Float], i1: Int, a2: ScalarData[Complex, Float], i2: Int) {
-      val x1_re = a1.rawApply(2*i1+0)
-      val x1_im = a1.rawApply(2*i1+1)
-      val x2_re = a2.rawApply(2*i2+0)
-      val x2_im = a2.rawApply(2*i2+1)
-      raw(2*i0+0) += x1_re*x2_re - x1_im*x2_im
-      raw(2*i0+1) += x1_re*x2_im + x1_im*x2_re
-    }
-  }
-
-  class ComplexDbl(size: Int) extends ScalarData[Complex, Double] {
-    val scalar = ScalarOps.ComplexDbl
-    
-    val raw = new Array[Double](2*size)
-    def rawApply(i: Int): Double = raw(i)
-    def rawUpdate(i: Int, x: Double) { raw(i) = x }
-    
-    def apply(i: Int) = Complex(raw(2*i+0), raw(2*i+1))
-    def update(i: Int, x: Complex) {
-      raw(2*i+0) = x.re.toDouble
-      raw(2*i+1) = x.im.toDouble
-    }
-    override def madd(i0: Int, a1: ScalarData[Complex, Double], i1: Int, a2: ScalarData[Complex, Double], i2: Int) {
-      val x1_re = a1.rawApply(2*i1+0)
-      val x1_im = a1.rawApply(2*i1+1)
-      val x2_re = a2.rawApply(2*i2+0)
-      val x2_im = a2.rawApply(2*i2+1)
-      raw(2*i0+0) += x1_re*x2_re - x1_im*x2_im
-      raw(2*i0+1) += x1_re*x2_im + x1_im*x2_re
-    }
-  }
-
-}
-
-
-abstract class ScalarData[@specialized(Float, Double) A, @specialized(Float, Double) Raw] {
-  val scalar: ScalarOps[A]
-  def rawApply(i: Int): Raw
-  def rawUpdate(i: Int, x: Raw)
-  def apply(i: Int): A
-  def update(i: Int, x: A)
-  def madd(i0: Int, a1: ScalarData[A, Raw], i1: Int, a2: ScalarData[A, Raw], i2: Int) {
-    this(i0) = scalar.add(this(i0), scalar.mul(a1(i1), a2(i2)))
-  }
-}
-
-
-// -----------
-
 
 object MatrixImpl {
 
@@ -192,6 +22,7 @@ object MatrixImpl {
   class Dense[@specialized(Float, Double) A, @specialized(Float, Double) Raw]
        (val numRows: Int, val numCols: Int)(implicit sb: ScalarData.Builder[A, Raw]) extends MatrixImpl[A, Raw] {
     val data: ScalarData[A, Raw] = sb.build(numRows*numCols)
+    val scalar: ScalarOps[A] = data.scalar
 
     def checkKey(i: Int, j: Int) {
       require(0 <= i && i < numRows)
@@ -208,24 +39,38 @@ object MatrixImpl {
     
     def indices = (for (j <- 0 until numCols; i <- 0 until numRows) yield (i, j)).toIterator
     
-//    def map[A0, Raw0, That](f: A => A0)(implicit mb: MatrixImpl.Builder[A0, Raw0, That]): That
+    def transposeInPlace() {
+      for (j <- 1 until numCols; i <- 0 until j) {
+        val temp = this(i, j)
+        this(i, j) = this(j, i)
+        this(j, i) = temp
+      }
+    }
   }
 }
 
 
 
 trait MatrixImpl[@specialized(Float, Double) A, @specialized(Float, Double) Raw] {
+  val scalar: ScalarOps[A]
+  
   val numRows: Int
   val numCols: Int
   def apply(i: Int, j: Int): A
   def update(i: Int, j: Int, x: A)
   
   def indices: Iterator[(Int, Int)]
-  def tabulate(f: (Int, Int) => A): Unit = indices.map { case(i, j) => this(i, j) = f(i, j) }
+  
   def copyTo[That <: MatrixImpl[A, Raw]](that: That)(implicit ev: this.type <:< That) { // TODO: understand evidence parameter
-    indices.map { case(i, j) => that(i, j) = this(i, j) }
+    indices.foreach { case(i, j) => that(i, j) = this(i, j) }
   }
-//  def map[A0, Raw0, That](f: A => A0)(implicit mb: MatrixImpl.Builder[A0, Raw0, That]): That
+
+  def mapInPlace(f: A => A): Unit = indices.foreach { case(i, j) => this(i, j) = f(this(i, j)) }
+  def multiplyInPlace(x: A): Unit = mapInPlace { scalar.mul(_, x) }
+  def divideInPlace(x: A): Unit = mapInPlace { scalar.div(_, x) }
+  def negateInPlace(): Unit = mapInPlace { scalar.neg(_) }
+  def conjugateInPlace(): Unit = mapInPlace { scalar.conj(_) }
+  def transposeInPlace(): Unit
 }
 
 
@@ -239,13 +84,6 @@ trait MatrixAdder[@specialized(Float, Double) A, Raw, Impl1 <: MatrixImpl[A, Raw
 
 // -----------
 
-object Matrix {
-  trait RealFltDense    extends Matrix[Float,   Float,  MatrixImpl.Dense[Float,   Float]]
-  trait RealDblDense    extends Matrix[Double,  Double, MatrixImpl.Dense[Double,  Double]]
-  trait ComplexFltDense extends Matrix[Complex, Float,  MatrixImpl.Dense[Complex, Float]]
-  trait ComplexDblDense extends Matrix[Complex, Double, MatrixImpl.Dense[Complex, Double]]
-}
-
 trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw]] {
   val impl: Impl
   
@@ -254,7 +92,13 @@ trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Imp
   def apply(i: Int, j: Int): A = impl.apply(i, j)
   def update(i: Int, j: Int, x: A): Unit = impl.update(i, j, x)
   
-//  def map[A0, Raw0, That](f: A => A0)(implicit mb: MatrixImpl.Builder[A0, Raw0, That]): That = impl.map[A0, Raw0, That](f)(mb)
+  def indices: Iterator[(Int, Int)] = impl.indices
+  
+  // def map[A2, Raw2, Impl2, That <: Matrix[A2, Raw2, Impl2]](f: A => A2)(implicit mb: MatrixBuilder[A2, Raw2, Impl, That]): That = {
+  //   val ret = mb.zeros(numRows, numCols)
+  //   indices.foreach { case (i, j) => ret(i, j) = f(this(i, j)) }
+  //   ret
+  // }
   
   def +[Impl2 <: MatrixImpl[A, Raw], That](that: Matrix[A, Raw, Impl2])(implicit ma: MatrixAdder[A, Raw, Impl, Impl2, That]) {
     
@@ -266,6 +110,44 @@ trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Imp
     ret
   }
 
+
+  def *[That <: Matrix[A, Raw, Impl]](x: A)(implicit mb: MatrixBuilder[A, Raw, Impl, That]) = {
+    val ret = clone
+    ret.impl.multiplyInPlace(x)
+    ret
+  }
+
+  def /[That <: Matrix[A, Raw, Impl]](x: A)(implicit mb: MatrixBuilder[A, Raw, Impl, That]) = {
+    val ret = clone
+    ret.impl.divideInPlace(x)
+    ret
+  }
+
+  def unary_-[That <: Matrix[A, Raw, Impl]](implicit mb: MatrixBuilder[A, Raw, Impl, That]) = {
+    val ret = clone
+    ret.impl.negateInPlace()
+    ret
+  }
+
+  def tran[That <: Matrix[A, Raw, Impl]](implicit mb: MatrixBuilder[A, Raw, Impl, That]) = {
+    val ret = clone
+    ret.impl.transposeInPlace()
+    ret
+  }
+  
+  def conj[That <: Matrix[A, Raw, Impl]](implicit mb: MatrixBuilder[A, Raw, Impl, That]) = {
+    val ret = clone
+    ret.impl.conjugateInPlace()
+    ret
+  }
+  
+  def dag[That <: Matrix[A, Raw, Impl]](implicit mb: MatrixBuilder[A, Raw, Impl, That]) = {
+    val ret = tran
+    ret.impl.conjugateInPlace()
+    ret
+  }
+
+  
   override def toString = {
     val sb = new StringBuilder()
     val elemWidth = 8
@@ -299,9 +181,6 @@ trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Imp
     val ret = b.build
     
 
-.tabulate(numRows, numCols) { (i, j) => f(this(i, j)) }
-  }
-  
   def checkKey(i: Int, j: Int) {
     require(0 <= i && i < numRows)
     require(0 <= j && j < numCols)
@@ -378,62 +257,78 @@ trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Imp
     DenseMatrix.QRSolve(ret, this, that, false)
     ret
   }
-
-  def *(that: A): DenseMatrix[A, B] = {
-    matrix.tabulate(numRows, numCols) { (i, j) => scalar.mul(this(i, j), that) }
-  }
-
-  def /(that: A): DenseMatrix[A, B] = {
-    matrix.tabulate(numRows, numCols) { (i, j) => scalar.div(this(i, j), that) }
-  }
-
-  def unary_- : DenseMatrix[A, B] = {
-    matrix.tabulate(numRows, numCols) { (i, j) => scalar.neg(this(i, j)) }
-  }
-  
-  def tran: DenseMatrix[A, B] = {
-    matrix.tabulate(numCols, numRows) { (i, j) => this(j, i) }
-  }
-  
-  def conj: DenseMatrix[A, B] = {
-    matrix.tabulate(numRows, numCols) { (i, j) => scalar.conj(this(i, j)) }
-  }
-  
-  def dag: DenseMatrix[A, B] = {
-    matrix.tabulate(numCols, numRows) { (i, j) => scalar.conj(this(j, i)) }
-  }
-
 */
 }
 
 
 
-object MatrixBuilder {
-  
-  
-  implicit val RealDblDense = new MatrixBuilder[Double, Double, MatrixImpl.Dense[Double, Double], Matrix.RealDblDense] {
-    def zeros(numRows: Int, numCols: Int) = new { val impl = new MatrixImpl.Dense[Double, Double](numRows, numCols) } with Matrix.RealDblDense
+object Matrix {
+  object Dense {
+    trait RealFlt    extends Matrix[Float,   Float,  MatrixImpl.Dense[Float,   Float]]
+    trait RealDbl    extends Matrix[Double,  Double, MatrixImpl.Dense[Double,  Double]]
+    trait ComplexFlt extends Matrix[Complex, Float,  MatrixImpl.Dense[Complex, Float]]
+    trait ComplexDbl extends Matrix[Complex, Double, MatrixImpl.Dense[Complex, Double]]
+    
   }
+}
 
-//  implicit def generic[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw]]
-//  (implicit mib: MatrixImpl.Builder[A, Raw, Impl]) = new MatrixBuilder[A, Raw, Impl, Matrix[A, Raw, Impl]] {
-//    def zeros(numRows: Int, numCols: Int) = new { val impl = mib.build(numRows, numCols) } with Matrix[A, Raw, Impl] 
-//  }
+
+object MatrixBuilder {
+  // // Generic builder -- use only specific builders instead
+  // implicit def generic[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw]]
+  // (implicit mib: MatrixImpl.Builder[A, Raw, Impl]) = new MatrixBuilder[A, Raw, Impl, Matrix[A, Raw, Impl]] {
+  //   def zeros(numRows: Int, numCols: Int) = new { val impl = mib.build(numRows, numCols) } with Matrix[A, Raw, Impl] 
+  // }
+
+  implicit val DenseRealFlt = new Dense[Float, Float, MatrixImpl.Dense[Float, Float], Matrix.Dense.RealFlt] {
+    def zeros(numRows: Int, numCols: Int) = new {
+      val impl = new MatrixImpl.Dense[Float, Float](numRows, numCols)
+    } with Matrix.Dense.RealFlt
+  }
+  implicit val DenseRealDbl = new Dense[Double, Double, MatrixImpl.Dense[Double, Double], Matrix.Dense.RealDbl] {
+    def zeros(numRows: Int, numCols: Int) = new {
+      val impl = new MatrixImpl.Dense[Double, Double](numRows, numCols)
+    } with Matrix.Dense.RealDbl
+  }
+  implicit val DenseComplexFlt = new Dense[Complex, Float, MatrixImpl.Dense[Complex, Float], Matrix.Dense.ComplexFlt] {
+    def zeros(numRows: Int, numCols: Int) = new {
+      val impl = new MatrixImpl.Dense[Complex, Float](numRows, numCols)
+    } with Matrix.Dense.ComplexFlt
+  }
+  implicit val DenseComplexDbl = new Dense[Complex, Double, MatrixImpl.Dense[Complex, Double], Matrix.Dense.ComplexDbl] {
+    def zeros(numRows: Int, numCols: Int) = new {
+      val impl = new MatrixImpl.Dense[Complex, Double](numRows, numCols)
+    } with Matrix.Dense.ComplexDbl
+  }
+  
+  trait Dense[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw], Repr <: Matrix[A, Raw, Impl]]
+      extends MatrixBuilder[A, Raw, Impl, Repr] {
+    def tabulate(numRows: Int, numCols: Int)(f: (Int, Int) => A): Repr = {
+      val m = zeros(numRows, numCols)
+      m.indices.foreach { case(i, j) => m(i, j) = f(i, j) }
+      m
+    }
+  }
 }
 
 trait MatrixBuilder[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw], Repr <: Matrix[A, Raw, Impl]] {
   def zeros(numRows: Int, numCols: Int): Repr
-  
-  def tabulate(numRows: Int, numCols: Int)(f: (Int, Int) => A): Repr = {
-    val m = zeros(numRows, numCols)
-    m.impl.tabulate(f)
-    m
-  }
 }
 
 
-object Test {
-  def m = MatrixBuilder.RealDblDense.zeros(3, 3)
-//  val mb = implicitly[MatrixBuilder[Double, Double, MatrixImpl.Dense[Double, Double], Matrix.RealDblDense]]
-  val m2 = m.clone
+object Test extends App {
+  val mb1 = implicitly[MatrixBuilder[Double, Double, MatrixImpl.Dense[Double, Double], _]]
+  println(mb1.getClass)
+
+  def m1 = MatrixBuilder.DenseRealDbl.zeros(3, 3)
+  println(m1)
+  
+  val m2 = m1.clone
+  m2(1, 2) = 3
+  println(m1*2)
+  println(m2.dag.tran)
+  
+  import Complex._
+  def m3 = MatrixBuilder.DenseComplexFlt.tabulate(3, 3){ case (i, j) => j+I }
+  println(m3)
 }
