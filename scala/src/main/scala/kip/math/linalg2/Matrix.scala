@@ -78,14 +78,14 @@ trait MatrixImpl[@specialized(Float, Double) A, @specialized(Float, Double) Raw]
 // --------------
 // Matrix Adder
 
-trait MatrixAdder[@specialized(Float, Double) A, Raw, Impl1 <: MatrixImpl[A, Raw], Impl2 <: MatrixImpl[A, Raw], That] {
+trait MatrixAdder[@specialized(Float, Double) A, Raw, Impl1[C,D] <: MatrixImpl[C, D], Impl2[C,D] <: MatrixImpl[C, D], That] {
   def add(m1: Matrix[A, Raw, Impl1], m2: Matrix[A, Raw, Impl2]): That
 }
 
 // -----------
 
-trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw]] {
-  val impl: Impl
+trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl[C,D] <: MatrixImpl[C,D]] {
+  val impl: Impl[A, Raw]
   
   def numRows: Int = impl.numRows
   def numCols: Int = impl.numCols
@@ -94,13 +94,13 @@ trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Imp
   
   def indices: Iterator[(Int, Int)] = impl.indices
   
-  // def map[A2, Raw2, Impl2, That <: Matrix[A2, Raw2, Impl2]](f: A => A2)(implicit mb: MatrixBuilder[A2, Raw2, Impl, That]): That = {
-  //   val ret = mb.zeros(numRows, numCols)
-  //   indices.foreach { case (i, j) => ret(i, j) = f(this(i, j)) }
-  //   ret
-  // }
+  def map[A2, Raw2, That <: Matrix[A2, Raw2, Impl]](f: A => A2)(implicit mb: MatrixBuilder[A2, Raw2, Impl, That]): That = {
+    val ret = mb.zeros(numRows, numCols)
+    indices.foreach { case (i, j) => ret(i, j) = f(this(i, j)) }
+    ret
+  }
   
-  def +[Impl2 <: MatrixImpl[A, Raw], That](that: Matrix[A, Raw, Impl2])(implicit ma: MatrixAdder[A, Raw, Impl, Impl2, That]) {
+  def +[Impl2[C,D] <: MatrixImpl[C, D], That](that: Matrix[A, Raw, Impl2])(implicit ma: MatrixAdder[A, Raw, Impl, Impl2, That]) {
     
   }
 
@@ -264,44 +264,44 @@ trait Matrix[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Imp
 
 object Matrix {
   object Dense {
-    trait RealFlt    extends Matrix[Float,   Float,  MatrixImpl.Dense[Float,   Float]]
-    trait RealDbl    extends Matrix[Double,  Double, MatrixImpl.Dense[Double,  Double]]
-    trait ComplexFlt extends Matrix[Complex, Float,  MatrixImpl.Dense[Complex, Float]]
-    trait ComplexDbl extends Matrix[Complex, Double, MatrixImpl.Dense[Complex, Double]]
+    trait RealFlt    extends Matrix[Float,   Float,  MatrixImpl.Dense]
+    trait RealDbl    extends Matrix[Double,  Double, MatrixImpl.Dense]
+    trait ComplexFlt extends Matrix[Complex, Float,  MatrixImpl.Dense]
+    trait ComplexDbl extends Matrix[Complex, Double, MatrixImpl.Dense]
     
   }
 }
 
 
 object MatrixBuilder {
-  // // Generic builder -- use only specific builders instead
+  // // Don't use this generic builder -- use specific builders instead
   // implicit def generic[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw]]
   // (implicit mib: MatrixImpl.Builder[A, Raw, Impl]) = new MatrixBuilder[A, Raw, Impl, Matrix[A, Raw, Impl]] {
   //   def zeros(numRows: Int, numCols: Int) = new { val impl = mib.build(numRows, numCols) } with Matrix[A, Raw, Impl] 
   // }
 
-  implicit val DenseRealFlt = new Dense[Float, Float, MatrixImpl.Dense[Float, Float], Matrix.Dense.RealFlt] {
+  implicit val DenseRealFlt = new Dense[Float, Float, MatrixImpl.Dense, Matrix.Dense.RealFlt] {
     def zeros(numRows: Int, numCols: Int) = new {
       val impl = new MatrixImpl.Dense[Float, Float](numRows, numCols)
     } with Matrix.Dense.RealFlt
   }
-  implicit val DenseRealDbl = new Dense[Double, Double, MatrixImpl.Dense[Double, Double], Matrix.Dense.RealDbl] {
+  implicit val DenseRealDbl = new Dense[Double, Double, MatrixImpl.Dense, Matrix.Dense.RealDbl] {
     def zeros(numRows: Int, numCols: Int) = new {
       val impl = new MatrixImpl.Dense[Double, Double](numRows, numCols)
     } with Matrix.Dense.RealDbl
   }
-  implicit val DenseComplexFlt = new Dense[Complex, Float, MatrixImpl.Dense[Complex, Float], Matrix.Dense.ComplexFlt] {
+  implicit val DenseComplexFlt = new Dense[Complex, Float, MatrixImpl.Dense, Matrix.Dense.ComplexFlt] {
     def zeros(numRows: Int, numCols: Int) = new {
       val impl = new MatrixImpl.Dense[Complex, Float](numRows, numCols)
     } with Matrix.Dense.ComplexFlt
   }
-  implicit val DenseComplexDbl = new Dense[Complex, Double, MatrixImpl.Dense[Complex, Double], Matrix.Dense.ComplexDbl] {
+  implicit val DenseComplexDbl = new Dense[Complex, Double, MatrixImpl.Dense, Matrix.Dense.ComplexDbl] {
     def zeros(numRows: Int, numCols: Int) = new {
       val impl = new MatrixImpl.Dense[Complex, Double](numRows, numCols)
     } with Matrix.Dense.ComplexDbl
   }
   
-  trait Dense[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw], Repr <: Matrix[A, Raw, Impl]]
+  trait Dense[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl[C ,D] <: MatrixImpl[C, D], Repr <: Matrix[A, Raw, Impl]]
       extends MatrixBuilder[A, Raw, Impl, Repr] {
     def tabulate(numRows: Int, numCols: Int)(f: (Int, Int) => A): Repr = {
       val m = zeros(numRows, numCols)
@@ -311,13 +311,13 @@ object MatrixBuilder {
   }
 }
 
-trait MatrixBuilder[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl <: MatrixImpl[A, Raw], Repr <: Matrix[A, Raw, Impl]] {
+trait MatrixBuilder[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Impl[C, D] <: MatrixImpl[C, D], Repr <: Matrix[A, Raw, Impl]] {
   def zeros(numRows: Int, numCols: Int): Repr
 }
 
 
 object Test extends App {
-  val mb1 = implicitly[MatrixBuilder[Double, Double, MatrixImpl.Dense[Double, Double], _]]
+  val mb1 = implicitly[MatrixBuilder[Double, Double, MatrixImpl.Dense, _]]
   println(mb1.getClass)
 
   def m1 = MatrixBuilder.DenseRealDbl.zeros(3, 3)
@@ -325,8 +325,10 @@ object Test extends App {
   
   val m2 = m1.clone
   m2(1, 2) = 3
-  println(m1*2)
-  println(m2.dag.tran)
+  val x = m2.map[Complex, Float, Matrix.Dense.ComplexFlt](Complex(4, _))
+  println(x)
+  println(x.dag)
+  println(x.map(_.im))
   
   import Complex._
   def m3 = MatrixBuilder.DenseComplexFlt.tabulate(3, 3){ case (i, j) => j+I }
