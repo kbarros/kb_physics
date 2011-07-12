@@ -65,7 +65,7 @@ object LJTest {
   }
   
   
-  def neighborList(atoms: Seq[Atom], volume: Volume, cutoff: Double): Seq[Set[Int]] = {
+  def neighborList(atoms: IndexedSeq[Atom], volume: Volume, cutoff: Double): IndexedSeq[Set[Int]] = {
     import kip.util.QHull._
     
     val tris = {
@@ -208,15 +208,22 @@ object LJTest {
     }
   }
   
-  def analyzeDislocations(fives: Seq[Atom], sevens: Seq[Atom], cutoff: Double) {
-    val dislocations = for (t1 <- fives;
-         t2 <- sevens;
-         if ((t1.pos - t2.pos).norm2 < cutoff*cutoff)) yield {
-      (t1.pos+t2.pos)/2
-    }
-    println("num dislocations: "+dislocations.size)
+  def analyzeDislocations(dislocationPairs: IndexedSeq[(Atom, Atom)]) {
+    println("num dislocations: "+dislocationPairs.size)
   }
+
+  def analyzeSurfaces(surfacePairs: IndexedSeq[(Atom, Atom)], neighbors: IndexedSeq[Set[Int]], atoms: IndexedSeq[Atom]) {
+    println("num surfacePairs: "+surfacePairs.size)
+    val (atoms1, atoms2) = surfacePairs.unzip
+    val surfaceAtoms = (atoms1 ++ atoms2).distinct
+    println("num surface atoms "+surfaceAtoms.size)
+    val grouper = new Grouper(surfaceAtoms)
+    for ((a1, a2) <- surfacePairs) grouper.bond(a1, a2)
     
+    val groups = grouper.groupMap.values.toSeq
+    println("num surfaces %d with num atoms %d".format(groups.size, groups(0).distinct.size))
+  }
+  
   def test3(dirname: Option[String]) {
     
     val rand = new util.Random(0)
@@ -267,6 +274,8 @@ object LJTest {
     scikit.util.Utilities.frame(forcePlot.getComponent(), forcePlot.getTitle())
     val forceHistory = new scikit.dataset.DynamicArray()
     
+    def isType1(idx: Int): Boolean = idx < natoms1
+    
     def setInteractions(sizeAsymmetry: Double, wall1pos: Vec3, wall2pos: Vec3) {
       val pairlj1 = new LennardJones(eps=1, sigma_local=1, scaled_cutoff=3)
       val pairlj2 = new LennardJones(eps=1, sigma_local=sizeAsymmetry, scaled_cutoff=3)
@@ -280,7 +289,7 @@ object LJTest {
       val tag2 = new Tag(inter1 = Seq(wallA2, wallB2), inter2 = Seq(pairlj2))
       
       for (a <- atoms) {
-        a.tag = if (a.idx < natoms1) tag1 else tag2
+        a.tag = if (isType1(a.idx)) tag1 else tag2
       }
     }
     
@@ -325,18 +334,37 @@ object LJTest {
       
       val cutoff = 1.9
       val neighbors = neighborList(atoms, volume, cutoff)
-      val fives  = atoms.indices.filter(neighbors(_).size == 5).map(atoms(_))
-      val sevens = atoms.indices.filter(neighbors(_).size == 7).map(atoms(_))
-      analyzeDislocations(fives, sevens, cutoff)
+
+      val dislocationPairs = {
+        for (i <- atoms.indices;
+             if (neighbors(i).size == 7);
+             neigh5 = neighbors(i).filter(neighbors(_).size == 5)
+             if (neigh5.nonEmpty)) yield {
+          val dists = neigh5.map(j => volume.distance2(atoms(i), atoms(j)))
+          val (jmin, dist) = (neigh5 zip dists).minBy(_._2)
+          (atoms(i), atoms(jmin))
+        }
+      }
+      analyzeDislocations(dislocationPairs)
+      
+      val surfacePairs = {
+        for (i <- atoms.indices;
+             if (isType1(i));
+             j <- neighbors(i);
+             if (!isType1(j))) yield (atoms(i), atoms(j))
+      }
+      analyzeSurfaces(surfacePairs, neighbors, atoms)
+//      val (a1, a2) = surfacePairs.unzip
+//      val surfaceAtomSet = (a1 ++ a2).map(_.idx).toSet
       
       viz.setString("Atoms=%d, Temp=%f".format(atoms.size, world.temperature()))
       
       viz.setParticles(atoms.indices.map { i =>
         val a = atoms(i)
-        val r = if (i < natoms1) r1 else r2
+        val r = if (isType1(i)) r1 else r2
         val c = neighbors(i).size match {
           case 5 => Color.ORANGE
-          case 6 => if (i < natoms1) Color.BLUE else Color.RED
+          case 6 => if (isType1(i)) Color.BLUE else Color.RED
           case 7 => Color.GREEN
           case _ => Color.PINK
         }
