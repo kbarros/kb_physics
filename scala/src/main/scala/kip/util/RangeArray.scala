@@ -5,7 +5,7 @@ object RangeArray {
   /** A RangeArray that contains the results of some element computation a number of times. The range
    * step dx will be rounded up to be a multiple of xmax-min. */
   def fill[A: Manifest](xmin: Double, xmax: Double, dx: Double)(elem: => A): RangeArray[A] = {
-    val n = ((xmax - xmin) / dx).toInt
+    val n = math.max(1, ((xmax - xmin) / dx).toInt)
     val bins = Array.fill[A](n)(elem)
     new RangeArray[A](xmin, xmax, bins)
   }
@@ -28,6 +28,8 @@ class RangeArray[A](val xmin: Double, val xmax: Double, val elems: Array[A]) {
   val n = elems.size
   val dx = (xmax - xmin) / n
   
+  override def clone: RangeArray[A] = new RangeArray(xmin, xmax, elems.clone)
+
   def isDefinedAt(x: Double): Boolean = xmin <= x && x <= xmax
   
   def index(x: Double): Int = {
@@ -37,7 +39,11 @@ class RangeArray[A](val xmin: Double, val xmax: Double, val elems: Array[A]) {
     val i = ((x - xmin) / dx).toInt
     math.min(math.max(i, 0), n-1)
   }
-
+  
+  def indices = elems.indices
+  
+  def size = elems.size
+  
   def elemCenterForIndex(i: Int): Double = xmin + (i + 0.5) * dx
   
   def elemCenter(x: Double): Double = elemCenterForIndex(index(x))

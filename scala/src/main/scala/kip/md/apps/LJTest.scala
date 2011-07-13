@@ -208,10 +208,10 @@ object LJTest {
     }
   }
   
-  def analyzeDislocations(dislocationPairs: IndexedSeq[(Atom, Atom)]) {
+  def analyzeDislocations(t: Double, disloData: DislocationAnalysis, dislocationPairs: IndexedSeq[(Atom, Atom)]) {
     val points = dislocationPairs.map { case (a1, a2) => (a1.pos + a2.pos) / 2 }
-    def dist(i: Int, j: Int) = (points(i) - points(j))/2d
-    
+    def dist(i: Vec3, j: Vec3): Double = (i - j).norm
+    disloData.accum(t, points, points, dist)
     println("num dislocations: "+dislocationPairs.size)
   }
 
@@ -233,7 +233,6 @@ object LJTest {
     }
 //    val groups = grouper.groupMap.values.toSeq
 //    println("num surfaces %d with num atoms %d".format(groups.size, groups(0).distinct.size))
-    assert(meanVar.size == 1)
     
     val variances = meanVar.unzip._2
     avg(variances)
@@ -241,22 +240,40 @@ object LJTest {
   
   def test3(dirname: Option[String]) {
     
+    // Make target directory
+    val dirname = "asym=%s_layers=%d".format(sizeAsymmetryInit, layers)
+    val dir = new java.io.File(dirname)
+    if (dir.exists) {
+      if (!dir.isDirectory()) {
+        println("File '%s' exists but is not directory".format(dir))
+        sys.exit()
+      }
+      if (dir.list.size > 0) {
+        println("Directory: '%s' is not empty".format(dirname))
+        sys.exit()
+      }
+    }
+    if (!dir.exists) {
+      dir.mkdir()
+    }
+
+
     val rand = new util.Random(0)
     
     val thermoDamp = Verlet.ThermoLangevin(temp=0, damp=10, rand)
     val integrator = new Verlet(dt=0.02, thermostat=thermoDamp)
     
 
-    val sizeAsymmetryInit = 1.2
+    val sizeAsymmetryInit = 1.0
     val r1 = pow(2, 1./6) / 2
     val r2 = r1 * sizeAsymmetryInit
 
     val rows1 = 10
-    val cols1 = 20 // 80
+    val cols1 = 80
     val rows2 = rows1
     val cols2 = (cols1/sizeAsymmetryInit).toInt
     
-    val layers = 1 // 4
+    val layers = 4
     val layerWidth = sqrt(3)*(r1*rows1 + r2*rows2)
     
     val natoms1 = layers*rows1*cols1
@@ -275,6 +292,10 @@ object LJTest {
     var wall1posInit = Vec3(0, off-r1,0)
     var wall2posInit = Vec3(0, off+layers*layerWidth, 0)
     
+    val wallSpeed = 0.02
+    val maxTime = 500
+    
+    
     val atoms = IndexedSeq.tabulate(natoms1+natoms2) { i:Int =>
       new Atom(idx=i, tag=null)
     }
@@ -287,10 +308,13 @@ object LJTest {
 
     val forcePlot = new scikit.graphics.dim2.Plot("Force")
     val roughPlot = new scikit.graphics.dim2.Plot("Roughening")
+    val disloPlot = new scikit.graphics.dim2.Plot("Dislocations pair correlation")
     scikit.util.Utilities.frame(forcePlot.getComponent(), forcePlot.getTitle())
     scikit.util.Utilities.frame(roughPlot.getComponent(), roughPlot.getTitle())
+    scikit.util.Utilities.frame(disloPlot.getComponent(), disloPlot.getTitle())
     val forceHistory = new scikit.dataset.DynamicArray()
     val roughHistory = new scikit.dataset.DynamicArray()
+    val disloData = new DislocationAnalysis(tmin=0, tmax=maxTime, dt=50, rmin=0, rmax=50, dr=1, volume=1)
     
     def isType1(idx: Int): Boolean = idx < natoms1
     
@@ -338,8 +362,9 @@ object LJTest {
       wallForce
     }
     
-    for (i <- 0 until 1200) kip.util.Util.time2("Iterating") {
-      val wallSpeed = 0.02
+    var iter = 0
+    while (world.time < maxTime) kip.util.Util.time2("Iterating") {
+      iter += 1
       val wallDelta = wallSpeed*world.time
       val wall1pos = wall1posInit + wall1norm*wallDelta
       val wall2pos = wall2posInit + wall2norm*wallDelta
@@ -363,7 +388,14 @@ object LJTest {
           (atoms(i), atoms(jmin))
         }
       }
-      analyzeDislocations(dislocationPairs)
+      analyzeDislocations(world.time, disloData, dislocationPairs)
+      val disloResults = disloData.results
+      for (i <- disloResults.indices) {
+        val (t, g) = disloResults(i)
+        import java.awt.Color._
+        val colors = Seq(BLACK, BLUE, RED, ORANGE, GRAY, YELLOW, GREEN)
+        disloPlot.registerLines("Dislo "+t, new scikit.dataset.PointSet(g.elemCenters, g.elems), colors(i % colors.size))
+      }
       
       val surfacePairs = {
         for (i <- atoms.indices;
@@ -396,9 +428,7 @@ object LJTest {
       
       viz.display()
 
-      // dirname.foreach { dirname => 
-      //   javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(dirname+"/snap%d.png".format(i)))
-      // }
+      javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(dirname+"/snap%d.png".format(iter)))
     }
   }
 

@@ -1,16 +1,14 @@
 package kip.md.apps
 
 import kip.md._
-import kip.math.Vec3
-import scala.math._
 import kip.util.RangeArray
 
 
-class PairCorrelation {
-  // val g = RangeArray.fill(xmin=0, xmax=rmax, dx=dr)(0d)
+class PairCorrelation(rmin: Double, rmax: Double, dr: Double, volume: Double) {
+  var cnt: Int = 0
+  val g: RangeArray[Double] = RangeArray.fill(rmin, rmax, dr)(0)
   
-  def pairCorrelation(ids1: Seq[Int], ids2: Seq[Int], dist: (Int, Int)=>Double, g: RangeArray[Double], volume: Double): Unit = {
-    
+  def accum[A](ids1: Seq[A], ids2: Seq[A], dist: (A, A)=>Double) {
     // number of unique ordered pairs between ids1 and ids2
     val uniquePairs = (ids1.size * ids2.size) - (ids1.toSet & ids2.toSet).size
 
@@ -24,5 +22,8 @@ class PairCorrelation {
         g(r) += 1 / (uniquePairs * volume_fraction)
       }
     }
+    cnt += 1
   }
+  
+  def normalized: RangeArray[Double] = g.map(x => if (x == 0) 0 else x / cnt)
 }
