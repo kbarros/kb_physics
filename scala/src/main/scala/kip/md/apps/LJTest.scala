@@ -2,7 +2,7 @@ package kip.md.apps
 
 import java.awt._
 import kip.md._
-import kip.math.{Vec3, Quaternion, mutable}
+import kip.math.{Vec3, mutable}
 import scala.math._
 
 object LJTest {
@@ -209,19 +209,34 @@ object LJTest {
   }
   
   def analyzeDislocations(dislocationPairs: IndexedSeq[(Atom, Atom)]) {
+    val points = dislocationPairs.map { case (a1, a2) => (a1.pos + a2.pos) / 2 }
+    def dist(i: Int, j: Int) = (points(i) - points(j))/2d
+    
     println("num dislocations: "+dislocationPairs.size)
   }
 
-  def analyzeSurfaces(surfacePairs: IndexedSeq[(Atom, Atom)], neighbors: IndexedSeq[Set[Int]], atoms: IndexedSeq[Atom]) {
-    println("num surfacePairs: "+surfacePairs.size)
+  def analyzeSurfaces(surfacePairs: IndexedSeq[(Atom, Atom)],
+                      neighbors: IndexedSeq[Set[Int]], atoms: IndexedSeq[Atom]): Double = {
+    def avg(s: Traversable[Double]) = s.sum / s.size
+    def sqr(x: Double) = x*x
+
     val (atoms1, atoms2) = surfacePairs.unzip
     val surfaceAtoms = (atoms1 ++ atoms2).distinct
-    println("num surface atoms "+surfaceAtoms.size)
     val grouper = new Grouper(surfaceAtoms)
     for ((a1, a2) <- surfacePairs) grouper.bond(a1, a2)
     
-    val groups = grouper.groupMap.values.toSeq
-    println("num surfaces %d with num atoms %d".format(groups.size, groups(0).distinct.size))
+    val meanVar: Seq[(Double, Double)] = for (group: Seq[Atom] <- grouper.groupMap.values.toSeq) yield {
+      val type1 = group diff atoms2
+      val meanY = avg(type1.map(_.pos.y))
+      val varY  = avg(type1.map(a => sqr(meanY - a.pos.y)))
+      (meanY, varY)
+    }
+//    val groups = grouper.groupMap.values.toSeq
+//    println("num surfaces %d with num atoms %d".format(groups.size, groups(0).distinct.size))
+    assert(meanVar.size == 1)
+    
+    val variances = meanVar.unzip._2
+    avg(variances)
   }
   
   def test3(dirname: Option[String]) {
@@ -271,8 +286,11 @@ object LJTest {
     viz.setBounds(volume.bounds)
 
     val forcePlot = new scikit.graphics.dim2.Plot("Force")
+    val roughPlot = new scikit.graphics.dim2.Plot("Roughening")
     scikit.util.Utilities.frame(forcePlot.getComponent(), forcePlot.getTitle())
+    scikit.util.Utilities.frame(roughPlot.getComponent(), roughPlot.getTitle())
     val forceHistory = new scikit.dataset.DynamicArray()
+    val roughHistory = new scikit.dataset.DynamicArray()
     
     def isType1(idx: Int): Boolean = idx < natoms1
     
@@ -353,11 +371,11 @@ object LJTest {
              j <- neighbors(i);
              if (!isType1(j))) yield (atoms(i), atoms(j))
       }
-      analyzeSurfaces(surfacePairs, neighbors, atoms)
-//      val (a1, a2) = surfacePairs.unzip
-//      val surfaceAtomSet = (a1 ++ a2).map(_.idx).toSet
+      val roughening = analyzeSurfaces(surfacePairs, neighbors, atoms)
+      roughHistory.append2(world.time, roughening)
+      roughPlot.registerLines("Data", roughHistory, java.awt.Color.BLACK)
       
-      viz.setString("Atoms=%d, Temp=%f".format(atoms.size, world.temperature()))
+      viz.setString("Time=%d, Atoms=%d, Temp=%f".format(world.time.toInt, atoms.size, world.temperature()))
       
       viz.setParticles(atoms.indices.map { i =>
         val a = atoms(i)
