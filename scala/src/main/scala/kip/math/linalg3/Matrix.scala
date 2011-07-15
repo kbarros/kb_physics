@@ -3,6 +3,7 @@ package kip.math.linalg3
 import kip.math.Complex
 import kip.math.linalg2.{ScalarOps, ScalarData}
 
+
 trait Matrix[A, Raw, +Repr[C, D] <: Matrix[C, D, Repr]] { self: Repr[A, Raw] =>
   val scalar: ScalarOps[A]
   
@@ -12,6 +13,9 @@ trait Matrix[A, Raw, +Repr[C, D] <: Matrix[C, D, Repr]] { self: Repr[A, Raw] =>
   def update(i: Int, j: Int, x: A)
   def indices: Iterator[(Int, Int)]
 
+  def checkKey(i: Int, j: Int) {
+    require(0 <= i && i < numRows && 0 <= j && j < numCols, "Matrix indices out of bounds: [%d %d](%d %d)".format(numRows, numCols, i, j))
+  }
 
   def mapTo[A2, Raw2, That[C,D] >: Repr[C,D] <: Matrix[C, D, That]](f: A => A2, that: That[A2, Raw2]): Unit =
     indices.foreach { case(i, j) => that(i, j) = f(this(i, j)) }
@@ -64,63 +68,61 @@ trait Matrix[A, Raw, +Repr[C, D] <: Matrix[C, D, Repr]] { self: Repr[A, Raw] =>
     ret
   }
 
-/*
-  def tran(implicit mb: MatrixBuilder[A, Raw, Repr]) = {
-    val ret = clone
-    ret.transposeInPlace()
-    ret
-  }
-  
-  def dag(implicit mb: MatrixBuilder[A, Raw, Repr]) = {
-    val ret = tran
-    ret.conjugateInPlace()
-    ret
-  }
-*/
 
   def *[Repr1[C, D] >: Repr[C, D], Repr2[C, D] <: Matrix[C, D, Repr2], Repr3[C, D] <: Matrix[C, D, Repr3]]
         (that: Repr2[A, Raw])
-        (implicit ma: MatrixMultiplier[A, Raw, Repr1, Repr2, Repr3],
+        (implicit mm: MatrixMultiplier[A, Raw, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[A, Raw, Repr3]): Repr3[A, Raw] = {
     require(numCols == that.numRows,
             "Can't multiply matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
-    val ret = mb.zeros(numRows, numCols)
-    ma.gemm(scalar.one, scalar.zero, this, that, ret)
+    val ret = mb.zeros(numRows, that.numCols)
+    mm.gemm(scalar.one, scalar.zero, this, that, ret)
     ret
   }
 
   def +[Repr1[C, D] >: Repr[C, D], Repr2[C, D] <: Matrix[C, D, Repr2], Repr3[C, D] <: Matrix[C, D, Repr3]]
         (that: Repr2[A, Raw])
-        (implicit ma: MatrixAdder[A, Raw, Repr1, Repr2, Repr3],
+        (implicit mm: MatrixAdder[A, Raw, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[A, Raw, Repr3]): Repr3[A, Raw] = {
     require(numRows == that.numRows && numCols == that.numCols,
             "Can't add matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
     val ret = mb.zeros(numRows, numCols)
-    ma.addInPlace(false, this, that, ret)
+    mm.addInPlace(false, this, that, ret)
     ret
   }
 
   def -[Repr1[C, D] >: Repr[C, D], Repr2[C, D] <: Matrix[C, D, Repr2], Repr3[C, D] <: Matrix[C, D, Repr3]]
         (that: Repr2[A, Raw])
-        (implicit ma: MatrixAdder[A, Raw, Repr1, Repr2, Repr3],
+        (implicit mm: MatrixAdder[A, Raw, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[A, Raw, Repr3]): Repr3[A, Raw] = {
     require(numRows == that.numRows && numCols == that.numCols,
             "Can't subtract matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
     val ret = mb.zeros(numRows, numCols)
-    ma.addInPlace(true, this, that, ret)
+    mm.addInPlace(true, this, that, ret)
     ret
   }
   
   override def toString = {
     val sb = new StringBuilder()
-    val elemWidth = 8
-    def writeStr(str: String) {
-      val spaces = Seq.fill(math.max(2, elemWidth-str.size))(' ').mkString
-      sb.append(spaces)
-      sb.append(str)
+    val maxRows = 6
+    val maxCols = 6
+    val elemSpacing = 2
+    
+    var elemWidth = 8
+    for (i <- 0 until math.min(numRows, maxRows)) {
+      for (j <- 0 until math.min(numCols, maxCols)) {
+        elemWidth = math.max(elemWidth, this(i, j).toString.size+elemSpacing)
+      }
     }
-    val maxRows = 10
-    val maxCols = 10
+    
+    def writeStr(str: String) {
+      val spaces = elemWidth-str.size
+      val margin1 = spaces / 2
+      val margin2 = spaces - margin1
+      sb.append(Seq.fill(margin1)(' ').mkString)
+      sb.append(str)
+      sb.append(Seq.fill(margin2)(' ').mkString)
+    }
     for (i <- 0 until math.min(numRows, maxRows)) {
       for (j <- 0 until math.min(numCols, maxCols)) {
         writeStr(this(i, j).toString)
@@ -129,8 +131,11 @@ trait Matrix[A, Raw, +Repr[C, D] <: Matrix[C, D, Repr]] { self: Repr[A, Raw] =>
         sb.append(" ... (%d Cols)".format(numCols))
       sb.append("\n")
     }
-    if (numRows > maxRows)
-      sb.append(" ... (%d Rows)".format(numRows))
+    if (numRows > maxRows) {
+      writeStr(":")
+      sb.append("\n")
+      writeStr("(%d Rows)".format(numRows))
+    }
     sb.toString
   }
 }
