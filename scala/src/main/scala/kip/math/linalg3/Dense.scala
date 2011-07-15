@@ -1,7 +1,6 @@
 package kip.math.linalg3
 
 import kip.math.Complex
-import kip.math.linalg2.{ScalarOps, ScalarData}
 
 
 // TODO: put implicits in object Dense (or somewhere lower priority)
@@ -47,9 +46,31 @@ trait Dense[A, Raw] extends Matrix[A, Raw, Dense] {
     for (i <- 0 until numRows) this(i, j) = that(i, 0)
   }
   
+  def tranTo(that: Dense[A, Raw]): Unit = {
+    require(numRows == that.numCols && numCols == that.numRows, "Cannot perform matrix transpose: [%d, %d] <- [%d, %d]^T".format(
+      that.numRows, that.numCols, numRows, numCols))
+    
+    for (i <- 0 until math.min(numRows, numCols); j <- 0 to i) {
+      val this_ij = this(i, j)
+      val this_ji = this(j, i)
+      that(i, j) = this_ji
+      that(j, i) = this_ij
+    }
+    if (numCols > numRows) {
+      for (i <- 0 until numRows; j <- numRows until numCols) {
+        that(j, i) = this(i, j)
+      }
+    }
+    if (numRows > numCols) {
+      for (j <- 0 until numCols; i <- numCols until numRows) {
+        that(j, i) = this(i, j)
+      }
+    }
+  }
+  
   def tran(implicit mb: MatrixBuilder[A, Raw, Dense]): Dense[A, Raw] = {
     val ret = mb.zeros(numCols, numRows)
-    for (i <- 0 until ret.numRows; j <- 0 until ret.numCols) ret(i, j) = this(j, i)
+    tranTo(ret)
     ret
   }
   
@@ -58,21 +79,15 @@ trait Dense[A, Raw] extends Matrix[A, Raw, Dense] {
     ret.conjTo(ret)
     ret
   }
-
-  def tabulate(f: (Int, Int) => A) {
-    for ((i, j) <- indices) this(i, j) = f(i, j)
-  }
 }
+
 
 trait DenseRow[A, Raw] extends Matrix[A, Raw, DenseRow] with Dense[A, Raw] {
   def apply(i: Int): A = this(0, i)
   def update(i: Int, x: A): Unit = this(0, i) = x
-  def *(that: DenseCol[A, Raw]): A = {
-    scalar.zero
-  }
   def tran(implicit mb: MatrixBuilder[A, Raw, DenseCol]): DenseCol[A, Raw] = {
     val ret = mb.zeros(numCols, numRows)
-    for (i <- 0 until ret.numRows; j <- 0 until ret.numCols) ret(i, j) = this(j, i)
+    tranTo(ret)
     ret
   }
   def dag(implicit mb: MatrixBuilder[A, Raw, DenseCol]): DenseCol[A, Raw] = {
@@ -80,14 +95,23 @@ trait DenseRow[A, Raw] extends Matrix[A, Raw, DenseRow] with Dense[A, Raw] {
     ret.conjTo(ret)
     ret
   }
+  def *(that: DenseCol[A, Raw])
+        (implicit mm: MatrixMultiplier[A, Raw, Dense, Dense, Dense],
+                  mb: MatrixBuilder[A, Raw, Dense]): A = {
+    val m = (this: Dense[A, Raw]) * (that: Dense[A, Raw])
+    val ret = m(0, 0)
+    m.data.dispose()
+    ret
+  }
 }
+
 
 trait DenseCol[A, Raw] extends Matrix[A, Raw, DenseCol] with Dense[A, Raw] {
   def apply(i: Int): A = this(i, 0)
   def update(i: Int, x: A): Unit = this(i, 0) = x
   def tran(implicit mb: MatrixBuilder[A, Raw, DenseRow]): DenseRow[A, Raw] = {
     val ret = mb.zeros(numCols, numRows)
-    for (i <- 0 until ret.numRows; j <- 0 until ret.numCols) ret(i, j) = this(j, i)
+    tranTo(ret)
     ret
   }
   def dag(implicit mb: MatrixBuilder[A, Raw, DenseRow]): DenseRow[A, Raw] = {
@@ -184,6 +208,12 @@ trait DenseMultipliers {
       genericGemm(alpha, beta, m1, m2, ret)
   }
   implicit def rdm[A, Raw] = new RDMultiplier[A, Raw] {}
+
+  trait CRMultiplier[A, Raw] extends MatrixMultiplier[A, Raw, DenseCol, DenseRow, Dense] {
+    def gemm(alpha: A, beta: A, m1: DenseCol[A, Raw], m2: DenseRow[A, Raw], ret: Dense[A, Raw]) =
+      genericGemm(alpha, beta, m1, m2, ret)
+  }
+  implicit def crm[A, Raw] = new CRMultiplier[A, Raw] {}
 }
 
 
@@ -239,13 +269,13 @@ trait DenseBuilders {
 
     def tabulate(numRows: Int, numCols: Int)(f: (Int, Int) => A): Dense[A, Raw] = {
       val m = dense.zeros(numRows, numCols)
-      m.tabulate(f)
+      for ((i, j) <- m.indices) m(i, j) = f(i, j)
       m
     }
 
     def eye(numRows: Int): Dense[A, Raw] = {
       val m = dense.zeros(numRows, numRows)
-      m.tabulate { (i, j) => if (i == j) m.scalar.one else m.scalar.zero }
+      for (i <- 0 until numRows) m(i, i) = m.scalar.one
       m
     }
     
@@ -277,5 +307,3 @@ trait DenseBuilders {
   val denseComplexFlt = new DenseBuilderExtras[Complex, Float]
   val denseComplexDbl = new DenseBuilderExtras[Complex, Double]
 }
-
-

@@ -1,7 +1,6 @@
 package kip.math.linalg3
 
 import kip.math.Complex
-import kip.math.linalg2.{ScalarOps, ScalarData}
 
 
 trait Matrix[A, Raw, +Repr[C, D] <: Matrix[C, D, Repr]] { self: Repr[A, Raw] =>
