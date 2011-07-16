@@ -7,18 +7,16 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.ptr.IntByReference
 
+
 object Netlib {
-  implicit object RealFlt    extends NetlibRealFlt
-  implicit object RealDbl    extends NetlibRealDbl
-  implicit object ComplexFlt extends NetlibComplexFlt
-  implicit object ComplexDbl extends NetlibComplexDbl
-  
-  lazy val cblas: CblasLib = Native.loadLibrary("vecLib", classOf[CblasLib]).asInstanceOf[CblasLib]
+  lazy val cblas: CblasLib   = Native.loadLibrary("vecLib", classOf[CblasLib]).asInstanceOf[CblasLib]
   lazy val lapack: LapackLib = Native.loadLibrary("vecLib", classOf[LapackLib]).asInstanceOf[LapackLib]
-}
-
-
-trait Netlib[S <: Scalar] {
+  
+  implicit lazy val RealFlt    = if (cblas == null || lapack == null) null else new NetlibRealFlt
+  implicit lazy val RealDbl    = if (cblas == null || lapack == null) null else new NetlibRealDbl
+  implicit lazy val ComplexFlt = if (cblas == null || lapack == null) null else new NetlibComplexFlt
+  implicit lazy val ComplexDbl = if (cblas == null || lapack == null) null else new NetlibComplexDbl
+  
   // enum CBLAS_ORDER
   val CblasRowMajor=101
   val CblasColMajor=102
@@ -28,6 +26,10 @@ trait Netlib[S <: Scalar] {
   val CblasTrans=112
   val CblasConjTrans=113
   val AtlasConj=114;
+}
+
+
+trait Netlib[S <: Scalar] {
 
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
@@ -55,7 +57,7 @@ trait Netlib[S <: Scalar] {
 }
 
 
-trait NetlibRealFlt extends Netlib[Scalar.RealFlt] {
+class NetlibRealFlt extends Netlib[Scalar.RealFlt] {
   import Netlib.cblas._
   import Netlib.lapack._
   
