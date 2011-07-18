@@ -80,23 +80,23 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
 
   def +[Repr1[S <: Scalar] >: Repr[S], Repr2[S <: Scalar] <: Matrix[S, Repr2], Repr3[S <: Scalar] <: Matrix[S, Repr3]]
         (that: Repr2[S])
-        (implicit mm: MatrixAdder[S, Repr1, Repr2, Repr3],
+        (implicit ma: MatrixAdder[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     require(numRows == that.numRows && numCols == that.numCols,
             "Can't add matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
     val ret = mb.zeros(numRows, numCols)
-    mm.addInPlace(false, this, that, ret)
+    ma.addInPlace(false, this, that, ret)
     ret
   }
 
   def -[Repr1[S <: Scalar] >: Repr[S], Repr2[S <: Scalar] <: Matrix[S, Repr2], Repr3[S <: Scalar] <: Matrix[S, Repr3]]
         (that: Repr2[S])
-        (implicit mm: MatrixAdder[S, Repr1, Repr2, Repr3],
+        (implicit ma: MatrixAdder[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     require(numRows == that.numRows && numCols == that.numCols,
             "Can't subtract matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
     val ret = mb.zeros(numRows, numCols)
-    mm.addInPlace(true, this, that, ret)
+    ma.addInPlace(true, this, that, ret)
     ret
   }
   
@@ -155,8 +155,8 @@ trait MatrixBuilder[S <: Scalar, Repr[_ <: Scalar]] {
 
 
 object Test extends App {
-  val m1 = MatrixBuilder.denseRealFlt.zeros(4, 4)
-  val m2 = MatrixBuilder.denseRealFlt.zeros(4, 4)
+  val m1 = MatrixBuilder.denseRealDbl.zeros(4, 4)
+  val m2 = MatrixBuilder.denseRealDbl.zeros(4, 4)
   val m3 = m1+m2
   println(m3)
   val m4 = MatrixBuilder.denseRealDbl.zeros(4, 4)

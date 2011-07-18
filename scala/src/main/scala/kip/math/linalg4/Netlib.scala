@@ -30,7 +30,9 @@ object Netlib {
 
 
 trait Netlib[S <: Scalar] {
-
+  def emptyBuffer = null.asInstanceOf[S#Buf]
+  def readBufferInt(buf: S#Buf, idx: Int): Int
+  
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
            alpha: S#A,
@@ -44,23 +46,36 @@ trait Netlib[S <: Scalar] {
            B: S#Buf, LDB: Int,
            WORK: S#Buf, LWORK: Int, INFO: IntByReference)
 
-  def geev(JOBVL: String, JOBVR: String,
-           N: Int, A: S#Buf, LDA: Int,
-           WR: S#Buf, WI: S#Buf,
-           VL: S#Buf, LDVL: Int,
-           VR: S#Buf, LDVR: Int,
-           WORK: S#Buf, LWORK: Int, INFO: IntByReference)
-
   protected implicit def intToIntByReference(a: Int) = new IntByReference(a)
   protected implicit def complexToFloatBuffer(c: Complex)  = FloatBuffer.wrap (Array[Float](c.re.toFloat, c.im.toFloat))
   protected implicit def complexToDoubleBuffer(c: Complex) = DoubleBuffer.wrap(Array[Double](c.re, c.im))
 }
 
 
-class NetlibRealFlt extends Netlib[Scalar.RealFlt] {
+trait NetlibReal[S <: Scalar.RealTyp] extends Netlib[S] {
+  def geev(JOBVL: String, JOBVR: String,
+           N: Int, A: S#Buf, LDA: Int,
+           WR: S#Buf, WI: S#Buf,
+           VL: S#Buf, LDVL: Int,
+           VR: S#Buf, LDVR: Int,
+           WORK: S#Buf, LWORK: Int, INFO: IntByReference)
+}
+
+trait NetlibComplex[S <: Scalar.ComplexTyp] extends Netlib[S] {
+  def geev(JOBVL: String, JOBVR: String,
+           N: Int, A: S#Buf, LDA: Int,
+           W: S#Buf,
+           VL: S#Buf, LDVL: Int,
+           VR: S#Buf, LDVR: Int,
+           WORK: S#Buf, LWORK: Int, RWORK: S#Buf, INFO: IntByReference)
+}
+
+class NetlibRealFlt extends NetlibReal[Scalar.RealFlt] {
   import Netlib.cblas._
   import Netlib.lapack._
-  
+
+  def readBufferInt(buf: FloatBuffer, idx: Int): Int = buf.get(idx).toInt
+
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
            alpha: Float,
@@ -87,10 +102,12 @@ class NetlibRealFlt extends Netlib[Scalar.RealFlt] {
 
 
 
-class NetlibRealDbl extends Netlib[Scalar.RealDbl] {
+class NetlibRealDbl extends NetlibReal[Scalar.RealDbl] {
   import Netlib.cblas._
   import Netlib.lapack._
   
+  def readBufferInt(buf: DoubleBuffer, idx: Int): Int = buf.get(idx).toInt
+
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
            alpha: Double,
@@ -116,10 +133,12 @@ class NetlibRealDbl extends Netlib[Scalar.RealDbl] {
     dgeev_(JOBVL, JOBVR, N, A, LDA, WR, WI, VL, LDVL, VR, LDVR, WORK, LWORK, INFO)
 }
 
-class NetlibComplexFlt extends Netlib[Scalar.ComplexFlt] {
+class NetlibComplexFlt extends NetlibComplex[Scalar.ComplexFlt] {
   import Netlib.cblas._
   import Netlib.lapack._
   
+  def readBufferInt(buf: FloatBuffer, idx: Int): Int = buf.get(idx).toInt
+
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
            alpha: Complex,
@@ -137,18 +156,20 @@ class NetlibComplexFlt extends Netlib[Scalar.ComplexFlt] {
 
   def geev(JOBVL: String, JOBVR: String,
            N: Int, A: FloatBuffer, LDA: Int,
-           WR: FloatBuffer, WI: FloatBuffer,
+           W: FloatBuffer,
            VL: FloatBuffer, LDVL: Int,
            VR: FloatBuffer, LDVR: Int,
-           WORK: FloatBuffer, LWORK: Int, INFO: IntByReference) =
-    cgeev_(JOBVL, JOBVR, N, A, LDA, WR, WI, VL, LDVL, VR, LDVR, WORK, LWORK, INFO)
+           WORK: FloatBuffer, LWORK: Int, RWORK: FloatBuffer, INFO: IntByReference) =
+    cgeev_(JOBVL, JOBVR, N, A, LDA, W, VL, LDVL, VR, LDVR, WORK, LWORK, RWORK, INFO)
 }
 
 
-class NetlibComplexDbl extends Netlib[Scalar.ComplexDbl] {
+class NetlibComplexDbl extends NetlibComplex[Scalar.ComplexDbl] {
   import Netlib.cblas._
   import Netlib.lapack._
   
+  def readBufferInt(buf: DoubleBuffer, idx: Int): Int = buf.get(idx).toInt
+
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
            alpha: Complex,
@@ -166,11 +187,11 @@ class NetlibComplexDbl extends Netlib[Scalar.ComplexDbl] {
 
   def geev(JOBVL: String, JOBVR: String,
            N: Int, A: DoubleBuffer, LDA: Int,
-           WR: DoubleBuffer, WI: DoubleBuffer,
+           W: DoubleBuffer,
            VL: DoubleBuffer, LDVL: Int,
            VR: DoubleBuffer, LDVR: Int,
-           WORK: DoubleBuffer, LWORK: Int, INFO: IntByReference) =
-    zgeev_(JOBVL, JOBVR, N, A, LDA, WR, WI, VL, LDVL, VR, LDVR, WORK, LWORK, INFO)
+           WORK: DoubleBuffer, LWORK: Int, RWORK: DoubleBuffer, INFO: IntByReference) =
+    zgeev_(JOBVL, JOBVR, N, A, LDA, W, VL, LDVL, VR, LDVR, WORK, LWORK, RWORK, INFO)
 }
 
 
@@ -213,47 +234,48 @@ trait CblasLib extends Library {
 
 
 trait LapackLib extends Library {
-      
-      def sgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
-                A: FloatBuffer, LDA: IntByReference,
-                B: FloatBuffer, LDB: IntByReference,
-                WORK: FloatBuffer, LWORK: IntByReference, INFO: IntByReference)
-      def dgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
-                A: DoubleBuffer, LDA: IntByReference,
-                B: DoubleBuffer, LDB: IntByReference,
-                WORK: DoubleBuffer, LWORK: IntByReference, INFO: IntByReference)
-      def cgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
-                A: FloatBuffer, LDA: IntByReference,
-                B: FloatBuffer, LDB: IntByReference,
-                WORK: FloatBuffer, LWORK: IntByReference, INFO: IntByReference)
-      def zgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
-                A: DoubleBuffer, LDA: IntByReference,
-                B: DoubleBuffer, LDB: IntByReference,
-                WORK: DoubleBuffer, LWORK: IntByReference, INFO: IntByReference)
+  
+  def sgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
+             A: FloatBuffer, LDA: IntByReference,
+             B: FloatBuffer, LDB: IntByReference,
+             WORK: FloatBuffer, LWORK: IntByReference, INFO: IntByReference)
+  def dgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
+             A: DoubleBuffer, LDA: IntByReference,
+             B: DoubleBuffer, LDB: IntByReference,
+             WORK: DoubleBuffer, LWORK: IntByReference, INFO: IntByReference)
+  def cgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
+             A: FloatBuffer, LDA: IntByReference,
+             B: FloatBuffer, LDB: IntByReference,
+             WORK: FloatBuffer, LWORK: IntByReference, INFO: IntByReference)
+  def zgels_(TRANS: String, M: IntByReference, N: IntByReference, NRHS: IntByReference,
+             A: DoubleBuffer, LDA: IntByReference,
+             B: DoubleBuffer, LDB: IntByReference,
+             WORK: DoubleBuffer, LWORK: IntByReference, INFO: IntByReference)
 
-      def sgeev_(JOBVL: String, JOBVR: String,
-                N: IntByReference, A: FloatBuffer, LDA: IntByReference,
-                WR: FloatBuffer, WI: FloatBuffer,
-                VL: FloatBuffer, LDVL: IntByReference,
-                VR: FloatBuffer, LDVR: IntByReference,
-                WORK: FloatBuffer, LWORK: IntByReference, INFO: IntByReference)
-      def dgeev_(JOBVL: String, JOBVR: String,
-                N: IntByReference, A: DoubleBuffer, LDA: IntByReference,
-                WR: DoubleBuffer, WI: DoubleBuffer,
-                VL: DoubleBuffer, LDVL: IntByReference,
-                VR: DoubleBuffer, LDVR: IntByReference,
-                WORK: DoubleBuffer, LWORK: IntByReference, INFO: IntByReference)
-      def cgeev_(JOBVL: String, JOBVR: String,
-                N: IntByReference, A: FloatBuffer, LDA: IntByReference,
-                WR: FloatBuffer, WI: FloatBuffer,
-                VL: FloatBuffer, LDVL: IntByReference,
-                VR: FloatBuffer, LDVR: IntByReference,
-                WORK: FloatBuffer, LWORK: IntByReference, INFO: IntByReference)
-      def zgeev_(JOBVL: String, JOBVR: String,
-                N: IntByReference, A: DoubleBuffer, LDA: IntByReference,
-                WR: DoubleBuffer, WI: DoubleBuffer,
-                VL: DoubleBuffer, LDVL: IntByReference,
-                VR: DoubleBuffer, LDVR: IntByReference,
-                WORK: DoubleBuffer, LWORK: IntByReference, INFO: IntByReference)
+  def sgeev_(JOBVL: String, JOBVR: String,
+             N: IntByReference, A: FloatBuffer, LDA: IntByReference,
+             WR: FloatBuffer, WI: FloatBuffer,
+             VL: FloatBuffer, LDVL: IntByReference,
+             VR: FloatBuffer, LDVR: IntByReference,
+             WORK: FloatBuffer, LWORK: IntByReference, INFO: IntByReference)
+  def dgeev_(JOBVL: String, JOBVR: String,
+             N: IntByReference, A: DoubleBuffer, LDA: IntByReference,
+             WR: DoubleBuffer, WI: DoubleBuffer,
+             VL: DoubleBuffer, LDVL: IntByReference,
+             VR: DoubleBuffer, LDVR: IntByReference,
+             WORK: DoubleBuffer, LWORK: IntByReference, INFO: IntByReference)
+
+  def cgeev_(JOBVL: String, JOBVR: String,
+             N: IntByReference, A: FloatBuffer, LDA: IntByReference,
+             W: FloatBuffer,
+             VL: FloatBuffer, LDVL: IntByReference,
+             VR: FloatBuffer, LDVR: IntByReference,
+             WORK: FloatBuffer, LWORK: IntByReference, RWORK: FloatBuffer, INFO: IntByReference)
+  def zgeev_(JOBVL: String, JOBVR: String,
+             N: IntByReference, A: DoubleBuffer, LDA: IntByReference,
+             W: DoubleBuffer,
+             VL: DoubleBuffer, LDVL: IntByReference,
+             VR: DoubleBuffer, LDVR: IntByReference,
+             WORK: DoubleBuffer, LWORK: IntByReference, RWORK: DoubleBuffer, INFO: IntByReference)
 }
 

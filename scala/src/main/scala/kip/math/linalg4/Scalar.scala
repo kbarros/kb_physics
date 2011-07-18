@@ -5,10 +5,13 @@ import kip.math.Complex
 import java.nio.{DoubleBuffer, FloatBuffer}
 
 object Scalar {
-  trait RealDbl extends Scalar { type A = Double; type Raw = Double; type Buf = DoubleBuffer }
-  trait RealFlt extends Scalar { type A = Float; type Raw = Float; type Buf = FloatBuffer }
-  trait ComplexDbl extends Scalar { type A = Complex; type Raw = Double; type Buf = DoubleBuffer }
-  trait ComplexFlt extends Scalar { type A = Complex; type Raw = Float; type Buf = FloatBuffer }
+  trait RealTyp    extends Scalar
+  trait ComplexTyp extends Scalar
+  
+  trait RealDbl    extends RealTyp    { type A = Double;  type Raw = Double; type Buf = DoubleBuffer }
+  trait RealFlt    extends RealTyp    { type A = Float;   type Raw = Float;  type Buf = FloatBuffer }
+  trait ComplexDbl extends ComplexTyp { type A = Complex; type Raw = Double; type Buf = DoubleBuffer }
+  trait ComplexFlt extends ComplexTyp { type A = Complex; type Raw = Float;  type Buf = FloatBuffer }
 }
 
 trait Scalar {
@@ -18,6 +21,8 @@ trait Scalar {
 }
 
 
+// TODO: roll operations in ScalarData into ScalarOps
+// Possibly: add ScalaOps as a type in Scalar?
 object ScalarOps {
   implicit object RealDbl extends RealDbl
   implicit object RealFlt extends RealFlt

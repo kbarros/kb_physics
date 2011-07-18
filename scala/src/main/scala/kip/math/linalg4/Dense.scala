@@ -2,11 +2,15 @@ package kip.math.linalg4
 
 import kip.math.Complex
 
-// TODO: put implicits in object Dense (or somewhere lower priority)
-
 
 trait DenseSlice
 object :: extends DenseSlice
+
+
+object Dense {
+  implicit def toDenseRealOps   [S <: Scalar.RealTyp]   (m: Dense[S]) = new DenseRealOps(m)
+  implicit def toDenseComplexOps[S <: Scalar.ComplexTyp](m: Dense[S]) = new DenseComplexOps(m)
+}
 
 
 // Matrix types
@@ -78,6 +82,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
     ret.conjTo(ret)
     ret
   }
+  
 }
 
 trait DenseRow[S <: Scalar] extends Matrix[S, DenseRow] with Dense[S] {
@@ -154,6 +159,12 @@ trait DenseAdders {
       genericAddInPlace(sub, m1, m2, ret)
   }
   implicit def rra[S <: Scalar] = new RRAdder[S] {}
+
+  trait CCAdder[S <: Scalar] extends MatrixAdder[S, DenseCol, DenseCol, DenseCol] {
+    def addInPlace(sub: Boolean, m1: DenseCol[S], m2: DenseCol[S], ret: DenseCol[S]) =
+      genericAddInPlace(sub, m1, m2, ret)
+  }
+  implicit def cca[S <: Scalar] = new CCAdder[S] {}
 }
 
 
@@ -163,11 +174,10 @@ trait DenseMultipliers {
   private def genericGemm[S <: Scalar](alpha: S#A, beta: S#A, m1: Dense[S], m2: Dense[S], ret: Dense[S]) {
     require(ret.numRows == m1.numRows &&
             m1.numCols == m2.numRows &&
-            m2.numCols == ret.numCols, "Cannot multiply matrices: (%d, %d) * (%d, %d) -> (%d, %d)".format(
+            m2.numCols == ret.numCols, "Cannot multiply matrices: [%d, %d] * [%d, %d] -> [%d, %d]".format(
               m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
 
     if (Netlib.cblas == null) {
-      println("no cblas")
       for (i <- 0 until ret.numRows;
            k <- 0 until m1.numCols;
            j <- 0 until ret.numCols) {
@@ -175,7 +185,6 @@ trait DenseMultipliers {
       }
     }
     else {
-      println("with cblas")
       ret.netlib.gemm(Netlib.CblasColMajor, Netlib.CblasNoTrans, Netlib.CblasNoTrans,
                       ret.numRows, ret.numCols, // dimension of return matrix
                       m1.numCols, // dimension of summation index
@@ -215,11 +224,12 @@ trait DenseMultipliers {
 
 
 // Builders
+
 trait DenseBuilders {
   
   implicit def dense[S <: Scalar](implicit sb: ScalarData.Builder[S], nl: Netlib[S]) = new MatrixBuilder[S, Dense] {
     def zeros(numRows: Int, numCols: Int) = {
-      require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions (%d, %d)".format(numRows, numCols))
+      require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
       val nr = numRows
       val nc = numCols
       new Dense[S] {
@@ -234,7 +244,7 @@ trait DenseBuilders {
   
   implicit def denseRow[S <: Scalar](implicit sb: ScalarData.Builder[S], nl: Netlib[S]) = new MatrixBuilder[S, DenseRow] {
     def zeros(numRows: Int, numCols: Int) = {
-      require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions (%d, %d)".format(numRows, numCols))
+      require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
       require(numRows == 1, "Cannot build row matrix with %d rows".format(numRows))
       val nc = numCols
       new DenseRow[S] {
@@ -249,7 +259,7 @@ trait DenseBuilders {
   
   implicit def denseCol[S <: Scalar](implicit sb: ScalarData.Builder[S], nl: Netlib[S]) = new MatrixBuilder[S, DenseCol] {
     def zeros(numRows: Int, numCols: Int) = {
-      require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions (%d, %d)".format(numRows, numCols))
+      require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
       require(numCols == 1, "Cannot build column matrix with %d cols".format(numCols))
       val nr = numRows
       new DenseCol[S] {
@@ -302,8 +312,116 @@ trait DenseBuilders {
     }
   }
   
-  val denseRealFlt = new DenseBuilderExtras[Scalar.RealFlt]
-  val denseRealDbl = new DenseBuilderExtras[Scalar.RealDbl]
+  val denseRealFlt    = new DenseBuilderExtras[Scalar.RealFlt]
+  val denseRealDbl    = new DenseBuilderExtras[Scalar.RealDbl]
   val denseComplexFlt = new DenseBuilderExtras[Scalar.ComplexFlt]
   val denseComplexDbl = new DenseBuilderExtras[Scalar.ComplexDbl]
+}
+
+// Lapack operations
+
+
+class DenseRealOps[S <: Scalar.RealTyp](self: Dense[S]) {
+  def eig(implicit mb: MatrixBuilder[S, Dense]): (Dense[S], Dense[S], Dense[S]) = {
+    self.netlib match {
+      case netlib: NetlibReal[_] => {
+        require(self.numRows == self.numCols, "Cannot find eigenvectors of non-square matrix [%d, %d]".format(self.numRows, self.numCols))
+        
+        val n = self.numRows
+
+        // Allocate space for the decomposition
+        val Wr = mb.zeros(n, 1)
+        val Wi = mb.zeros(n, 1)
+        val Vr = mb.zeros(n, n)
+        
+        // Find the needed workspace
+        val worksize = mb.zeros(1, 1)
+        val info = new com.sun.jna.ptr.IntByReference(0)
+        netlib.geev(
+          "N", "V", // compute right eigenvectors only
+          n,
+          netlib.emptyBuffer, math.max(1,n),
+          netlib.emptyBuffer, netlib.emptyBuffer,
+          netlib.emptyBuffer, math.max(1,n),
+          netlib.emptyBuffer, math.max(1,n),
+          worksize.data.buffer, -1, info)
+
+        // Allocate the workspace
+        val lwork: Int =
+          if (info.getValue != 0)
+            math.max(1, 4*n)
+          else
+            math.max(1, netlib.readBufferInt(worksize.data.buffer, 0))
+        val work = mb.zeros(lwork, 1)
+
+        // Factor it!
+        netlib.geev(
+          "N", "V", n,
+          self.duplicate.data.buffer, math.max(1,n),
+          Wr.data.buffer, Wi.data.buffer,
+          netlib.emptyBuffer, math.max(1, n),
+          Vr.data.buffer, math.max(1,n),
+          work.data.buffer, lwork, info)
+
+        require(info.getValue >= 0, "Error in dgeev argument %d".format(-info.getValue))
+        require(info.getValue <= 0, "Not converged dgeev; only %d of %d eigenvalues computed".format(info.getValue, self.numRows))
+        
+        (Wr, Wi, Vr)
+      }
+      case _ => sys.error("Netlib sgeev/dgeev operation unavailable.")
+    }
+  }
+}
+
+
+class DenseComplexOps[S <: Scalar.ComplexTyp](self: Dense[S]) {
+  def eig(implicit mb: MatrixBuilder[S, Dense]): (Dense[S], Dense[S]) = {
+    self.netlib match {
+      case netlib: NetlibComplex[_] => {
+        require(self.numRows == self.numCols, "Cannot find eigenvectors of non-square matrix [%d, %d]".format(self.numRows, self.numCols))
+        
+        val n = self.numRows
+
+        // Allocate space for the decomposition
+        val W = mb.zeros(n, 1)
+        val Vr = mb.zeros(n, n)
+
+        // Find the needed workspace
+        val worksize = mb.zeros(1, 1)
+        val info = new com.sun.jna.ptr.IntByReference(0)
+        netlib.geev(
+          "N", "V", // compute right eigenvectors only
+          n,
+          netlib.emptyBuffer, math.max(1,n),
+          netlib.emptyBuffer,
+          netlib.emptyBuffer, math.max(1,n),
+          netlib.emptyBuffer, math.max(1,n),
+          worksize.data.buffer, -1, netlib.emptyBuffer, info)
+
+        // Allocate the workspace
+        val lwork: Int =
+          if (info.getValue != 0)
+            math.max(1, 4*n)
+          else
+            math.max(1, netlib.readBufferInt(worksize.data.buffer, 0))
+        val work = mb.zeros(lwork, 1)
+        val rwork = mb.zeros(n, 1) // 2*n float/double values
+
+        // Factor it!
+        netlib.geev(
+          "N", "V", n,
+          self.duplicate.data.buffer, math.max(1,n),
+          W.data.buffer,
+          netlib.emptyBuffer, math.max(1, n),
+          Vr.data.buffer, math.max(1,n),
+          work.data.buffer, lwork, rwork.data.buffer, info)
+
+        require(info.getValue >= 0, "Error in dgeev argument %d".format(-info.getValue))
+        require(info.getValue <= 0, "Not converged dgeev; only %d of %d eigenvalues computed".format(info.getValue, self.numRows))
+        
+        (W, Vr)
+      }
+      case _ => sys.error("Netlib cgeev/zgeev operation unavailable.")
+    }
+  }
 }
