@@ -183,7 +183,16 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
     backwardTransform(ap, dst)
   }
 
-  def convolveWithFn(a: Array[Double], dst: Array[Double])(fn: Array[Double] => (Double, Double)) {
+  def convolveWithRecip(a: Array[Double], dst: Array[Double])(bp: Array[Double]) {
+    require(a.size == n && bp.size == nrecip && dst.size == n)
+    val ap = allocFourierArray()
+    forwardTransform(a, ap)
+    // conjugateFourierArray(bp, bp) // affects sign: c(j) = \sum_i a(i) b(i-j)
+    multiplyFourierArrays(ap, bp, ap)
+    backwardTransform(ap, dst)
+  }
+
+  def convolveWithRecipFn(a: Array[Double], dst: Array[Double])(fn: Array[Double] => (Double, Double)) {
     require(a.size == n && dst.size == n)
     val ap = allocFourierArray()
     val bp = allocFourierArray()

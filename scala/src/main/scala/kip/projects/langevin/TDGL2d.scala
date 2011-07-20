@@ -22,8 +22,8 @@ class TDGL2d(params: Parameters, dimensions: Int) {
   val random = new Random(params.iget("Random seed", 0))
   val L = params.fget("L")
   var t = 0.0
-  var dt = params.fget("dt")
-  var r = params.fget("r")
+  var dt = 0.0
+  var r = 0.0
   
   val (lp, dx) = {
     var dx = params.fget("dx")
@@ -42,6 +42,10 @@ class TDGL2d(params: Parameters, dimensions: Int) {
   val scratch2 = new Array[Double](lpd)
   val fft = new FFTReal(dim, Some(len))
   
+  val kernel1 = fft.allocFourierArray()
+  val kernel2 = fft.allocFourierArray()
+  
+  readParams(params)
   randomize()
   
   
@@ -90,7 +94,21 @@ class TDGL2d(params: Parameters, dimensions: Int) {
   
   def readParams(params: Parameters) {
     dt = params.fget("dt")
-    r  = params.fget("r")
+    val rp  = params.fget("r")
+    
+    if (r != rp) {
+      r = rp
+      fft.tabulateFourierArray(kernel1) { k: Array[Double] =>
+        val k2 = r2k2(k)
+        val re = (1 + a1*dt + a2*dt*(-k2)) / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
+        (re, 0)
+      }
+      fft.tabulateFourierArray(kernel2) { k: Array[Double] =>
+        val k2 = r2k2(k)
+        val re = dt / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
+        (re, 0)
+      }
+    }
   }
   
   def r2k2(k: Array[Double]): Double = {
@@ -107,24 +125,16 @@ class TDGL2d(params: Parameters, dimensions: Int) {
     val a = 0.5
     if (k2 == 0) 0 else r*r*((1-a)+a*c)*k2
   }
-
+  
   def simulate() {
     // scratch1 stores term proportional to phi
-    fft.convolveWithFn(phi, scratch1) { k: Array[Double] =>
-      val k2 = r2k2(k)
-      val re = (1 + a1*dt + a2*dt*(-k2)) / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
-      (re, 0)
-    }
+    fft.convolveWithRecip(phi, scratch1)(kernel1)
     
     // scratch2 stores term proportional to phi^3
     for (i <- 0 until lpd) {
       scratch2(i) = phi(i)*phi(i)*phi(i)
     }
-    fft.convolveWithFn(scratch2, scratch2) { k: Array[Double] =>
-      val k2 = r2k2(k)
-      val re = dt / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
-      (re, 0)
-    }
+    fft.convolveWithRecip(scratch2, scratch2)(kernel2)
 
     for (i <- 0 until lpd) {
       phi(i) = scratch1(i) - scratch2(i)
@@ -136,7 +146,7 @@ class TDGL2d(params: Parameters, dimensions: Int) {
   // F = \int dx^2 [ - phi (1 + \del^2) phi / 2 + phi^4 / 4 ]  
   def freeEnergy: Double = {
     // scratch1 stores (1 + \del^2) phi
-    fft.convolveWithFn(phi, scratch1) { k: Array[Double] =>
+    fft.convolveWithRecipFn(phi, scratch1) { k: Array[Double] =>
       val k2 = r2k2(k)
       (1-k2, 0)
     }
