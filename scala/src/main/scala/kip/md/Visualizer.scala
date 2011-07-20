@@ -10,12 +10,14 @@ import kip.util.Interpreter
 object Visualizer {
   case class Sphere(pt: Vec3, radius: Double, color: Color, resolution: Int = 2)
   case class Wall(norm: Vec3, pos: Vec3, color: Color)
+  case class Stream(pts: Seq[Vec3], color: Color)
 }
 
 class Visualizer {
   
   var particles = Seq[Visualizer.Sphere]()
   var walls = Seq[Visualizer.Wall]()
+  var streams = Seq[Visualizer.Stream]()
   var bds = Bounds3d(Vec3(0,0,0), Vec3(1,1,1))
   var rasterString = ""
 
@@ -57,6 +59,10 @@ class Visualizer {
         val p1 = w.pos - tangent*len
         val p2 = w.pos + tangent*len
         gfx.drawLines(p1, p2)
+      }
+      for (s <- streams) {
+        gfx.setColor(s.color)
+        gfx.drawLineStrip(s.pts: _*)
       }
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)

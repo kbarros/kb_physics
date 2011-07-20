@@ -109,6 +109,14 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     gl.glEnd();
   }
   
+  def drawLineStrip(ps: Vec3*) {
+    gl.glBegin(GL.GL_LINE_STRIP)
+    for (p <- ps) {
+      gl.glVertex3d(p.x, p.y, p.z)
+    }
+    gl.glEnd();
+  }
+  
   def drawCuboid(bds: Bounds3d) {
     gl.glDisable(GL.GL_LIGHTING)
     gl.glBegin(GL.GL_LINES)
