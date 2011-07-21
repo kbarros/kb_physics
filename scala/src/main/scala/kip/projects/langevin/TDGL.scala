@@ -6,7 +6,7 @@ import scikit.jobs.params.Parameters
 import kip.math.fft.FFTReal
 import scikit.numerics.fn.Function2D
 
-object TDGL2d {
+object TDGL {
   // constants from Cheng & Rutenberg
   val a1 = 3.0
   val a2 = 0.0
@@ -16,8 +16,8 @@ object TDGL2d {
 }
 
 
-class TDGL2d(params: Parameters, dimensions: Int) {
-  import TDGL2d._
+class TDGL(params: Parameters, dimensions: Int) {
+  import TDGL._
   
   val random = new Random(params.iget("Random seed", 0))
   val L = params.fget("L")

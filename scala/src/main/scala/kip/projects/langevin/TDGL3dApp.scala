@@ -13,7 +13,7 @@ object TDGL3dApp extends App {
 
 class TDGL3dApp extends Simulation {
   val grid = new Grid3D("Grid")
-  var sim: TDGL2d = _
+  var sim: TDGL = _
   
   def load(c: Control) {
     c.frame(grid)
@@ -42,7 +42,7 @@ class TDGL3dApp extends Simulation {
   }
   
   def run() {
-    sim = new TDGL2d(params, dimensions=3)
+    sim = new TDGL(params, dimensions=3)
     Job.animate()
     
     while (true) {
