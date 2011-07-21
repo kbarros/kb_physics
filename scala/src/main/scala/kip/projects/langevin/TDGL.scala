@@ -12,6 +12,8 @@ object TDGL {
   
   // approximate energy at a single interface per unit area
   val surfaceEnergyDensity = 1.0 // 0.89
+  
+  val asymmetry = 0.0
 }
 
 
@@ -121,7 +123,7 @@ class TDGL(params: Parameters, dimensions: Int) {
     for (i <- 0 until dimensions)
       c *= dimensions*k(i)*k(i)/k2
 
-    val a = 0.5
+    val a = asymmetry
     if (k2 == 0) 0 else r*r*((1-a)+a*c)*k2
   }
   
