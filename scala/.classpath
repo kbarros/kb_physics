@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" output="target/scala-2.9.0.1/classes" path="src/main/scala"/>
+	<classpathentry kind="src" output="target/scala-2.9.0.1/classes" path="src/main/java"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib/bsh-2.0b4.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib/gluegen-rt.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib/jogl.jar">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/Users/kbarros/dev/repo/scala/lib"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib/mtj-0.9.12.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib/scikit.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib_managed/jar/net.java.dev.jna/jna/jna-3.3.0.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib_managed/jar/com.twitter/json/json-2.1.3.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib_managed/jar/org.scala-tools.testing/specs_2.8.0/specs_2.8.0-1.6.5.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/project/boot/scala-2.9.0-1/lib/scala-compiler.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib_managed/jar/org.scala-lang/jline/jline-2.9.0-1.jar"/>
+	<classpathentry kind="lib" path="/Users/kbarros/dev/repo/scala/lib_managed/jar/org.fusesource.jansi/jansi/jansi-1.4.jar"/>
+	<classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
+	<classpathentry kind="output" path="target/classes"/>
+</classpath>

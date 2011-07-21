@@ -103,7 +103,7 @@ object LJTest {
   def test3(layers: Int, rows1: Int, cols1: Int, sizeAsymmetry: Double) {
     
     // Make target directory
-    val dirname = "asym=%s_layers=%d".format(sizeAsymmetry, layers)
+    val dirname = "rows=%d_asym=%s_layers=%d".format(rows1, sizeAsymmetry, layers)
     val dir = new java.io.File(dirname)
     if (dir.exists) {
       if (!dir.isDirectory()) {
