@@ -1,10 +1,9 @@
 package kip.projects.langevin
 
 import java.util.Random
-import scikit.jobs.params.Parameters
-//import scikit.numerics.fft.FFT2D
+
 import kip.math.fft.FFTReal
-import scikit.numerics.fn.Function2D
+import scikit.jobs.params.Parameters
 
 object TDGL {
   // constants from Cheng & Rutenberg
