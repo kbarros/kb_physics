@@ -101,6 +101,7 @@ public class WeakIdentityHashMap<K, V> implements Map<K, V> {
         return Collections.unmodifiableSet(ret);
     }
 
+    @SuppressWarnings("rawtypes")
     public boolean equals(Object o) {
         if (!(o instanceof WeakIdentityHashMap)) {
             return false;
@@ -125,7 +126,7 @@ public class WeakIdentityHashMap<K, V> implements Map<K, V> {
         reap();
         return backingStore.isEmpty();
     }
-    public void putAll(Map t) {
+    public void putAll(@SuppressWarnings("rawtypes") Map t) {
         throw new UnsupportedOperationException();
     }
     public V remove(Object key) {
@@ -163,6 +164,7 @@ public class WeakIdentityHashMap<K, V> implements Map<K, V> {
             return hash;
         }
 
+        @SuppressWarnings("rawtypes")
         public boolean equals(Object o) {
             if (this == o) {
                 return true;

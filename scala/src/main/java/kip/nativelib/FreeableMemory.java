@@ -1,7 +1,6 @@
 package kip.nativelib;
 
 import com.sun.jna.Memory;
-import com.sun.jna.Pointer;
 import com.sun.jna.Native;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
