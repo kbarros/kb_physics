@@ -17,7 +17,8 @@ object Dense {
 
 trait Dense[S <: Scalar] extends Matrix[S, Dense] {
   val netlib: Netlib[S]
-  val data: ScalarData[S]
+  
+  val data: RawData[S#Raw, S#Buf]
   
   def index(i: Int, j: Int) = {
     checkKey(i, j)
@@ -25,7 +26,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
   }
   def indices = (for (j <- 0 until numCols; i <- 0 until numRows) yield (i, j)).toIterator
   
-  def apply(i: Int, j: Int): S#A = data(index(i, j))
+  def apply(i: Int, j: Int): S#A = scalar.read(data, index(i, j))
   def apply(i: Int, _slice: DenseSlice)(implicit mb: MatrixBuilder[S, DenseRow]): DenseRow[S] = {
     val ret = mb.zeros(1, numCols)
     for (j <- 0 until numCols) ret(0, j) = this(i, j)
@@ -37,7 +38,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
     ret
   }
   
-  def update(i: Int, j: Int, x: S#A) { data(index(i, j)) = x }
+  def update(i: Int, j: Int, x: S#A): Unit = scalar.write(data, index(i, j), x)
   def update[That[S <: Scalar] <: Matrix[S, That]](i: Int, _slice: DenseSlice, that: That[S]) {
     require(that.numRows == 1 && numCols == that.numCols, "Cannot perform matrix assignment: [%d, %d](%d, ::) <- [%d, %d]".format(
       numRows, numCols, i, that.numRows, that.numCols))
@@ -181,7 +182,7 @@ trait DenseMultipliers {
       for (i <- 0 until ret.numRows;
            k <- 0 until m1.numCols;
            j <- 0 until ret.numCols) {
-        ret.data.madd(ret.index(i, j), m1.data, m1.index(i, k), m2.data, m2.index(k, j))
+        ret.scalar.madd(ret.data, ret.index(i, j), m1.data, m1.index(i, k), m2.data, m2.index(k, j))
       }
     }
     else {
@@ -227,52 +228,54 @@ trait DenseMultipliers {
 
 trait DenseBuilders {
   
-  implicit def dense[S <: Scalar](implicit sb: ScalarData.Builder[S], nl: Netlib[S]) = new MatrixBuilder[S, Dense] {
+  implicit def dense[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) = new MatrixBuilder[S, Dense] {
     def zeros(numRows: Int, numCols: Int) = {
       require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
       val nr = numRows
       val nc = numCols
       new Dense[S] {
         val netlib: Netlib[S] = nl
-        val data: ScalarData[S] = sb.build(nr*nc)
-        val scalar: ScalarOps[S#A] = data.scalar
+        val data: RawData[S#Raw, S#Buf] = sb.build(nr*nc)
+        // TODO remove explicit types
+        val scalar: ScalarOps[S] = so
         val numRows = nr
         val numCols = nc
       }
     }
   }
   
-  implicit def denseRow[S <: Scalar](implicit sb: ScalarData.Builder[S], nl: Netlib[S]) = new MatrixBuilder[S, DenseRow] {
+  // TODO: remove row, col
+  implicit def denseRow[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) = new MatrixBuilder[S, DenseRow] {
     def zeros(numRows: Int, numCols: Int) = {
       require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
       require(numRows == 1, "Cannot build row matrix with %d rows".format(numRows))
       val nc = numCols
       new DenseRow[S] {
         val netlib: Netlib[S] = nl
-        val data: ScalarData[S] = sb.build(1*nc)
-        val scalar: ScalarOps[S#A] = data.scalar
+        val data: RawData[S#Raw, S#Buf] = sb.build(1*nc)
+        val scalar: ScalarOps[S] = so
         val numRows = 1
         val numCols = nc
       }
     }
   }
   
-  implicit def denseCol[S <: Scalar](implicit sb: ScalarData.Builder[S], nl: Netlib[S]) = new MatrixBuilder[S, DenseCol] {
+  implicit def denseCol[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) = new MatrixBuilder[S, DenseCol] {
     def zeros(numRows: Int, numCols: Int) = {
       require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
       require(numCols == 1, "Cannot build column matrix with %d cols".format(numCols))
       val nr = numRows
       new DenseCol[S] {
         val netlib: Netlib[S] = nl
-        val data: ScalarData[S] = sb.build(nr*1)
-        val scalar: ScalarOps[S#A] = data.scalar
+        val data: RawData[S#Raw, S#Buf] = sb.build(nr*1)
+        val scalar: ScalarOps[S] = so
         val numRows = nr
         val numCols = 1
       }
     }
   }
   
-  class DenseBuilderExtras[S <: Scalar](implicit sb: ScalarData.Builder[S], nl: Netlib[S]) {
+  class DenseBuilderExtras[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) {
     def zeros(numRows: Int, numCols: Int): Dense[S] = {
       dense.zeros(numRows, numCols)
     }

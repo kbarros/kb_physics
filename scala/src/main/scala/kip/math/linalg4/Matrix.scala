@@ -4,7 +4,7 @@ import kip.math.Complex
 
 
 trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[S] =>
-  val scalar: ScalarOps[S#A]
+  val scalar: ScalarOps[S]
   
   def numRows: Int
   def numCols: Int
