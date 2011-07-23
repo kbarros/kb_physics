@@ -13,11 +13,9 @@ object Dense {
 }
 
 
-// Matrix types
 
 trait Dense[S <: Scalar] extends Matrix[S, Dense] {
   val netlib: Netlib[S]
-  
   val data: RawData[S#Raw, S#Buf]
   
   def index(i: Int, j: Int) = {
@@ -178,7 +176,7 @@ trait DenseMultipliers {
             m2.numCols == ret.numCols, "Cannot multiply matrices: [%d, %d] * [%d, %d] -> [%d, %d]".format(
               m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
 
-    if (Netlib.cblas == null) {
+    if (ret.netlib == null) {
       for (i <- 0 until ret.numRows;
            k <- 0 until m1.numCols;
            j <- 0 until ret.numCols) {
@@ -186,6 +184,7 @@ trait DenseMultipliers {
       }
     }
     else {
+      println("fast gemm")
       ret.netlib.gemm(Netlib.CblasColMajor, Netlib.CblasNoTrans, Netlib.CblasNoTrans,
                       ret.numRows, ret.numCols, // dimension of return matrix
                       m1.numCols, // dimension of summation index
@@ -235,7 +234,7 @@ trait DenseBuilders {
       val nc = numCols
       new Dense[S] {
         val netlib: Netlib[S] = nl
-        val data: RawData[S#Raw, S#Buf] = sb.build(nr*nc)
+        val data: RawData[S#Raw, S#Buf] = sb.build(so.components*nr*nc)
         // TODO remove explicit types
         val scalar: ScalarOps[S] = so
         val numRows = nr
@@ -252,7 +251,7 @@ trait DenseBuilders {
       val nc = numCols
       new DenseRow[S] {
         val netlib: Netlib[S] = nl
-        val data: RawData[S#Raw, S#Buf] = sb.build(1*nc)
+        val data: RawData[S#Raw, S#Buf] = sb.build(so.components*1*nc)
         val scalar: ScalarOps[S] = so
         val numRows = 1
         val numCols = nc
@@ -267,7 +266,7 @@ trait DenseBuilders {
       val nr = numRows
       new DenseCol[S] {
         val netlib: Netlib[S] = nl
-        val data: RawData[S#Raw, S#Buf] = sb.build(nr*1)
+        val data: RawData[S#Raw, S#Buf] = sb.build(so.components*nr*1)
         val scalar: ScalarOps[S] = so
         val numRows = nr
         val numCols = 1

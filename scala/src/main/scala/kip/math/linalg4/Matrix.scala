@@ -3,6 +3,8 @@ package kip.math.linalg4
 import kip.math.Complex
 
 
+// TODO: make GenMatrix that specializes S#A for relevant methods
+
 trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[S] =>
   val scalar: ScalarOps[S]
   

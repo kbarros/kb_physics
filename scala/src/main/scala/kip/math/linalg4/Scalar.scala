@@ -37,6 +37,7 @@ object ScalarOps {
     def zero: Float = 0.0f
     def one: Float = 1.0f
     
+    def components = 1
     def read(data: Data, i: Int): Float = data(i)
     def write(data: Data, i: Int, x: Float): Unit = data(i) = x
     override def madd(data0: Data, i0: Int, data1: Data, i1: Int, data2: Data, i2: Int) {
@@ -54,6 +55,7 @@ object ScalarOps {
     def zero: Double = 0.0
     def one: Double = 1.0
     
+    def components = 1
     def read(data: Data, i: Int): Double = data(i)
     def write(data: Data, i: Int, x: Double): Unit = data(i) = x
     override def madd(data0: Data, i0: Int, data1: Data, i1: Int, data2: Data, i2: Int) {
@@ -71,6 +73,7 @@ object ScalarOps {
     def zero: Complex = 0.0f
     def one: Complex = 1.0f
     
+    def components = 2
     def read(data: Data, i: Int) = Complex(data(2*i+0), data(2*i+1))
     def write(data: Data, i: Int, x: Complex) {
       data(2*i+0) = x.re.toFloat
@@ -96,6 +99,7 @@ object ScalarOps {
     def zero: Complex = 0.0f
     def one: Complex = 1.0f
     
+    def components = 2
     def read(data: Data, i: Int) = Complex(data(2*i+0), data(2*i+1))
     def write(data: Data, i: Int, x: Complex) {
       data(2*i+0) = x.re
@@ -114,8 +118,6 @@ object ScalarOps {
 
 
 trait GenScalarOps[@specialized(Float, Double) A, @specialized(Float, Double) Raw, Buf <: Buffer] {
-  type Data = RawData[Raw, Buf]
-  
   def add(a: A, b: A): A
   def sub(a: A, b: A): A
   def mul(a: A, b: A): A
@@ -125,9 +127,10 @@ trait GenScalarOps[@specialized(Float, Double) A, @specialized(Float, Double) Ra
   def zero: A
   def one: A
   
+  type Data = RawData[Raw, Buf]
+  def components: Int
   def read(data: Data, i: Int): A
   def write(data: Data, i: Int, x: A)
-  
   def madd(data0: Data, i0: Int, data1: Data, i1: Int, data2: Data, i2: Int) {
     write(data0, i0, add(read(data0, i0), mul(read(data1, i1), read(data2, i2))))
   }

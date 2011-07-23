@@ -9,8 +9,16 @@ import com.sun.jna.ptr.IntByReference
 
 
 object Netlib {
-  lazy val cblas: CblasLib   = Native.loadLibrary("vecLib", classOf[CblasLib]).asInstanceOf[CblasLib]
-  lazy val lapack: LapackLib = Native.loadLibrary("vecLib", classOf[LapackLib]).asInstanceOf[LapackLib]
+  lazy val (cblas, lapack) = {
+    try {
+      val _cblas  = Native.loadLibrary("vecLib", classOf[CblasLib]).asInstanceOf[CblasLib]
+      val _lapack = Native.loadLibrary("vecLib", classOf[LapackLib]).asInstanceOf[LapackLib]
+      (_cblas, _lapack)
+    }
+    catch {
+      case e: UnsatisfiedLinkError => println("**Warning: Could not load native netlib library**"); (null, null)
+    }
+  }
   
   implicit lazy val RealFlt    = if (cblas == null || lapack == null) null else new NetlibRealFlt
   implicit lazy val RealDbl    = if (cblas == null || lapack == null) null else new NetlibRealDbl
