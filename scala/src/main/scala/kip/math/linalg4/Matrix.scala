@@ -74,7 +74,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
         (implicit mm: MatrixMultiplier[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     require(numCols == that.numRows,
-            "Can't multiply matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
+            "Can't multiply matrices of shape [%d, %d] * [%d, %d]".format(numRows, numCols, that.numRows, that.numCols))
     val ret = mb.zeros(numRows, that.numCols)
     mm.gemm(scalar.one, scalar.zero, this, that, ret)
     ret
@@ -85,7 +85,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
         (implicit ma: MatrixAdder[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     require(numRows == that.numRows && numCols == that.numCols,
-            "Can't add matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
+            "Can't add matrices of shape [%d, %d] + [%d, %d]".format(numRows, numCols, that.numRows, that.numCols))
     val ret = mb.zeros(numRows, numCols)
     ma.addInPlace(false, this, that, ret)
     ret
@@ -96,7 +96,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
         (implicit ma: MatrixAdder[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     require(numRows == that.numRows && numCols == that.numCols,
-            "Can't subtract matrices of dimensions (%d, %d) and (%d, %d)".format(numRows, numCols, that.numRows, that.numCols))
+            "Can't subtract matrices of shape [%d, %d] - [%d, %d]".format(numRows, numCols, that.numRows, that.numCols))
     val ret = mb.zeros(numRows, numCols)
     ma.addInPlace(true, this, that, ret)
     ret
@@ -169,11 +169,3 @@ object Test extends App {
 //  println(implicitly[MatrixAdder[Float, Float, DenseRow, DenseRow, Dense]])
 }
 
-
-
-/*
-// why compiles?
-trait Matrix[-Repr <: Matrix[Repr]]
-trait Dense extends Matrix[Dense]
-trait DenseRow extends Matrix[DenseRow] with Dense
-*/

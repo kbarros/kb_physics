@@ -8,8 +8,8 @@ object :: extends DenseSlice
 
 
 object Dense {
-  implicit def toDenseRealOps   [S <: Scalar.RealTyp]   (m: Dense[S]) = new DenseRealOps(m)
-  implicit def toDenseComplexOps[S <: Scalar.ComplexTyp](m: Dense[S]) = new DenseComplexOps(m)
+  implicit def toDenseRealLapackOps   [S <: Scalar.RealTyp]   (m: Dense[S]) = new DenseRealLapackOps(m)
+  implicit def toDenseComplexLapackOps[S <: Scalar.ComplexTyp](m: Dense[S]) = new DenseComplexLapackOps(m)
 }
 
 
@@ -30,7 +30,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
     else if (numCols == 1)
       this(i, 0)
     else {
-      require(numRows == 1 || numCols == 1, "Cannot apply a single index to non-vector matrix of dimensions [%d, %d]".format(numRows, numCols))
+      require(numRows == 1 || numCols == 1, "Cannot apply a single index to non-vector matrix of shape [%d, %d]".format(numRows, numCols))
       sys.error("")
     }
   }
@@ -52,23 +52,23 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
     else if (numCols == 1)
       this(i, 0) = x
     else {
-      require(numRows == 1 || numCols == 1, "Cannot apply a single index to non-vector matrix of dimensions [%d, %d]".format(numRows, numCols))
+      require(numRows == 1 || numCols == 1, "Cannot apply a single index to non-vector matrix of shape [%d, %d]".format(numRows, numCols))
       sys.error("")
     }
   }
   def update[That[S <: Scalar] <: Matrix[S, That]](i: Int, _slice: DenseSlice, that: That[S]) {
-    require(that.numRows == 1 && numCols == that.numCols, "Cannot perform matrix assignment: [%d, %d](%d, ::) <- [%d, %d]".format(
-      numRows, numCols, i, that.numRows, that.numCols))
+    require(that.numRows == 1 && numCols == that.numCols, "Cannot perform matrix assignment of shape: [%d, %d] -> [%d, %d](%d, ::)".format(
+      that.numRows, that.numCols, numRows, numCols, i))
     for (j <- 0 until numCols) this(i, j) = that(0, j)
   }
   def update[That[S <: Scalar] <: Matrix[S, That]](_slice: DenseSlice, j: Int, that: That[S]) {
-    require(that.numCols == 1 && numRows == that.numRows, "Cannot perform matrix assignment: [%d, %d](::, %d) <- [%d, %d]".format(
-      numRows, numCols, j, that.numRows, that.numCols))
+    require(that.numCols == 1 && numRows == that.numRows, "Cannot perform matrix assignment of shape: [%d, %d] -> [%d, %d](::, %d)".format(
+      that.numRows, that.numCols, numRows, numCols, j))
     for (i <- 0 until numRows) this(i, j) = that(i, 0)
   }
 
   def tranTo(that: Dense[S]): Unit = {
-    require(numRows == that.numCols && numCols == that.numRows, "Cannot perform matrix transpose: [%d, %d] <- [%d, %d]^T".format(
+    require(numRows == that.numCols && numCols == that.numRows, "Cannot perform matrix transpose of shape: [%d, %d]^T -> [%d, %d]".format(
       that.numRows, that.numCols, numRows, numCols))
     
     for (i <- 0 until math.min(numRows, numCols); j <- 0 to i) {
@@ -114,11 +114,13 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
 trait DenseAdders {
   trait DenseDenseAdder[S <: Scalar] extends MatrixAdder[S, Dense, Dense, Dense] {
     def addInPlace(sub: Boolean, m1: Dense[S], m2: Dense[S], ret: Dense[S]) = {
-      require(ret.numRows == m1.numRows && ret.numRows == m2.numRows,
-          "Mismatched rows: %d, %d, %d".format(m1.numRows, m2.numRows, ret.numRows)
-      )
-      require(ret.numCols == m1.numCols && ret.numCols == m2.numCols,
-          "Mismatched cols: %d, %d, %d".format(m1.numCols, m2.numCols, ret.numCols)
+      require(
+          ret.numRows == m1.numRows &&
+          ret.numRows == m2.numRows &&
+          ret.numCols == m1.numCols &&
+          ret.numCols == m2.numCols, "Cannot add matrices of shape: [%d, %d] + [%d, %d] -> [%d, %d]".format(
+              m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols
+          )
       )
       for ((i, j) <- ret.indices) ret(i, j) =
         if (sub) ret.scalar.sub(m1(i, j), m2(i, j)) else ret.scalar.add(m1(i, j), m2(i, j))
@@ -134,7 +136,7 @@ trait DenseMultipliers {
       require(
           ret.numRows == m1.numRows &&
           m1.numCols == m2.numRows &&
-          m2.numCols == ret.numCols, "Cannot multiply matrices: [%d, %d] * [%d, %d] -> [%d, %d]".format(
+          m2.numCols == ret.numCols, "Cannot multiply matrices of shape: [%d, %d] * [%d, %d] -> [%d, %d]".format(
               m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols
           )
       )
@@ -224,10 +226,77 @@ trait DenseBuilders {
   val denseComplexDbl = new DenseBuilder[Scalar.ComplexDbl]
 }
 
+
+// --------------------------------------
 // Lapack operations
 
 
-class DenseRealOps[S <: Scalar.RealTyp](self: Dense[S]) {
+object DenseLapackOps {
+    /** A \ V -> X where A X ~= V */
+  def QRSolve[S <: Scalar](X: Dense[S], A: Dense[S], V: Dense[S], transpose: Boolean)(implicit mb: MatrixBuilder[S, Dense]) {
+    require(
+        A.numCols == X.numRows && A.numRows == V.numRows && X.numCols == V.numCols, 
+        "Cannot divide matrices: [%d, %d] \\ [%d, %d] -> [%d, %d]".format(
+            A.numRows, A.numCols, V.numRows, V.numCols, X.numRows, X.numCols 
+        )
+    )
+    require(X.netlib != null, "Netlib library required for division operation")
+    
+    val nrhs = V.numCols;
+    
+    // allocate temporary solution matrix
+    // TODO: is X big enough to use directly?
+    val Xtmp = mb.zeros(math.max(A.numRows, A.numCols), nrhs)
+    val M = if (!transpose) A.numRows else A.numCols;
+    for (j <- 0 until nrhs; i <- 0 until M) { Xtmp(i, j) = V(i, j) }
+
+    val newData = A.duplicate(mb);
+
+    // query optimal workspace
+    val queryWork = mb.zeros(1, 1)
+    val queryInfo = new com.sun.jna.ptr.IntByReference(0);
+    X.netlib.gels(
+      if (!transpose) "N" else "T",
+      A.numRows, A.numCols, nrhs,
+      newData.data.buffer, math.max(1,A.numRows),
+      Xtmp.data.buffer, math.max(1,math.max(A.numRows,A.numCols)),
+      queryWork.data.buffer, -1, queryInfo)
+    
+    // allocate workspace
+    val workSize =
+      if (queryInfo.getValue != 0)
+        math.max(1, math.min(A.numRows, A.numCols) + math.max(math.min(A.numRows, A.numCols), nrhs));
+      else
+        math.max(1, X.netlib.readBufferInt(queryWork.data.buffer, 0));
+    val work = mb.zeros(workSize, 1)
+
+    // compute factorization
+    X.netlib.gels(
+      if (!transpose) "N" else "T",
+      A.numRows, A.numCols, nrhs,
+      newData.data.buffer, math.max(1,A.numRows),
+      Xtmp.data.buffer, math.max(1,math.max(A.numRows,A.numCols)),
+      work.data.buffer, workSize, queryInfo);
+
+    if (queryInfo.getValue< 0)
+      throw new IllegalArgumentException;
+
+    // extract solution
+    val N = if (!transpose) A.numCols else A.numRows;
+    for (j <- 0 until nrhs; i <- 0 until N) X(i, j) = Xtmp(i, j)
+  }
+}
+
+
+class DenseLapackOps[S <: Scalar](self: Dense[S]) {
+  def \ (V: Dense[S])(implicit mb: MatrixBuilder[S, Dense]): Dense[S] = {
+    val ret = mb.zeros(V.numRows, V.numCols)
+    DenseLapackOps.QRSolve(ret, self, V, false)
+    ret
+  }
+}
+
+class DenseRealLapackOps[S <: Scalar.RealTyp](self: Dense[S]) extends DenseLapackOps(self) {
   def eig(implicit mb: MatrixBuilder[S, Dense]): (Dense[S], Dense[S], Dense[S]) = {
     self.netlib match {
       case netlib: NetlibReal[_] => {
@@ -280,7 +349,7 @@ class DenseRealOps[S <: Scalar.RealTyp](self: Dense[S]) {
 }
 
 
-class DenseComplexOps[S <: Scalar.ComplexTyp](self: Dense[S]) {
+class DenseComplexLapackOps[S <: Scalar.ComplexTyp](self: Dense[S]) extends DenseLapackOps(self) {
   def eig(implicit mb: MatrixBuilder[S, Dense]): (Dense[S], Dense[S]) = {
     self.netlib match {
       case netlib: NetlibComplex[_] => {
