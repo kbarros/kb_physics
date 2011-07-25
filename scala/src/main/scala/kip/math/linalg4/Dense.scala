@@ -21,7 +21,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
     checkKey(i, j)
     i + j*numRows // fortran column major convention
   }
-  def indices = (for (j <- 0 until numCols; i <- 0 until numRows) yield (i, j)).toIterator
+  def indices = for (j <- (0 until numCols).view; i <- (0 until numRows).view) yield (i, j)
   
   def apply(i: Int, j: Int): S#A = scalar.read(data, index(i, j))
   def apply(i: Int): S#A = {

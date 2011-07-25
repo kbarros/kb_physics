@@ -12,7 +12,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
   def numCols: Int
   def apply(i: Int, j: Int): S#A
   def update(i: Int, j: Int, x: S#A)
-  def indices: Iterator[(Int, Int)]
+  def indices: Traversable[(Int, Int)]
 
   def checkKey(i: Int, j: Int) {
     require(0 <= i && i < numRows && 0 <= j && j < numCols, "Matrix indices out of bounds: [%d %d](%d %d)".format(numRows, numCols, i, j))
@@ -157,15 +157,24 @@ trait MatrixBuilder[S <: Scalar, Repr[_ <: Scalar]] {
 
 
 object Test extends App {
+  /*
   val m1 = MatrixBuilder.denseRealDbl.zeros(4, 4)
   val m2 = MatrixBuilder.denseRealDbl.zeros(4, 4)
   val m3 = m1+m2
   println(m3)
   val m4 = MatrixBuilder.denseRealDbl.zeros(4, 4)
-  
   // TODO: Make this more reasonable
   m3.mapTo[Scalar.RealDbl, Dense](_.toDouble, m4)
-
-//  println(implicitly[MatrixAdder[Float, Float, DenseRow, DenseRow, Dense]])
+*/
+  import kip.util.Util.time2
+  
+  time2("Eigenvalues") {
+    import MatrixBuilder.denseComplexDbl._
+    val n = 2000
+    val m3 = tabulate(n, n) { case (i, j) => i + 2*j }
+    val x = tabulate(n, 1) { case (i, j) => i }
+    val (v, w) = m3.eig
+    m3 * w(::,0) / v(0) - w(::,0)
+  }
 }
 
