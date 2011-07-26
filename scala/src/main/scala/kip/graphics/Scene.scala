@@ -58,8 +58,10 @@ abstract class Scene {
   }
   
   def initialize(): (GLCanvas, JPanel) = {
-    // val capabilities = new GLCapabilities();
-    val canvas = new GLCanvas()
+    val capabilities = new GLCapabilities();
+    capabilities.setSampleBuffers(true);
+    capabilities.setNumSamples(4);
+    val canvas = new GLCanvas(capabilities)
 
     val mouse = new DragHandler {
       def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent) {

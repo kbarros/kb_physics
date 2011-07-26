@@ -10,17 +10,18 @@ import kip.util.Interpreter
 object Visualizer {
   case class Sphere(pt: Vec3, radius: Double, color: Color, resolution: Int = 2)
   case class Wall(norm: Vec3, pos: Vec3, color: Color)
-  case class Stream(pts: Seq[Vec3], color: Color)
+  case class Arrow(from: Vec3, to: Vec3, normal: Vec3, color: Color)
 }
 
 class Visualizer {
   
   var particles = Seq[Visualizer.Sphere]()
   var walls = Seq[Visualizer.Wall]()
-  var streams = Seq[Visualizer.Stream]()
+  var arrows = Seq[Visualizer.Arrow]()
   var bds = Bounds3d(Vec3(0,0,0), Vec3(1,1,1))
   var rasterString = ""
-
+  var arrowHeadSize = 1.0
+  
   def setBounds(bds: Bounds3d) {
     this.bds = bds
   }
@@ -60,9 +61,26 @@ class Visualizer {
         val p2 = w.pos + tangent*len
         gfx.drawLines(p1, p2)
       }
-      for (s <- streams) {
+      
+      // gfx.setMultisampling(true)
+      for (s <- arrows) {
         gfx.setColor(s.color)
-        gfx.drawLineStrip(s.pts: _*)
+        val x = (s.to - s.from).normalize
+        val t = s.normal cross x         
+        val mid = s.to - x*arrowHeadSize 
+        
+        val arrowHeadWidth = arrowHeadSize / 2
+        val arrowShaftWidth = arrowHeadSize / 8
+        
+        if ((s.to - s.from).norm > arrowHeadSize) {
+          val w = t*arrowShaftWidth
+          gfx.drawQuads(s.from+w, s.from-w, mid-w, mid+w)
+        }
+        
+        val v0 = s.to
+        val v1 = mid + t*(arrowHeadWidth)
+        val v2 = mid - t*(arrowHeadWidth)
+        gfx.drawTriangles(v0, v1, v2)
       }
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)

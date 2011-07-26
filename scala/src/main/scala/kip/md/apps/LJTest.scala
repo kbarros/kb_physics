@@ -117,8 +117,7 @@ object LJTest {
     if (!dir.exists) {
       dir.mkdir()
     }
-
-
+    
     val rand = new util.Random(0)
     
     val thermoDamp = Verlet.ThermoLangevin(temp=0, damp=10, rand)
@@ -166,9 +165,8 @@ object LJTest {
     val viz2 = new Visualizer()
     viz2.scene.translation = Vec3(0, 0, 0.5) // zoom in for improved movie frames
     viz2.setBounds(volume.bounds)
-    val streamsTargetNum = 300
-    val streamIndices = Seq.fill(streamsTargetNum)(rand.nextInt(atoms.size)).distinct
-    val stream = streamIndices.map { i => (i, ArrayBuffer[Vec3](Vec3.zero, Vec3.zero)) }
+    val targetNumArrows = 300
+    val arrowIndices = Seq.fill(targetNumArrows)(rand.nextInt(atoms.size)).distinct
     
     val forcePlot = new scikit.graphics.dim2.Plot("Force")
     val roughPlot = new scikit.graphics.dim2.Plot("Roughening")
@@ -219,9 +217,7 @@ object LJTest {
       initGrid(x0=off, y0=off+layer*layerWidth+(sqrt(3)*r1)*rows1,
                r=r2, rows=rows2, cols=cols2, atoms.view(natoms1+layer*rows2*cols2, natoms1+(layer+1)*rows2*cols2))
     }
-    for ((i, pts) <- stream) { 
-      pts(0) = atoms(i).pos.copy()
-    }
+    val initialPos = atoms.map(_.pos.copy())
     
     def averageWallForce(): Double = {
       val inter1s = atoms.flatMap(_.tag.inter1).distinct
@@ -322,19 +318,30 @@ object LJTest {
       // ----------------
       // Displacement display
       //
-      for ((i, pts) <- stream) { 
-        pts(pts.size-1) = atoms(i).pos.copy()
-      }
-      viz2.streams = stream.map { case (i, pts) =>
-        val p0 = pts.head
-        val p1 = pts.last
+      viz2.arrowHeadSize = 0.2
+      viz2.arrows = for (i <- arrowIndices) yield {
+        val p0 = initialPos(i)
+        val p1 = atoms(i).pos.copy()
         val scale = 4
         val del = (p0 - p1) / scale
-        Visualizer.Stream(pts=Seq(p1+del, p1),
-                          color=(if (isType1(i)) Color.BLUE else Color.RED))
+        Visualizer.Arrow(from=p1+del, to=p1, normal=Vec3(0,0,1), color=(if (isType1(i)) Color.BLUE else Color.RED))
       }
       viz2.display()
-    }
-  }
 
+        
+      // ----------------
+      // Write frame date
+      //
+      val frameWriter = new FrameData.Writer(dirname+"/frame"+iter+".gz")
+      val x = atoms.map(_.pos.x).toArray
+      val y = atoms.map(_.pos.y).toArray
+      val r = atoms.map(a => if (isType1(a.idx)) r1 else r2).toArray
+      val (d5, d7) = dislocationPairs.unzip
+      val frame = FrameData.Frame(index=iter, time=world.time, x=x, y=y, r=r, dislocations=(d5.map(_.idx).toArray, d7.map(_.idx).toArray))
+      frameWriter.writeFrame(frame)
+      frameWriter.close()
+      
+    } // main loop
+    
+  } // test method
 }

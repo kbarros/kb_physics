@@ -89,6 +89,13 @@ class GfxGL(glDrawable: GLAutoDrawable) {
       gl.glDisable(GL.GL_LINE_SMOOTH)
   }
   
+  def setMultisampling(b: Boolean) {
+    if (b)
+      gl.glEnable(GL.GL_MULTISAMPLE)
+    else
+      gl.glDisable(GL.GL_MULTISAMPLE)
+  }
+  
   def setColor(color: Color) {
     gl.glColor4fv(color.getComponents(null), 0)
   }
@@ -117,6 +124,22 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     gl.glEnd();
   }
   
+  def drawTriangles(ps: Vec3*) {
+    gl.glBegin(GL.GL_TRIANGLES)
+    for (p <- ps) {
+      gl.glVertex3d(p.x, p.y, p.z)
+    }
+    gl.glEnd();
+  }
+
+  def drawQuads(ps: Vec3*) {
+    gl.glBegin(GL.GL_QUADS)
+    for (p <- ps) {
+      gl.glVertex3d(p.x, p.y, p.z)
+    }
+    gl.glEnd();
+  }
+
   def drawCuboid(bds: Bounds3d) {
     gl.glDisable(GL.GL_LIGHTING)
     gl.glBegin(GL.GL_LINES)
