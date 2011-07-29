@@ -13,7 +13,7 @@ object TDGL {
   // approximate energy at a single interface per unit area
   val surfaceEnergyDensity = 1.0 // 0.89
   
-  val asymmetry = 0.0
+  val asymmetry = 0.5
 }
 
 
@@ -47,7 +47,6 @@ class TDGL(params: Parameters, dimensions: Int) {
   val kernel2 = fft.allocFourierArray()
   
   readParams(params)
-  randomize()
   
   
   def randomize() {

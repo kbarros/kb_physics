@@ -43,6 +43,7 @@ class TDGL2dApp extends Simulation {
   
   def run() {
     sim = new TDGL(params, dimensions=2)
+    sim.randomize()
     Job.animate()
     
     while (true) {

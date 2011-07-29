@@ -18,9 +18,9 @@ class TDGL4dApp extends Simulation {
     grids.foreach(g => c.frame(g))
     params.addm("dt", 5.0)
     params.addm("r", 1.0)
-    params.add("L", 16.0)
+    params.add("L", 25.0)
     params.add("Random seed", 41)
-    params.add("dx", 0.5)
+    params.add("dx", 1.0)
     params.add("Time")
     params.add("Energy")
   }
@@ -47,6 +47,7 @@ class TDGL4dApp extends Simulation {
 
   def run() {
     sim = new TDGL(params, dimensions = 4)
+    sim.randomize()
     Job.animate()
 
     while (true) {
