@@ -19,6 +19,7 @@ acs-*.bib
 *.eps
 *.fmt
 *.log
+*.end
 
 # SBT dirs
 target/
