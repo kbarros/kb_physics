@@ -105,14 +105,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
 trait DenseAdders {
   trait DenseDenseAdder[S <: Scalar] extends MatrixAdder[S, Dense, Dense, Dense] {
     def addInPlace(sub: Boolean, m1: Dense[S], m2: Dense[S], ret: Dense[S]) = {
-      require(
-          ret.numRows == m1.numRows &&
-          ret.numRows == m2.numRows &&
-          ret.numCols == m1.numCols &&
-          ret.numCols == m2.numCols, "Cannot add matrices of shape: [%d, %d] + [%d, %d] -> [%d, %d]".format(
-              m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols
-          )
-      )
+      MatrixAdder.checkDims(m1, m2, ret)
       for ((i, j) <- ret.indices) ret(i, j) =
         if (sub) ret.scalar.sub(m1(i, j), m2(i, j)) else ret.scalar.add(m1(i, j), m2(i, j))
     }
@@ -124,14 +117,7 @@ trait DenseAdders {
 trait DenseMultipliers {
   trait DenseDenseMultiplier[S <: Scalar] extends MatrixMultiplier[S, Dense, Dense, Dense] {
     def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Dense[S], ret: Dense[S]) {
-      require(
-          ret.numRows == m1.numRows &&
-          m1.numCols == m2.numRows &&
-          m2.numCols == ret.numCols, "Cannot multiply matrices of shape: [%d, %d] * [%d, %d] -> [%d, %d]".format(
-              m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols
-          )
-      )
-
+      MatrixMultiplier.checkDims(m1, m2, ret)
       if (ret.netlib == null) {
         for (i <- 0 until ret.numRows;
         k <- 0 until m1.numCols;
@@ -157,6 +143,8 @@ trait DenseMultipliers {
 
 
 
+// TODO: Make general builders based on type S#A for all Reprs (Dense, Sparse, ...)
+
 trait DenseBuilders {
   
   class DenseBuilder[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) extends MatrixBuilder[S, Dense] {
@@ -165,10 +153,9 @@ trait DenseBuilders {
       val nr = numRows
       val nc = numCols
       new Dense[S] {
-        val netlib: Netlib[S] = nl
-        val data: RawData[S#Raw, S#Buf] = sb.build(so.components*nr*nc)
-        // TODO remove explicit types
-        val scalar: ScalarOps[S] = so
+        val netlib = nl
+        val data = sb.build(so.components*nr*nc)
+        val scalar = so
         val numRows = nr
         val numCols = nc
       }

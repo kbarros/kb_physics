@@ -24,7 +24,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
     this
   }
   
-  // The extra type parameter A2 and evidence parameter S2 are for type inference
+  // The parameters A2 and ev:S2 are for type inference purposes only
   def map[A2, S2 <: Scalar{type A=A2}, That[S <: Scalar] >: Repr[S] <: Matrix[S, That]]
       (f: S#A => S2#A)(implicit ev: S2, mb: MatrixBuilder[S2, That]): That[S2] = {
     val ret = mb.zeros(numRows, numCols)
@@ -126,12 +126,30 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
   }
 }
 
-object MatrixAdder extends DenseAdders
+object MatrixAdder extends DenseAdders {
+  def checkDims[S <: Scalar, R[S <: Scalar] <: Matrix[S, R]](m1: Matrix[S, R], m2: Matrix[S, R], ret: Matrix[S, R]) {
+    require(
+        ret.numRows == m1.numRows &&
+        ret.numRows == m2.numRows &&
+        ret.numCols == m1.numCols &&
+        ret.numCols == m2.numCols,
+          "Cannot add matrices of shape: [%d, %d] + [%d, %d] -> [%d, %d]".format(
+            m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
+  }
+}
 trait MatrixAdder[S <: Scalar, Repr1[_ <: Scalar], Repr2[_ <: Scalar], Repr3[_ <: Scalar]] {
   def addInPlace(sub: Boolean, m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
 }
 
-object MatrixMultiplier extends DenseMultipliers
+object MatrixMultiplier extends DenseMultipliers {
+  def checkDims[S <: Scalar, R[S <: Scalar] <: Matrix[S, R]](m1: Matrix[S, R], m2: Matrix[S, R], ret: Matrix[S, R]) {
+    require(
+        ret.numRows == m1.numRows &&
+        m1.numCols == m2.numRows &&
+        m2.numCols == ret.numCols, "Cannot multiply matrices of shape: [%d, %d] * [%d, %d] -> [%d, %d]".format(
+            m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
+  }  
+}
 trait MatrixMultiplier[S <: Scalar, Repr1[_ <: Scalar], Repr2[_ <: Scalar], Repr3[_ <: Scalar]] {
   def gemm(alpha: S#A, beta: S#A, m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
 }
