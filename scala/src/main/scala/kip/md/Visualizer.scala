@@ -13,7 +13,7 @@ object Visualizer {
   case class Arrow(from: Vec3, to: Vec3, normal: Vec3, color: Color)
 }
 
-class Visualizer {
+class Visualizer(sizew: Int = 600, sizeh: Int = 600) {
   
   var particles = Seq[Visualizer.Sphere]()
   var walls = Seq[Visualizer.Wall]()
@@ -115,7 +115,7 @@ class Visualizer {
     // panel.add(buildSlider(), BorderLayout.SOUTH);
     
     frame.add(panel)
-    frame.setSize(600, 600)
+    frame.setSize(sizew, sizeh)
     frame.setVisible(true)
     frame
   }

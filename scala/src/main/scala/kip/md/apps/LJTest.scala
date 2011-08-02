@@ -151,6 +151,9 @@ object LJTest {
     val wallSpeed = 0.02
     val maxTime = 1000
     
+    val stepsPerIter = 40
+    val dumpFrequency = 2
+    
     
     val atoms = IndexedSeq.tabulate(natoms1+natoms2) { i:Int =>
       new Atom(idx=i, tag=null)
@@ -158,24 +161,24 @@ object LJTest {
     
     val volume = new Volume.Cuboid(2*r1*cols1+2*off, layers*layerWidth+2*off, 0, periodic=true)
     val world = new World(volume, atoms, integrator)
-    val viz = new Visualizer()
-    viz.scene.translation = Vec3(0, 0, 0.5) // zoom in for improved movie frames
+    val viz = new Visualizer(sizew=1000, sizeh=500)
+    viz.scene.translation = Vec3(0, 0, 1.0) // zoom in for improved movie frames
     viz.setBounds(volume.bounds)
 
-    val viz2 = new Visualizer()
-    viz2.scene.translation = Vec3(0, 0, 0.5) // zoom in for improved movie frames
-    viz2.setBounds(volume.bounds)
-    val targetNumArrows = 300
-    val arrowIndices = Seq.fill(targetNumArrows)(rand.nextInt(atoms.size)).distinct
+//    val viz2 = new Visualizer(sizew=1000, sizeh=500)
+//    viz2.scene.translation = Vec3(0, 0, 1.0) // zoom in for improved movie frames
+//    viz2.setBounds(volume.bounds)
+//    val targetNumArrows = 300
+//    val arrowIndices = Seq.fill(targetNumArrows)(rand.nextInt(atoms.size)).distinct
     
     val forcePlot = new scikit.graphics.dim2.Plot("Force")
-    val roughPlot = new scikit.graphics.dim2.Plot("Roughening")
+//    val roughPlot = new scikit.graphics.dim2.Plot("Roughening")
     val disloPlot = new scikit.graphics.dim2.Plot("Dislocations")
     scikit.util.Utilities.frame(forcePlot.getComponent(), forcePlot.getTitle())
-    scikit.util.Utilities.frame(roughPlot.getComponent(), roughPlot.getTitle())
+//    scikit.util.Utilities.frame(roughPlot.getComponent(), roughPlot.getTitle())
     scikit.util.Utilities.frame(disloPlot.getComponent(), disloPlot.getTitle())
     val forceHistory = new scikit.dataset.DynamicArray()
-    val roughHistory = new scikit.dataset.DynamicArray()
+//    val roughHistory = new scikit.dataset.DynamicArray()
     val disloHistory = new scikit.dataset.DynamicArray()
     val disloData = new DislocationAnalysis(tmin=0, tmax=maxTime, dt=100, rmin=0, rmax=50, dr=1, volume=1)
     
@@ -219,6 +222,7 @@ object LJTest {
     }
     val initialPos = atoms.map(_.pos.copy())
     
+    // TODO: make sure this is actually right
     def averageWallForce(): Double = {
       val inter1s = atoms.flatMap(_.tag.inter1).distinct
       val force1s = inter1s.map(inter => (world.forceOnObject(inter)).norm)
@@ -234,15 +238,16 @@ object LJTest {
     //
     var iter = 0
     while (world.time < maxTime && !hasWrapped()) kip.util.Util.time2("Iterating") {
+      iter += 1
+      
       // ----------------
       // World step
       //
-      iter += 1
       val wallDelta = wallSpeed*world.time
       val wall1pos = wall1posInit + wall1norm*wallDelta
       val wall2pos = wall2posInit + wall2norm*wallDelta
       setInteractions(sizeAsymmetry, wall1pos, wall2pos)
-      world.step(20)
+      world.step(stepsPerIter)
       val cutoff = 1.9
       val neighbors = neighborList(atoms, volume, cutoff)
 
@@ -257,6 +262,7 @@ object LJTest {
       // ----------------
       // Dislocations plot
       //
+      
       val dislocationPairs = {
         for (i <- atoms.indices;
              if (neighbors(i).size == 7);
@@ -267,6 +273,7 @@ object LJTest {
           (atoms(i), atoms(jmin))
         }
       }
+      // // Correlations between dislocations currently disabled
       // analyzeDislocations(world.time, disloData, dislocationPairs)
       // val disloResults = disloData.results
       // for (i <- disloResults.indices) {
@@ -278,6 +285,7 @@ object LJTest {
       disloHistory.append2(world.time, dislocationPairs.size)
       disloPlot.registerLines("Dislo", disloHistory, java.awt.Color.BLACK)
 
+      /*
       // ----------------
       // Roughening plot
       //
@@ -290,7 +298,7 @@ object LJTest {
       val roughening = analyzeSurfaces(surfacePairs, neighbors, atoms)
       roughHistory.append2(world.time, roughening)
       roughPlot.registerLines("Data", roughHistory, java.awt.Color.BLACK)
-      
+      */
       
       // ----------------
       // Atoms display
@@ -311,37 +319,37 @@ object LJTest {
         Visualizer.Wall(wall1norm, wall1pos, Color.ORANGE),
         Visualizer.Wall(wall2norm, wall2pos, Color.ORANGE)
       ))
-      viz.display()
+      viz.display() // rendering can take 10 - 20% of the time
       javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(dirname+"/snap%d.png".format(iter)))
       
       
       // ----------------
       // Displacement display
       //
-      viz2.arrowHeadSize = 0.2
-      viz2.arrows = for (i <- arrowIndices) yield {
-        val p0 = initialPos(i)
-        val p1 = atoms(i).pos.copy()
-        val scale = 4
-        val del = (p0 - p1) / scale
-        Visualizer.Arrow(from=p1+del, to=p1, normal=Vec3(0,0,1), color=(if (isType1(i)) Color.BLUE else Color.RED))
-      }
-      viz2.display()
+//      viz2.arrowHeadSize = 0.2
+//      viz2.arrows = for (i <- arrowIndices) yield {
+//        val p0 = initialPos(i)
+//        val p1 = atoms(i).pos.copy()
+//        val scale = 4
+//        val del = (p0 - p1) / scale
+//        Visualizer.Arrow(from=p1+del, to=p1, normal=Vec3(0,0,1), color=(if (isType1(i)) Color.BLUE else Color.RED))
+//      }
+//      viz2.display()
 
-        
-      // ----------------
-      // Write frame date
-      //
-      val frameWriter = new FrameData.Writer(dirname+"/frame"+iter+".gz")
-      val x = atoms.map(_.pos.x).toArray
-      val y = atoms.map(_.pos.y).toArray
-      val r = atoms.map(a => if (isType1(a.idx)) r1 else r2).toArray
-      val (d5, d7) = dislocationPairs.unzip
-      val frame = FrameData.Frame(index=iter, time=world.time, x=x, y=y, r=r, dislocations=(d5.map(_.idx).toArray, d7.map(_.idx).toArray))
-      frameWriter.writeFrame(frame)
-      frameWriter.close()
       
-    } // main loop
+      // ----------------
+      // Write frame data
+      //
+      if (iter % dumpFrequency == 0) {
+        val filename = dirname+"/frame"+iter+".gz"
+        val x = atoms.map(_.pos.x).toArray
+        val y = atoms.map(_.pos.y).toArray
+        val r = atoms.map(a => if (isType1(a.idx)) r1 else r2).toArray
+        val (d5, d7) = dislocationPairs.unzip
+        val frame = FrameData(index=iter, time=world.time, temp=world.temperature(), natoms1=natoms1, force=averageWallForce(), x=x, y=y, r=r, dislocations=(d5.map(_.idx).toArray, d7.map(_.idx).toArray))
+        kip.util.Util.writeObjectGz(filename, frame)
+      }
+    } // Simulation loop
     
-  } // test method
+  } // Simulation method
 }

@@ -2,6 +2,12 @@ package kip.util
 
 import scala.util.matching.Regex
 import java.io.{LineNumberReader, BufferedReader, BufferedWriter, FileWriter, FileReader}
+import java.io.FileOutputStream
+import java.io.ObjectOutputStream
+import java.io.FileInputStream
+import java.io.ObjectInputStream
+import java.util.zip.GZIPOutputStream
+import java.util.zip.GZIPInputStream
 
 
 object Util {
@@ -91,6 +97,19 @@ object Util {
     }
     
     (data.map(_.toArray), desc) 
+  }
+
+  def writeObjectGz[A <: Serializable](filename: String, f: A) {
+    val out = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(filename)))
+    out.writeObject(f);
+    out.close();
+  }
+
+  def readObjectGz[A <: Serializable](filename: String): A = {
+    val in = new ObjectInputStream(new GZIPInputStream(new FileInputStream(filename)))
+    val ret = in.readObject().asInstanceOf[A]
+    in.close()
+    ret
   }
 
 }
