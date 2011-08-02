@@ -14,58 +14,44 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
   def update(i: Int, j: Int, x: S#A)
   def indices: Traversable[(Int, Int)]
 
+  
   def checkKey(i: Int, j: Int) {
     require(0 <= i && i < numRows && 0 <= j && j < numCols, "Matrix indices out of bounds: [%d %d](%d %d)".format(numRows, numCols, i, j))
   }
 
-  def mapTo[S2 <: Scalar, That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](f: S#A => S2#A, that: That[S2]): Unit =
-    indices.foreach { case(i, j) => that(i, j) = f(this(i, j)) }
-  def copyTo[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](that: That[S]): Unit =
-    mapTo(identity, that)
-  def mulTo[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](x: S#A, that: That[S]): Unit =
-    mapTo(scalar.mul(_, x), that)
-  def divTo[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](x: S#A, that: That[S]): Unit =
-    mapTo(scalar.div(_, x), that)
-  def negTo[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](that: That[S]): Unit =
-    mapTo(scalar.neg(_), that)
-  def conjTo[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](that: That[S]): Unit =
-    mapTo(scalar.conj(_), that)
-
-  def map[S2 <: Scalar, That[S <: Scalar] >: Repr[S] <: Matrix[S, That]]
-      (f: S#A => S2#A)(implicit mb: MatrixBuilder[S2, That]): That[S2] = {
+  def transform(f: S#A => S#A): this.type = {
+    indices.foreach { case(i, j) => this(i, j) = f(this(i, j)) }
+    this
+  }
+  
+  // The extra type parameter A2 and evidence parameter S2 are for type inference
+  def map[A2, S2 <: Scalar{type A=A2}, That[S <: Scalar] >: Repr[S] <: Matrix[S, That]]
+      (f: S#A => S2#A)(implicit ev: S2, mb: MatrixBuilder[S2, That]): That[S2] = {
     val ret = mb.zeros(numRows, numCols)
-    mapTo(f, ret)
+    indices.foreach { case(i, j) => ret(i, j) = f(this(i, j)) }
     ret
   }
 
   def duplicate[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
     val ret = mb.zeros(numRows, numCols)
-    copyTo(ret)
+    indices.foreach { case(i, j) => ret(i, j) = this(i, j) }
     ret
   }
   
   def *[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](x: S#A)(implicit mb: MatrixBuilder[S, That]): That[S] = {
-    val ret = duplicate(mb)
-    ret.mulTo(x, ret)
-    ret
+    duplicate(mb).transform(scalar.mul(_, x))
   }
 
   def /[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](x: S#A)(implicit mb: MatrixBuilder[S, That]): That[S] = {
-    val ret = duplicate(mb)
-    ret.divTo(x, ret)
-    ret
+    duplicate(mb).transform(scalar.div(_, x))
   }
 
   def unary_-[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
-    val ret = duplicate(mb)
-    ret.negTo(ret)
-    ret
+    duplicate(mb).transform(scalar.neg(_))
   }
 
   def conj[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
-    val ret = duplicate(mb)
-    ret.conjTo(ret)
-    ret
+    duplicate(mb).transform(scalar.conj(_))
   }
 
 
@@ -157,24 +143,24 @@ trait MatrixBuilder[S <: Scalar, Repr[_ <: Scalar]] {
 
 
 object Test extends App {
-  /*
+
   val m1 = MatrixBuilder.denseRealDbl.zeros(4, 4)
   val m2 = MatrixBuilder.denseRealDbl.zeros(4, 4)
   val m3 = m1+m2
   println(m3)
   val m4 = MatrixBuilder.denseRealDbl.zeros(4, 4)
-  // TODO: Make this more reasonable
-  m3.mapTo[Scalar.RealDbl, Dense](_.toDouble, m4)
-*/
-  import kip.util.Util.time2
+  m3.map(_.toDouble).map(_+Complex.I)
+
   
-  time2("Eigenvalues") {
-    import MatrixBuilder.denseComplexDbl._
-    val n = 2000
-    val m3 = tabulate(n, n) { case (i, j) => i + 2*j }
-    val x = tabulate(n, 1) { case (i, j) => i }
-    val (v, w) = m3.eig
-    m3 * w(::,0) / v(0) - w(::,0)
-  }
+//  import kip.util.Util.time2
+//  
+//  time2("Eigenvalues") {
+//    import MatrixBuilder.denseComplexDbl._
+//    val n = 2000
+//    val m3 = tabulate(n, n) { case (i, j) => i + 2*j }
+//    val x = tabulate(n, 1) { case (i, j) => i }
+//    val (v, w) = m3.eig
+//    m3 * w(::,0) / v(0) - w(::,0)
+//  }
 }
 

@@ -66,39 +66,30 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
       that.numRows, that.numCols, numRows, numCols, j))
     for (i <- 0 until numRows) this(i, j) = that(i, 0)
   }
-
-  def tranTo(that: Dense[S]): Unit = {
-    require(numRows == that.numCols && numCols == that.numRows, "Cannot perform matrix transpose of shape: [%d, %d]^T -> [%d, %d]".format(
-      that.numRows, that.numCols, numRows, numCols))
-    
+  
+  def tran(implicit mb: MatrixBuilder[S, Dense]): Dense[S] = {
+    val ret = mb.zeros(numCols, numRows)
     for (i <- 0 until math.min(numRows, numCols); j <- 0 to i) {
       val this_ij = this(i, j)
       val this_ji = this(j, i)
-      that(i, j) = this_ji
-      that(j, i) = this_ij
+      ret(i, j) = this_ji
+      ret(j, i) = this_ij
     }
     if (numCols > numRows) {
       for (i <- 0 until numRows; j <- numRows until numCols) {
-        that(j, i) = this(i, j)
+        ret(j, i) = this(i, j)
       }
     }
     if (numRows > numCols) {
       for (j <- 0 until numCols; i <- numCols until numRows) {
-        that(j, i) = this(i, j)
+        ret(j, i) = this(i, j)
       }
     }
-  }
-  
-  def tran(implicit mb: MatrixBuilder[S, Dense]): Dense[S] = {
-    val ret = mb.zeros(numCols, numRows)
-    tranTo(ret)
     ret
   }
   
   def dag(implicit mb: MatrixBuilder[S, Dense]): Dense[S] = {
-    val ret = tran
-    ret.conjTo(ret)
-    ret
+    tran.transform(scalar.conj(_))
   }
 
   def dot(that: Dense[S])(implicit mm: MatrixMultiplier[S, Dense, Dense, Dense],
