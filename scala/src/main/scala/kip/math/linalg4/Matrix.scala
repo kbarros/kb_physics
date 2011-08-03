@@ -5,37 +5,59 @@ import kip.math.Complex
 
 // TODO: make GenMatrix that specializes S#A for relevant methods
 
-trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[S] =>
-  val scalar: ScalarOps[S]
+object MatrixDims {
+  def checkDims(numRows: Int, numCols: Int) {
+    require(numRows > 0 && numCols > 0,
+        "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
+  }
   
-  def numRows: Int
-  def numCols: Int
-  def apply(i: Int, j: Int): S#A
-  def update(i: Int, j: Int, x: S#A)
-  def indices: Traversable[(Int, Int)]
-
+  def checkKey(m: MatrixDims, i: Int, j: Int) {
+    require(0 <= i && i < m.numRows && 0 <= j && j < m.numCols,
+        "Matrix indices out of bounds: [%d %d](%d %d)".format(m.numRows, m.numCols, i, j))
+  }
   
-  def checkKey(i: Int, j: Int) {
-    require(0 <= i && i < numRows && 0 <= j && j < numCols, "Matrix indices out of bounds: [%d %d](%d %d)".format(numRows, numCols, i, j))
+  def checkAddTo(m1: MatrixDims, m2: MatrixDims, ret: MatrixDims) {
+    require(
+        ret.numRows == m1.numRows &&
+        ret.numRows == m2.numRows &&
+        ret.numCols == m1.numCols &&
+        ret.numCols == m2.numCols,
+        "Cannot add/subtract matrices of shape: [%d, %d] + [%d, %d] -> [%d, %d]".format(
+            m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
   }
 
-  def transform(f: S#A => S#A): this.type = {
-    indices.foreach { case(i, j) => this(i, j) = f(this(i, j)) }
-    this
+  def checkMulTo(m1: MatrixDims, m2: MatrixDims, ret: MatrixDims) {
+    require(
+        ret.numRows == m1.numRows &&
+        m1.numCols == m2.numRows &&
+        m2.numCols == ret.numCols, "Cannot multiply matrices of shape: [%d, %d] * [%d, %d] -> [%d, %d]".format(
+            m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
+  }  
+}
+
+
+trait MatrixDims {
+  def numRows: Int
+  def numCols: Int
+}
+
+
+trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends MatrixDims { self: Repr[S] =>
+  val scalar: ScalarOps[S]
+  
+  def apply(i: Int, j: Int): S#A
+  def update(i: Int, j: Int, x: S#A)
+  def transform(f: S#A => S#A): this.type
+
+  
+  def duplicate[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
+    mb.duplicate(this)
   }
   
   // The parameters A2 and ev:S2 are for type inference purposes only
-  def map[A2, S2 <: Scalar{type A=A2}, That[S <: Scalar] >: Repr[S] <: Matrix[S, That]]
+  def map[A2, S2 <: Scalar{type A=A2}, That[T <: Scalar] >: Repr[T] <: Matrix[T, That]]
       (f: S#A => S2#A)(implicit ev: S2, mb: MatrixBuilder[S2, That]): That[S2] = {
-    val ret = mb.zeros(numRows, numCols)
-    indices.foreach { case(i, j) => ret(i, j) = f(this(i, j)) }
-    ret
-  }
-
-  def duplicate[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
-    val ret = mb.zeros(numRows, numCols)
-    indices.foreach { case(i, j) => ret(i, j) = this(i, j) }
-    ret
+    mb.map(this)(f)
   }
   
   def *[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](x: S#A)(implicit mb: MatrixBuilder[S, That]): That[S] = {
@@ -54,6 +76,21 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
     duplicate(mb).transform(scalar.conj(_))
   }
 
+  def tran[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
+    mb.transpose(this)
+  }
+  
+  def dag[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
+    tran(mb).transform(scalar.conj(_))
+  }
+
+//  def dot(that: Dense[S])(implicit mm: MatrixMultiplier[S, Dense, Dense, Dense],
+//      mb: MatrixBuilder[S, Dense]): S#A = {
+//    val m = (this: Dense[S]) * (that: Dense[S])
+//    val ret = m(0, 0)
+//    m.data.dispose()
+//    ret
+//  }
 
   def *[Repr1[S <: Scalar] >: Repr[S], Repr2[S <: Scalar] <: Matrix[S, Repr2], Repr3[S <: Scalar] <: Matrix[S, Repr3]]
         (that: Repr2[S])
@@ -126,59 +163,38 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] { self: Repr[
   }
 }
 
-object MatrixAdder extends DenseAdders {
-  def checkDims[S <: Scalar, R[S <: Scalar] <: Matrix[S, R]](m1: Matrix[S, R], m2: Matrix[S, R], ret: Matrix[S, R]) {
-    require(
-        ret.numRows == m1.numRows &&
-        ret.numRows == m2.numRows &&
-        ret.numCols == m1.numCols &&
-        ret.numCols == m2.numCols,
-          "Cannot add matrices of shape: [%d, %d] + [%d, %d] -> [%d, %d]".format(
-            m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
-  }
+
+trait MatrixBuilder[S <: Scalar, Repr[_ <: Scalar]] {
+  def zeros(numRows: Int, numCols: Int): Repr[S]
+  def duplicate(m: Repr[S]): Repr[S]
+  def transpose(m: Repr[S]): Repr[S]
+  def map[S0 <: Scalar](m: Repr[S0])(f: S0#A => S#A): Repr[S]
 }
+
 trait MatrixAdder[S <: Scalar, Repr1[_ <: Scalar], Repr2[_ <: Scalar], Repr3[_ <: Scalar]] {
   def addInPlace(sub: Boolean, m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
 }
 
-object MatrixMultiplier extends DenseMultipliers {
-  def checkDims[S <: Scalar, R[S <: Scalar] <: Matrix[S, R]](m1: Matrix[S, R], m2: Matrix[S, R], ret: Matrix[S, R]) {
-    require(
-        ret.numRows == m1.numRows &&
-        m1.numCols == m2.numRows &&
-        m2.numCols == ret.numCols, "Cannot multiply matrices of shape: [%d, %d] * [%d, %d] -> [%d, %d]".format(
-            m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
-  }  
-}
 trait MatrixMultiplier[S <: Scalar, Repr1[_ <: Scalar], Repr2[_ <: Scalar], Repr3[_ <: Scalar]] {
   def gemm(alpha: S#A, beta: S#A, m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
 }
 
-object MatrixBuilder extends DenseBuilders
-trait MatrixBuilder[S <: Scalar, Repr[_ <: Scalar]] {
-  def zeros(numRows: Int, numCols: Int): Repr[S]
-}
-
 
 object Test extends App {
-
-  val m1 = MatrixBuilder.denseRealDbl.zeros(4, 4)
-  val m2 = MatrixBuilder.denseRealDbl.zeros(4, 4)
-  val m3 = m1+m2
-  println(m3)
-  val m4 = MatrixBuilder.denseRealDbl.zeros(4, 4)
-  m3.map(_.toDouble).map(_+Complex.I)
-
+  import Constructors.complexDbl._
+  val m = dense(4, 4)
+  m(0, 0) = 1
+  println(m.map(_.re))
   
-//  import kip.util.Util.time2
-//  
-//  time2("Eigenvalues") {
-//    import MatrixBuilder.denseComplexDbl._
-//    val n = 2000
-//    val m3 = tabulate(n, n) { case (i, j) => i + 2*j }
-//    val x = tabulate(n, 1) { case (i, j) => i }
-//    val (v, w) = m3.eig
-//    m3 * w(::,0) / v(0) - w(::,0)
-//  }
+  import kip.util.Util.time2
+  
+  time2("Eigenvalues") {
+    val n = 500
+    val m3 = tabulate(n, n) { case (i, j) => i + 2*j }
+    val m4 = m3 + m3.tran
+    val x = tabulate(n, 1) { case (i, j) => i }
+    val (v, w) = m3.eig
+    println(m3 * w(::,0) / v(0) - w(::,0))
+  }
 }
 

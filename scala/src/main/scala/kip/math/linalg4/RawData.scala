@@ -41,6 +41,7 @@ trait RawData[@specialized(Float, Double) Raw, Buf <: Buffer] {
   def buffer: Buf
   def apply(i: Int): Raw
   def update(i: Int, x: Raw)
-  def dispose() = ()
+  def copyTo(that: RawData[Raw, Buf]) { for (i <- 0 until size) that(i) = this(i) }
+  def dispose() {}
 }
 

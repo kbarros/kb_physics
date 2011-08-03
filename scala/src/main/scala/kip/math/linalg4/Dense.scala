@@ -7,23 +7,20 @@ trait DenseSlice
 object :: extends DenseSlice
 
 
-object Dense {
-  implicit def toDenseRealLapackOps   [S <: Scalar.RealTyp]   (m: Dense[S]) = new DenseRealLapackOps(m)
-  implicit def toDenseComplexLapackOps[S <: Scalar.ComplexTyp](m: Dense[S]) = new DenseComplexLapackOps(m)
-}
+object Dense extends DenseBuilders with DenseAdders with DenseMultipliers with DenseLapackImplicits
 
 
 trait Dense[S <: Scalar] extends Matrix[S, Dense] {
   val netlib: Netlib[S]
   val data: RawData[S#Raw, S#Buf]
-  
+
   def index(i: Int, j: Int) = {
-    checkKey(i, j)
+    MatrixDims.checkKey(this, i, j)
     i + j*numRows // fortran column major convention
   }
   def indices = for (j <- (0 until numCols).view; i <- (0 until numRows).view) yield (i, j)
   
-  def apply(i: Int, j: Int): S#A = scalar.read(data, index(i, j))
+  override def apply(i: Int, j: Int): S#A = scalar.read(data, index(i, j))
   def apply(i: Int): S#A = {
     if (numRows == 1)
       this(0, i)
@@ -45,7 +42,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
     ret
   }
   
-  def update(i: Int, j: Int, x: S#A): Unit = scalar.write(data, index(i, j), x)
+  override def update(i: Int, j: Int, x: S#A): Unit = scalar.write(data, index(i, j), x)
   def update(i: Int, x: S#A): Unit = {
     if (numRows == 1)
       this(0, i) = x
@@ -66,38 +63,10 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
       that.numRows, that.numCols, numRows, numCols, j))
     for (i <- 0 until numRows) this(i, j) = that(i, 0)
   }
-  
-  def tran(implicit mb: MatrixBuilder[S, Dense]): Dense[S] = {
-    val ret = mb.zeros(numCols, numRows)
-    for (i <- 0 until math.min(numRows, numCols); j <- 0 to i) {
-      val this_ij = this(i, j)
-      val this_ji = this(j, i)
-      ret(i, j) = this_ji
-      ret(j, i) = this_ij
-    }
-    if (numCols > numRows) {
-      for (i <- 0 until numRows; j <- numRows until numCols) {
-        ret(j, i) = this(i, j)
-      }
-    }
-    if (numRows > numCols) {
-      for (j <- 0 until numCols; i <- numCols until numRows) {
-        ret(j, i) = this(i, j)
-      }
-    }
-    ret
-  }
-  
-  def dag(implicit mb: MatrixBuilder[S, Dense]): Dense[S] = {
-    tran.transform(scalar.conj(_))
-  }
-
-  def dot(that: Dense[S])(implicit mm: MatrixMultiplier[S, Dense, Dense, Dense],
-      mb: MatrixBuilder[S, Dense]): S#A = {
-    val m = (this: Dense[S]) * (that: Dense[S])
-    val ret = m(0, 0)
-    m.data.dispose()
-    ret
+   
+  override def transform(f: S#A => S#A): this.type = {
+    for (i <- 0 until numRows*numCols) { scalar.write(data, i, f(scalar.read(data, i))) }
+    this
   }
 }
 
@@ -105,7 +74,7 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
 trait DenseAdders {
   trait DenseDenseAdder[S <: Scalar] extends MatrixAdder[S, Dense, Dense, Dense] {
     def addInPlace(sub: Boolean, m1: Dense[S], m2: Dense[S], ret: Dense[S]) = {
-      MatrixAdder.checkDims(m1, m2, ret)
+      MatrixDims.checkAddTo(m1, m2, ret)
       for ((i, j) <- ret.indices) ret(i, j) =
         if (sub) ret.scalar.sub(m1(i, j), m2(i, j)) else ret.scalar.add(m1(i, j), m2(i, j))
     }
@@ -117,11 +86,12 @@ trait DenseAdders {
 trait DenseMultipliers {
   trait DenseDenseMultiplier[S <: Scalar] extends MatrixMultiplier[S, Dense, Dense, Dense] {
     def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Dense[S], ret: Dense[S]) {
-      MatrixMultiplier.checkDims(m1, m2, ret)
+      MatrixDims.checkMulTo(m1, m2, ret)
       if (ret.netlib == null) {
+        ret.transform(_ => ret.scalar.zero)
         for (i <- 0 until ret.numRows;
-        k <- 0 until m1.numCols;
-        j <- 0 until ret.numCols) {
+             k <- 0 until m1.numCols;
+             j <- 0 until ret.numCols) {
           ret.scalar.madd(ret.data, ret.index(i, j), m1.data, m1.index(i, k), m2.data, m2.index(k, j))
         }
       }
@@ -142,11 +112,7 @@ trait DenseMultipliers {
 }
 
 
-
-// TODO: Make general builders based on type S#A for all Reprs (Dense, Sparse, ...)
-
 trait DenseBuilders {
-  
   class DenseBuilder[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) extends MatrixBuilder[S, Dense] {
     def zeros(numRows: Int, numCols: Int) = {
       require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
@@ -160,53 +126,37 @@ trait DenseBuilders {
         val numCols = nc
       }
     }
-
-    def tabulate(numRows: Int, numCols: Int)(f: (Int, Int) => S#A): Dense[S] = {
-      val m = zeros(numRows, numCols)
-      for ((i, j) <- m.indices) m(i, j) = f(i, j)
-      m
+        
+    def duplicate(m: Dense[S]): Dense[S] = {
+      val ret = zeros(m.numRows, m.numCols)
+      m.data.copyTo(ret.data)
+      ret
     }
 
-    def eye(numRows: Int): Dense[S] = {
-      val m = zeros(numRows, numRows)
-      for (i <- 0 until numRows) m(i, i) = m.scalar.one
-      m
+    def transpose(m: Dense[S]): Dense[S] = {
+      val ret = zeros(m.numCols, m.numRows)
+      for (i <- 0 until ret.numRows; j <- 0 until ret.numCols) { ret(i, j) = m(j, i) } 
+      ret
     }
     
-    def col(elems: S#A*): Dense[S] = {
-      val m = zeros(elems.size, 1)
-      for (i <- 0 until m.numRows) m(i, 0) = elems(i)
-      m
-    }
-
-    def row(elems: S#A*): Dense[S] = {
-      val m = zeros(1, elems.size)
-      for (j <- 0 until m.numCols) m(0, j) = elems(j)
-      m
-    }
-
-    def fromRows(row1: Dense[S], rows: Dense[S]*): Dense[S] = {
-      require(row1.numRows == 1 && rows.forall(_.numRows == 1))
-      require(rows.forall(_.numCols == row1.numCols))
-      val ret = zeros(1 + rows.size, row1.numCols)
-      ret(0, ::) = row1
-      for (i <- rows.indices)
-        ret(i+1, ::) = rows(i)
+    def map[S0 <: Scalar](m: Dense[S0])(f: S0#A => S#A): Dense[S] = {
+      val ret = zeros(m.numRows, m.numCols)
+      for (i <- 0 until ret.numRows; j <- 0 until ret.numCols) { ret(i, j) = f(m(i, j)) } 
       ret
     }
   }
-  
   implicit def denseBuilder[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) = new DenseBuilder
-  
-  val denseRealFlt    = new DenseBuilder[Scalar.RealFlt]
-  val denseRealDbl    = new DenseBuilder[Scalar.RealDbl]
-  val denseComplexFlt = new DenseBuilder[Scalar.ComplexFlt]
-  val denseComplexDbl = new DenseBuilder[Scalar.ComplexDbl]
 }
 
 
 // --------------------------------------
 // Lapack operations
+
+
+trait DenseLapackImplicits {
+  implicit def toDenseRealLapackOps   [S <: Scalar.RealTyp]   (m: Dense[S]) = new DenseRealLapackOps(m)
+  implicit def toDenseComplexLapackOps[S <: Scalar.ComplexTyp](m: Dense[S]) = new DenseComplexLapackOps(m)
+}
 
 
 object DenseLapackOps {
@@ -325,7 +275,6 @@ class DenseRealLapackOps[S <: Scalar.RealTyp](self: Dense[S]) extends DenseLapac
     }
   }
 }
-
 
 class DenseComplexLapackOps[S <: Scalar.ComplexTyp](self: Dense[S]) extends DenseLapackOps(self) {
   def eig(implicit mb: MatrixBuilder[S, Dense]): (Dense[S], Dense[S]) = {
