@@ -1,7 +1,5 @@
 package kip.math.linalg4
 
-import kip.math.Complex
-
 
 object MatrixDims {
   def checkDims(numRows: Int, numCols: Int) {

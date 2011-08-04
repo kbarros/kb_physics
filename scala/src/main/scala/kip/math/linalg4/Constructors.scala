@@ -4,8 +4,14 @@ package kip.math.linalg4
 object Constructors {
   val realFlt    = new Constructors[Scalar.RealFlt]
   val realDbl    = new Constructors[Scalar.RealDbl]
-  val complexFlt = new Constructors[Scalar.ComplexFlt]
-  val complexDbl = new Constructors[Scalar.ComplexDbl]
+  val complexFlt = new Constructors[Scalar.ComplexFlt] {
+    implicit def floatToComplexf[T <% Float](re: T) = Complexf(re, 0)
+    val I = Complexf(0, 1)
+  }
+  val complexDbl = new Constructors[Scalar.ComplexDbl] {
+    implicit def doubleToComplexd[T <% Double](re: T) = Complexd(re, 0)
+    val I = Complexd(0, 1)
+  }
 }
 
 

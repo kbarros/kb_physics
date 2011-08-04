@@ -55,8 +55,8 @@ trait Netlib[S <: Scalar] {
            WORK: S#Buf, LWORK: Int, INFO: IntByReference)
 
   protected implicit def intToIntByReference(a: Int) = new IntByReference(a)
-  protected implicit def complexToFloatBuffer(c: Complex)  = FloatBuffer.wrap (Array[Float](c.re.toFloat, c.im.toFloat))
-  protected implicit def complexToDoubleBuffer(c: Complex) = DoubleBuffer.wrap(Array[Double](c.re, c.im))
+  protected implicit def complexToFloatBuffer(c: Complexf)  = FloatBuffer.wrap (Array[Float](c.re, c.im))
+  protected implicit def complexToDoubleBuffer(c: Complexd) = DoubleBuffer.wrap(Array[Double](c.re, c.im))
 }
 
 
@@ -149,10 +149,10 @@ class NetlibComplexFlt extends NetlibComplex[Scalar.ComplexFlt] {
 
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
-           alpha: Complex,
+           alpha: Complexf,
            A: FloatBuffer, lda: Int,
            B: FloatBuffer, ldb: Int,
-           beta: Complex,
+           beta: Complexf,
            C: FloatBuffer, ldc: Int) =
     cblas_cgemm(Order, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc)
 
@@ -180,10 +180,10 @@ class NetlibComplexDbl extends NetlibComplex[Scalar.ComplexDbl] {
 
   def gemm(Order: Int, TransA: Int, TransB: Int,
            M: Int, N: Int, K: Int,
-           alpha: Complex,
+           alpha: Complexd,
            A: DoubleBuffer, lda: Int,
            B: DoubleBuffer, ldb: Int,
-           beta: Complex,
+           beta: Complexd,
            C: DoubleBuffer, ldc: Int) =
     cblas_zgemm(Order, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc)
 

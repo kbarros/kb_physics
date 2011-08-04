@@ -1,6 +1,5 @@
 package kip.math.linalg4
 
-import kip.math.Complex
 import java.nio.{DoubleBuffer, FloatBuffer}
 import java.nio.Buffer
 
@@ -8,10 +7,10 @@ object Scalar {
   trait RealTyp    extends Scalar
   trait ComplexTyp extends Scalar
   
-  trait RealDbl    extends RealTyp    { type A = Double;  type Raw = Double; type Buf = DoubleBuffer }
-  trait RealFlt    extends RealTyp    { type A = Float;   type Raw = Float;  type Buf = FloatBuffer }
-  trait ComplexDbl extends ComplexTyp { type A = Complex; type Raw = Double; type Buf = DoubleBuffer }
-  trait ComplexFlt extends ComplexTyp { type A = Complex; type Raw = Float;  type Buf = FloatBuffer }
+  trait RealDbl    extends RealTyp    { type A = Double;   type Raw = Double; type Buf = DoubleBuffer }
+  trait RealFlt    extends RealTyp    { type A = Float;    type Raw = Float;  type Buf = FloatBuffer }
+  trait ComplexDbl extends ComplexTyp { type A = Complexd; type Raw = Double; type Buf = DoubleBuffer }
+  trait ComplexFlt extends ComplexTyp { type A = Complexf; type Raw = Float;  type Buf = FloatBuffer }
 }
 
 trait Scalar {
@@ -70,26 +69,26 @@ object ScalarOps {
   }
 
   trait ComplexFlt extends ScalarOps[Scalar.ComplexFlt] {
-    def add(a: Complex, b: Complex): Complex = a + b
-    def sub(a: Complex, b: Complex): Complex = a - b
-    def mul(a: Complex, b: Complex): Complex = a * b
-    def div(a: Complex, b: Complex): Complex = a / b
-    def neg(a: Complex): Complex = -a
-    def conj(a: Complex): Complex = a.conj
-    def zero: Complex = 0.0f
-    def one: Complex = 1.0f
+    def add(a: Complexf, b: Complexf): Complexf = a + b
+    def sub(a: Complexf, b: Complexf): Complexf = a - b
+    def mul(a: Complexf, b: Complexf): Complexf = a * b
+    def div(a: Complexf, b: Complexf): Complexf = a / b
+    def neg(a: Complexf): Complexf = -a
+    def conj(a: Complexf): Complexf = a.conj
+    def zero: Complexf = Complexf(0f, 0f)
+    def one: Complexf = Complexf(1f, 0f)
     
     def components = 2
-    def read(data: Data, i: Int) = Complex(data(2*i+0), data(2*i+1))
-    def write(data: Data, i: Int, x: Complex) {
-      data(2*i+0) = x.re.toFloat
-      data(2*i+1) = x.im.toFloat
+    def read(data: Data, i: Int) = Complexf(data(2*i+0), data(2*i+1))
+    def write(data: Data, i: Int, x: Complexf) {
+      data(2*i+0) = x.re
+      data(2*i+1) = x.im
     }
-    override def madd(data0: Data, i0: Int, data1: Data, i1: Int, x2: Complex) {
+    override def madd(data0: Data, i0: Int, data1: Data, i1: Int, x2: Complexf) {
       val x1_re = data1(2*i1+0)
       val x1_im = data1(2*i1+1)
-      data0(2*i0+0) += x1_re*x2.re.toFloat - x1_im*x2.im.toFloat
-      data0(2*i0+1) += x1_re*x2.im.toFloat + x1_im*x2.re.toFloat
+      data0(2*i0+0) += x1_re*x2.re - x1_im*x2.im
+      data0(2*i0+1) += x1_re*x2.im + x1_im*x2.re
     }
     override def madd(data0: Data, i0: Int, data1: Data, i1: Int, data2: Data, i2: Int) {
       val x1_re = data1(2*i1+0)
@@ -102,22 +101,22 @@ object ScalarOps {
   }
 
   trait ComplexDbl extends ScalarOps[Scalar.ComplexDbl] {
-    def add(a: Complex, b: Complex): Complex = a + b
-    def sub(a: Complex, b: Complex): Complex = a - b
-    def mul(a: Complex, b: Complex): Complex = a * b
-    def div(a: Complex, b: Complex): Complex = a / b
-    def neg(a: Complex): Complex = -a
-    def conj(a: Complex): Complex = a.conj
-    def zero: Complex = 0.0f
-    def one: Complex = 1.0f
+    def add(a: Complexd, b: Complexd): Complexd = a + b
+    def sub(a: Complexd, b: Complexd): Complexd = a - b
+    def mul(a: Complexd, b: Complexd): Complexd = a * b
+    def div(a: Complexd, b: Complexd): Complexd = a / b
+    def neg(a: Complexd): Complexd = -a
+    def conj(a: Complexd): Complexd = a.conj
+    def zero: Complexd = Complexd(0d, 0d)
+    def one: Complexd = Complexd(1d, 0d)
     
     def components = 2
-    def read(data: Data, i: Int) = Complex(data(2*i+0), data(2*i+1))
-    def write(data: Data, i: Int, x: Complex) {
+    def read(data: Data, i: Int) = Complexd(data(2*i+0), data(2*i+1))
+    def write(data: Data, i: Int, x: Complexd) {
       data(2*i+0) = x.re
       data(2*i+1) = x.im
     }
-    override def madd(data0: Data, i0: Int, data1: Data, i1: Int, x2: Complex) {
+    override def madd(data0: Data, i0: Int, data1: Data, i1: Int, x2: Complexd) {
       val x1_re = data1(2*i1+0)
       val x1_im = data1(2*i1+1)
       data0(2*i0+0) += x1_re*x2.re - x1_im*x2.im
