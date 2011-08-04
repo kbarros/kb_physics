@@ -14,7 +14,7 @@ object MatrixDims {
   
   def checkAdd(m1: MatrixDims, m2: MatrixDims) {
     require(m1.numRows == m2.numRows && m1.numCols == m2.numCols,
-        "Can't add/subtract matrices of shape [%d, %d] +- [%d, %d]".format(m1.numRows, m1.numCols, m2.numRows, m2.numCols))
+        "Cannot add/subtract matrices of shape [%d, %d] +- [%d, %d]".format(m1.numRows, m1.numCols, m2.numRows, m2.numCols))
   }
   def checkAddTo(m1: MatrixDims, m2: MatrixDims, ret: MatrixDims) {
     checkAdd(m1, m2)
@@ -29,7 +29,7 @@ object MatrixDims {
 
   def checkMul(m1: MatrixDims, m2: MatrixDims) {
     require(m1.numCols == m2.numRows,
-            "Can't multiply matrices of shape [%d, %d] * [%d, %d]".format(m1.numRows, m1.numCols, m2.numRows, m2.numCols))
+            "Cannot multiply matrices of shape [%d, %d] * [%d, %d]".format(m1.numRows, m1.numCols, m2.numRows, m2.numCols))
   }
   def checkMulTo(m1: MatrixDims, m2: MatrixDims, ret: MatrixDims) {
     checkMul(m1, m2)
@@ -38,7 +38,13 @@ object MatrixDims {
         m1.numCols == m2.numRows &&
         m2.numCols == ret.numCols, "Cannot multiply matrices of shape: [%d, %d] * [%d, %d] -> [%d, %d]".format(
             m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
-  }  
+  }
+  
+  def checkDot(m1: MatrixDims, m2: MatrixDims) {
+    checkMul(m1, m2)
+    require(m1.numRows == 1 && m2.numCols == 1,
+            "Dot product expects row and column vectors, found [%d, %d] * [%d, %d]".format(m1.numRows, m1.numCols, m2.numRows, m2.numCols))
+  }
 }
 
 
@@ -56,7 +62,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
   def apply(i: Int, j: Int): S#A
   def update(i: Int, j: Int, x: S#A)
   def transform(f: S#A => S#A): this.type
-
+  def dispose() {}
   
   def duplicate[That[S <: Scalar] >: Repr[S] <: Matrix[S, That]](implicit mb: MatrixBuilder[S, That]): That[S] = {
     mb.duplicate(this)
@@ -92,13 +98,17 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
     tran(mb).transform(scalar.conj(_))
   }
 
-//  def dot(that: Dense[S])(implicit mm: MatrixMultiplier[S, Dense, Dense, Dense],
-//      mb: MatrixBuilder[S, Dense]): S#A = {
-//    val m = (this: Dense[S]) * (that: Dense[S])
-//    val ret = m(0, 0)
-//    m.data.dispose()
-//    ret
-//  }
+  def dot[Repr1[S <: Scalar] >: Repr[S], Repr2[S <: Scalar] <: Matrix[S, Repr2], Repr3[S <: Scalar] <: Matrix[S, Repr3]]
+        (that: Repr2[S])
+        (implicit mm: MatrixMultiplier[S, Repr1, Repr2, Repr3],
+                  mb: MatrixBuilder[S, Repr3]): S#A = {
+    MatrixDims.checkDot(this, that)
+    val m3 = mb.zeros(1, 1)
+    mm.gemm(scalar.one, scalar.zero, this, that, m3)
+    val ret = m3(0, 0)
+    m3.dispose()
+    ret
+  }
 
   def *[Repr1[S <: Scalar] >: Repr[S], Repr2[S <: Scalar] <: Matrix[S, Repr2], Repr3[S <: Scalar] <: Matrix[S, Repr3]]
         (that: Repr2[S])
