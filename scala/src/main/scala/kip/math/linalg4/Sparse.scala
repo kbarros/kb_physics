@@ -15,6 +15,12 @@ trait Sparse[S <: Scalar] extends Matrix[S, Sparse] {
     this
   }
   
+  override def map[A2, S2 <: Scalar{type A=A2}, That[T <: Scalar] >: Sparse[T] <: Matrix[T, That]]
+      (f: S#A => S2#A)(implicit scalar2: ScalarOps[S2], mb: MatrixBuilder[S2, That]): That[S2] = {
+    require(f(scalar.zero) == scalar2.zero, "Map on sparse matrix must preserve zero")
+    mb.map(this)(f)
+  }
+
   def toDense(implicit mb: MatrixBuilder[S, Dense]): Dense[S] = {
     val ret = mb.zeros(numRows, numCols)
     for ((i, j) <- data.keys) { ret(i, j) = this(i, j) }
@@ -22,40 +28,9 @@ trait Sparse[S <: Scalar] extends Matrix[S, Sparse] {
   }
 }
 
-trait SparseMultipliers {
-  class SparseDenseMultiplier[S <: Scalar] extends MatrixMultiplier[S, Sparse, Dense, Dense] {
-    def gemm(alpha: S#A, beta: S#A, m1: Sparse[S], m2: Dense[S], ret: Dense[S]) {
-      MatrixDims.checkMulTo(m1, m2, ret)
-      ret.transform(_ => ret.scalar.zero)
-      // ret_ij = \sum_k m1_ik m2_kj
-      for ((i, k) <- m1.data.keys;
-           val m1_ik = m1.apply(i, k); 
-           j <- 0 until ret.numCols) {
-        ret.scalar.madd(ret.data, ret.index(i, j), m2.data, m2.index(k, j), m1_ik)
-      }
-    }
-  }
-  
-  class DenseSparseMultiplier[S <: Scalar] extends MatrixMultiplier[S, Dense, Sparse, Dense] {
-    def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Sparse[S], ret: Dense[S]) {
-      MatrixDims.checkMulTo(m1, m2, ret)
-      ret.transform(_ => ret.scalar.zero)
-      // ret_ij = \sum_k m1_ik m2_kj
-      for ((k, j) <- m2.data.keys;
-           val m2_kj = m1.apply(k, j); 
-           i <- 0 until ret.numRows) {
-        ret.scalar.madd(ret.data, ret.index(i, j), m1.data, m1.index(i, k), m2_kj)
-      }
-    }
-  }
-
-  implicit def sparseDenseMultiplier[S <: Scalar] = new SparseDenseMultiplier[S]
-  implicit def denseSparseMultiplier[S <: Scalar] = new DenseSparseMultiplier[S]
-}
-
 
 trait SparseBuilders {
-  class SparseBuilder[S <: Scalar](implicit so: ScalarOps[S]) extends MatrixBuilder[S, Sparse] {
+  implicit def sparseBuilder[S <: Scalar](implicit so: ScalarOps[S]) = new MatrixBuilder[S, Sparse] {
     def zeros(numRows: Int, numCols: Int) = {
       MatrixDims.checkDims(numRows, numCols)
       val nr = numRows
@@ -85,6 +60,32 @@ trait SparseBuilders {
       ret
     }
   }
-  
-  implicit def sparseBuilder[S <: Scalar](implicit so: ScalarOps[S]) = new SparseBuilder
+}
+
+
+trait SparseMultipliers {
+  implicit def sparseDenseMultiplier[S <: Scalar] = new MatrixMultiplier[S, Sparse, Dense, Dense] {
+    def gemm(alpha: S#A, beta: S#A, m1: Sparse[S], m2: Dense[S], ret: Dense[S]) {
+      MatrixDims.checkMulTo(m1, m2, ret)
+      ret.transform(_ => ret.scalar.zero)
+      // ret_ij = \sum_k m1_ik m2_kj
+      for ((i, k) <- m1.data.keys;
+           val m1_ik = m1.apply(i, k); 
+           j <- 0 until ret.numCols) {
+        ret.scalar.madd(ret.data, ret.index(i, j), m2.data, m2.index(k, j), m1_ik)
+      }
+    }
+  }
+  implicit def denseSparseMultiplier[S <: Scalar] = new MatrixMultiplier[S, Dense, Sparse, Dense] {
+    def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Sparse[S], ret: Dense[S]) {
+      MatrixDims.checkMulTo(m1, m2, ret)
+      ret.transform(_ => ret.scalar.zero)
+      // ret_ij = \sum_k m1_ik m2_kj
+      for ((k, j) <- m2.data.keys;
+           val m2_kj = m1.apply(k, j); 
+           i <- 0 until ret.numRows) {
+        ret.scalar.madd(ret.data, ret.index(i, j), m1.data, m1.index(i, k), m2_kj)
+      }
+    }
+  }
 }

@@ -3,8 +3,6 @@ package kip.math.linalg4
 import kip.math.Complex
 
 
-// TODO: make GenMatrix that specializes S#A for relevant methods
-
 object MatrixDims {
   def checkDims(numRows: Int, numCols: Int) {
     require(numRows > 0 && numCols > 0,
@@ -16,17 +14,27 @@ object MatrixDims {
         "Matrix indices out of bounds: [%d %d](%d %d)".format(m.numRows, m.numCols, i, j))
   }
   
+  def checkAdd(m1: MatrixDims, m2: MatrixDims) {
+    require(m1.numRows == m2.numRows && m1.numCols == m2.numCols,
+        "Can't add/subtract matrices of shape [%d, %d] +- [%d, %d]".format(m1.numRows, m1.numCols, m2.numRows, m2.numCols))
+  }
   def checkAddTo(m1: MatrixDims, m2: MatrixDims, ret: MatrixDims) {
+    checkAdd(m1, m2)
     require(
         ret.numRows == m1.numRows &&
         ret.numRows == m2.numRows &&
         ret.numCols == m1.numCols &&
         ret.numCols == m2.numCols,
-        "Cannot add/subtract matrices of shape: [%d, %d] + [%d, %d] -> [%d, %d]".format(
+        "Cannot add/subtract matrices of shape: [%d, %d] +- [%d, %d] -> [%d, %d]".format(
             m1.numRows, m1.numCols, m2.numRows, m2.numCols, ret.numRows, ret.numCols))
   }
 
+  def checkMul(m1: MatrixDims, m2: MatrixDims) {
+    require(m1.numCols == m2.numRows,
+            "Can't multiply matrices of shape [%d, %d] * [%d, %d]".format(m1.numRows, m1.numCols, m2.numRows, m2.numCols))
+  }
   def checkMulTo(m1: MatrixDims, m2: MatrixDims, ret: MatrixDims) {
+    checkMul(m1, m2)
     require(
         ret.numRows == m1.numRows &&
         m1.numCols == m2.numRows &&
@@ -42,6 +50,8 @@ trait MatrixDims {
 }
 
 
+// TODO: Specialize S#A for apply/update methods
+
 trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends MatrixDims { self: Repr[S] =>
   val scalar: ScalarOps[S]
   
@@ -54,9 +64,9 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
     mb.duplicate(this)
   }
   
-  // The parameters A2 and ev:S2 are for type inference purposes only
+  // The parameter A2 is for type inference only
   def map[A2, S2 <: Scalar{type A=A2}, That[T <: Scalar] >: Repr[T] <: Matrix[T, That]]
-      (f: S#A => S2#A)(implicit ev: S2, mb: MatrixBuilder[S2, That]): That[S2] = {
+      (f: S#A => S2#A)(implicit scalar2: ScalarOps[S2], mb: MatrixBuilder[S2, That]): That[S2] = {
     mb.map(this)(f)
   }
   
@@ -96,8 +106,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
         (that: Repr2[S])
         (implicit mm: MatrixMultiplier[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
-    require(numCols == that.numRows,
-            "Can't multiply matrices of shape [%d, %d] * [%d, %d]".format(numRows, numCols, that.numRows, that.numCols))
+    MatrixDims.checkMul(this, that)
     val ret = mb.zeros(numRows, that.numCols)
     mm.gemm(scalar.one, scalar.zero, this, that, ret)
     ret
@@ -107,8 +116,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
         (that: Repr2[S])
         (implicit ma: MatrixAdder[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
-    require(numRows == that.numRows && numCols == that.numCols,
-            "Can't add matrices of shape [%d, %d] + [%d, %d]".format(numRows, numCols, that.numRows, that.numCols))
+    MatrixDims.checkAdd(this, that)
     val ret = mb.zeros(numRows, numCols)
     ma.addInPlace(false, this, that, ret)
     ret
@@ -118,8 +126,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
         (that: Repr2[S])
         (implicit ma: MatrixAdder[S, Repr1, Repr2, Repr3],
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
-    require(numRows == that.numRows && numCols == that.numCols,
-            "Can't subtract matrices of shape [%d, %d] - [%d, %d]".format(numRows, numCols, that.numRows, that.numCols))
+    MatrixDims.checkAdd(this, that)
     val ret = mb.zeros(numRows, numCols)
     ma.addInPlace(true, this, that, ret)
     ret
@@ -184,7 +191,8 @@ object Test extends App {
   import Constructors.complexDbl._
   val m = dense(4, 4)
   m(0, 0) = 1
-  println(m.map(_.re))
+
+  println((m+m).map(_.re))
   
   import kip.util.Util.time2
   

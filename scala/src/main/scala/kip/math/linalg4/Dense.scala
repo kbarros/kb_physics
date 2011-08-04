@@ -18,7 +18,6 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
     MatrixDims.checkKey(this, i, j)
     i + j*numRows // fortran column major convention
   }
-  def indices = for (j <- (0 until numCols).view; i <- (0 until numRows).view) yield (i, j)
   
   override def apply(i: Int, j: Int): S#A = scalar.read(data, index(i, j))
   def apply(i: Int): S#A = {
@@ -71,49 +70,9 @@ trait Dense[S <: Scalar] extends Matrix[S, Dense] {
 }
 
 
-trait DenseAdders {
-  trait DenseDenseAdder[S <: Scalar] extends MatrixAdder[S, Dense, Dense, Dense] {
-    def addInPlace(sub: Boolean, m1: Dense[S], m2: Dense[S], ret: Dense[S]) = {
-      MatrixDims.checkAddTo(m1, m2, ret)
-      for ((i, j) <- ret.indices) ret(i, j) =
-        if (sub) ret.scalar.sub(m1(i, j), m2(i, j)) else ret.scalar.add(m1(i, j), m2(i, j))
-    }
-  }
-  implicit def denseDenseAdder[S <: Scalar] = new DenseDenseAdder[S] {}
-}
-
-
-trait DenseMultipliers {
-  trait DenseDenseMultiplier[S <: Scalar] extends MatrixMultiplier[S, Dense, Dense, Dense] {
-    def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Dense[S], ret: Dense[S]) {
-      MatrixDims.checkMulTo(m1, m2, ret)
-      if (ret.netlib == null) {
-        ret.transform(_ => ret.scalar.zero)
-        for (i <- 0 until ret.numRows;
-             k <- 0 until m1.numCols;
-             j <- 0 until ret.numCols) {
-          ret.scalar.madd(ret.data, ret.index(i, j), m1.data, m1.index(i, k), m2.data, m2.index(k, j))
-        }
-      }
-      else {
-        ret.netlib.gemm(Netlib.CblasColMajor, Netlib.CblasNoTrans, Netlib.CblasNoTrans,
-            ret.numRows, ret.numCols, // dimension of return matrix
-            m1.numCols, // dimension of summation index
-            ret.scalar.one, // alpha
-            m1.data.buffer, m1.numRows, // A matrix
-            m2.data.buffer, m2.numRows, // B matrix
-            ret.scalar.zero, // beta
-            ret.data.buffer, ret.numRows // C matrix
-        )
-      }
-    }
-  }
-  implicit def denseDenseMultiplier[S <: Scalar] = new DenseDenseMultiplier[S] {}
-}
-
-
 trait DenseBuilders {
-  class DenseBuilder[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) extends MatrixBuilder[S, Dense] {
+  implicit def denseBuilder[S <: Scalar]
+      (implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) = new MatrixBuilder[S, Dense] {
     def zeros(numRows: Int, numCols: Int) = {
       require(numRows > 0 && numCols > 0, "Cannot build matrix with non-positive dimensions [%d, %d]".format(numRows, numCols))
       val nr = numRows
@@ -145,8 +104,49 @@ trait DenseBuilders {
       ret
     }
   }
-  implicit def denseBuilder[S <: Scalar](implicit so: ScalarOps[S], sb: RawData.Builder[S#Raw, S#Buf], nl: Netlib[S]) = new DenseBuilder
 }
+
+
+trait DenseAdders {
+  implicit def denseDenseAdder[S <: Scalar] = new MatrixAdder[S, Dense, Dense, Dense] {
+    def addInPlace(sub: Boolean, m1: Dense[S], m2: Dense[S], ret: Dense[S]) = {
+      MatrixDims.checkAddTo(m1, m2, ret)
+      for (i <- 0 until ret.numRows;
+           j <- 0 until ret.numCols) {
+        ret(i, j) = if (sub) ret.scalar.sub(m1(i, j), m2(i, j)) else ret.scalar.add(m1(i, j), m2(i, j))
+      }
+    }
+  }
+}
+
+
+trait DenseMultipliers {
+  implicit def denseDenseMultiplier[S <: Scalar] = new MatrixMultiplier[S, Dense, Dense, Dense] {
+    def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Dense[S], ret: Dense[S]) {
+      MatrixDims.checkMulTo(m1, m2, ret)
+      if (ret.netlib == null) {
+        ret.transform(_ => ret.scalar.zero)
+        for (i <- 0 until ret.numRows;
+             k <- 0 until m1.numCols;
+             j <- 0 until ret.numCols) {
+          ret.scalar.madd(ret.data, ret.index(i, j), m1.data, m1.index(i, k), m2.data, m2.index(k, j))
+        }
+      }
+      else {
+        ret.netlib.gemm(Netlib.CblasColMajor, Netlib.CblasNoTrans, Netlib.CblasNoTrans,
+            ret.numRows, ret.numCols, // dimension of return matrix
+            m1.numCols, // dimension of summation index
+            ret.scalar.one, // alpha
+            m1.data.buffer, m1.numRows, // A matrix
+            m2.data.buffer, m2.numRows, // B matrix
+            ret.scalar.zero, // beta
+            ret.data.buffer, ret.numRows // C matrix
+        )
+      }
+    }
+  }
+}
+
 
 
 // --------------------------------------

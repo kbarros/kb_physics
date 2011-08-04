@@ -12,11 +12,6 @@ object Scalar {
   trait RealFlt    extends RealTyp    { type A = Float;   type Raw = Float;  type Buf = FloatBuffer }
   trait ComplexDbl extends ComplexTyp { type A = Complex; type Raw = Double; type Buf = DoubleBuffer }
   trait ComplexFlt extends ComplexTyp { type A = Complex; type Raw = Float;  type Buf = FloatBuffer }
-  
-  // These implicits are used to infer (S <: Scalar) given the type (S#A)  
-  implicit val realDbl = new RealDbl {}
-  implicit val realFlt = new RealFlt {}
-  implicit val complexDbl = new ComplexDbl {}
 }
 
 trait Scalar {
@@ -80,7 +75,7 @@ object ScalarOps {
     def mul(a: Complex, b: Complex): Complex = a * b
     def div(a: Complex, b: Complex): Complex = a / b
     def neg(a: Complex): Complex = -a
-    def conj(a: Complex): Complex = a
+    def conj(a: Complex): Complex = a.conj
     def zero: Complex = 0.0f
     def one: Complex = 1.0f
     
@@ -112,7 +107,7 @@ object ScalarOps {
     def mul(a: Complex, b: Complex): Complex = a * b
     def div(a: Complex, b: Complex): Complex = a / b
     def neg(a: Complex): Complex = -a
-    def conj(a: Complex): Complex = a
+    def conj(a: Complex): Complex = a.conj
     def zero: Complex = 0.0f
     def one: Complex = 1.0f
     
