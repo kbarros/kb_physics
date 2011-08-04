@@ -104,7 +104,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
                   mb: MatrixBuilder[S, Repr3]): S#A = {
     MatrixDims.checkDot(this, that)
     val m3 = mb.zeros(1, 1)
-    mm.gemm(scalar.one, scalar.zero, this, that, m3)
+    mm.mulTo(this, that, m3)
     val ret = m3(0, 0)
     m3.dispose()
     ret
@@ -116,7 +116,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     MatrixDims.checkMul(this, that)
     val ret = mb.zeros(numRows, that.numCols)
-    mm.gemm(scalar.one, scalar.zero, this, that, ret)
+    mm.mulTo(this, that, ret)
     ret
   }
 
@@ -126,7 +126,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     MatrixDims.checkAdd(this, that)
     val ret = mb.zeros(numRows, numCols)
-    ma.addInPlace(false, this, that, ret)
+    ma.addTo(false, this, that, ret)
     ret
   }
 
@@ -136,7 +136,7 @@ trait Matrix[S <: Scalar, +Repr[S2 <: Scalar] <: Matrix[S2, Repr]] extends Matri
                   mb: MatrixBuilder[S, Repr3]): Repr3[S] = {
     MatrixDims.checkAdd(this, that)
     val ret = mb.zeros(numRows, numCols)
-    ma.addInPlace(true, this, that, ret)
+    ma.addTo(true, this, that, ret)
     ret
   }
   
@@ -187,11 +187,11 @@ trait MatrixBuilder[S <: Scalar, Repr[_ <: Scalar]] {
 }
 
 trait MatrixAdder[S <: Scalar, Repr1[_ <: Scalar], Repr2[_ <: Scalar], Repr3[_ <: Scalar]] {
-  def addInPlace(sub: Boolean, m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
+  def addTo(sub: Boolean, m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
 }
 
 trait MatrixMultiplier[S <: Scalar, Repr1[_ <: Scalar], Repr2[_ <: Scalar], Repr3[_ <: Scalar]] {
-  def gemm(alpha: S#A, beta: S#A, m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
+  def mulTo(m1: Repr1[S], m2: Repr2[S], ret: Repr3[S])
 }
 
 

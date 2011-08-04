@@ -107,7 +107,7 @@ trait DenseBuilders {
 
 trait DenseAdders {
   implicit def denseDenseAdder[S <: Scalar] = new MatrixAdder[S, Dense, Dense, Dense] {
-    def addInPlace(sub: Boolean, m1: Dense[S], m2: Dense[S], ret: Dense[S]) = {
+    def addTo(sub: Boolean, m1: Dense[S], m2: Dense[S], ret: Dense[S]) = {
       MatrixDims.checkAddTo(m1, m2, ret)
       for (i <- 0 until ret.numRows;
            j <- 0 until ret.numCols) {
@@ -120,7 +120,7 @@ trait DenseAdders {
 
 trait DenseMultipliers {
   implicit def denseDenseMultiplier[S <: Scalar] = new MatrixMultiplier[S, Dense, Dense, Dense] {
-    def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Dense[S], ret: Dense[S]) {
+    def mulTo(m1: Dense[S], m2: Dense[S], ret: Dense[S]) {
       MatrixDims.checkMulTo(m1, m2, ret)
       if (ret.netlib == null) {
         ret.transform(_ => ret.scalar.zero)

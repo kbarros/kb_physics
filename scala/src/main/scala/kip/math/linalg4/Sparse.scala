@@ -65,7 +65,7 @@ trait SparseBuilders {
 
 trait SparseMultipliers {
   implicit def sparseDenseMultiplier[S <: Scalar] = new MatrixMultiplier[S, Sparse, Dense, Dense] {
-    def gemm(alpha: S#A, beta: S#A, m1: Sparse[S], m2: Dense[S], ret: Dense[S]) {
+    def mulTo(m1: Sparse[S], m2: Dense[S], ret: Dense[S]) {
       MatrixDims.checkMulTo(m1, m2, ret)
       ret.transform(_ => ret.scalar.zero)
       // ret_ij = \sum_k m1_ik m2_kj
@@ -77,7 +77,7 @@ trait SparseMultipliers {
     }
   }
   implicit def denseSparseMultiplier[S <: Scalar] = new MatrixMultiplier[S, Dense, Sparse, Dense] {
-    def gemm(alpha: S#A, beta: S#A, m1: Dense[S], m2: Sparse[S], ret: Dense[S]) {
+    def mulTo(m1: Dense[S], m2: Sparse[S], ret: Dense[S]) {
       MatrixDims.checkMulTo(m1, m2, ret)
       ret.transform(_ => ret.scalar.zero)
       // ret_ij = \sum_k m1_ik m2_kj
