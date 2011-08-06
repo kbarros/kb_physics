@@ -2,7 +2,13 @@ import sbt._
 import Keys._
 import java.io.PrintWriter
 
+// Key reference: http://harrah.github.com/xsbt/latest/sxr/Keys.scala.html
+
 object HelloBuild extends Build {
+
+  // ------------------------------
+  // Launcher task
+  //
   val Mklauncher = config("mklauncher") extend(Compile)
   val mklauncher = TaskKey[Unit]("mklauncher")
   val mklauncherTask = mklauncher <<= (target, fullClasspath in Runtime) map { (target, cp) =>
@@ -11,11 +17,9 @@ object HelloBuild extends Build {
       writer.println(str)
       writer.close()
     }
-    
     val jarStrs = cp.map(_.data.toString).filter(_.endsWith(".jar"))
     val ensimeString = jarStrs.map("\""+_+"\"").mkString(":compile-jars("," ",")")
     writeFile((target / "ensime-classpath").asFile, ensimeString)
-
     val cpString = cp.map(_.data).mkString(":")
     val launchString = """
 CLASSPATH="%s"
@@ -27,11 +31,13 @@ scala -usejavacp -Djava.class.path="${CLASSPATH}" -Djava.library.path="${JOGL_LI
     targetFile.setExecutable(true)
   }
   
-  // see other classpaths: http://harrah.github.com/xsbt/latest/sxr/Keys.scala.html
-  
+  // ------------------------------
+  // Project definition
+  //
+  lazy val smatrix = RootProject(file("../../smatrix"))
   lazy val project = Project (
     "project",
     file ("."),
     settings = Defaults.defaultSettings ++ Seq(mklauncherTask)
-  )
+  ) dependsOn smatrix
 }

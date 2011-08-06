@@ -25,10 +25,12 @@ acs-*.bib
 target/
 lib_managed/
 scala/project/boot/
-scala/project/plugins/project/
 
 # Eclipse
 .scala_dependencies
+.project
+.classpath
+.target
 workspace/*/bin/*
 workspace/.metadata/
 
