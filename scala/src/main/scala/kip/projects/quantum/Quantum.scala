@@ -1,129 +1,111 @@
 package kip.projects.quantum
 
-/*
-import scalala.scalar._
-import scalala.tensor.::
-import scalala.tensor.mutable._
-import scalala.tensor.dense._
-import scalala.tensor.sparse._
-import scalala.operators.Implicits._
+import smatrix._
+import Constructors.complexDbl._
 
-import scalala.collection.sparse._
-
-import scala.collection.mutable._
-
-
-class SparseVectorC(rank: Int) {
-  val elemsRe = new SparseArray[Double](rank)
-  val elemsIm = new SparseArray[Double](rank)
-  
-  def *(that: DenseVectorC): Complex = {
-    
-    val activeCols = elemsRe.indexArray
-    val reArray = elemsRe.valueArray
-    val imArray = elemsIm.valueArray
-    
-    var re_acc = 0d
-    var im_acc = 0d
-    for ((col,i) <- activeCols.zipWithIndex) {
-      val re1 = reArray(i)
-      val im1 = imArray(i)
-      val re2 = that.elemsRe(col)
-      val im2 = that.elemsIm(col)
-      
-      re_acc += re1*re2 - im1*im2
-      im_acc += re1*im2 + re2*im1
-    }
-    
-    Complex(re_acc, im_acc)
-  }
-  
-  def update(i: Int, c: Complex) {
-    elemsRe(i) = c.real
-    elemsIm(i) = c.imag
-  }
-  
-  def apply(i: Int): Complex = {
-    Complex(elemsRe(i), elemsIm(i))
-  }
-}
-
-class SparseMatrixC(rank: Int) {
-  val rows = Array.fill(rank)(new SparseVectorC(rank))
-  
-  def update(i: Int, j: Int, c: Complex): Unit = {
-    rows(i)(j) = c
-  }
-  
-  def apply(i: Int, j: Int): Complex = {
-    rows(i)(j)
-  }
-  
-  def *(v: DenseVectorC): DenseVectorC = {
-    val ret = new DenseVectorC(rank)
-    for (i <- 0 until rank) {
-      ret(i) = rows(i) * v
-    }
-    ret
-  }
-  
-  def *(that: DenseMatrixC): DenseMatrixC = {
-    val ret = new DenseMatrixC(rank)
-    for (j <- 0 until rank) {
-      ret(::, j) := (this * that(::, j))
-    }
-    ret
-  }
-}
-
-
-class DenseVectorC(val rank: Int, val elemsRe: DenseVectorCol[Double], val elemsIm: DenseVectorCol[Double]) {
-  def this(rank: Int) {
-    this(rank, DenseVectorCol.zeros[Double](rank), DenseVectorCol.zeros[Double](rank))
-  }
-  
-  def update(i: Int, c: Complex) {
-    elemsRe(i) = c.real
-    elemsIm(i) = c.imag
-  }
-  
-  def apply(i: Int): Complex = {
-    Complex(elemsRe(i), elemsIm(i))
-  }
-  
-  def :=(that: DenseVectorC) {
-    elemsRe := that.elemsRe
-    elemsIm := that.elemsIm
-  }
-}
-
-class DenseMatrixC(val rank: Int, val elemsRe: DenseMatrix[Double], val elemsIm: DenseMatrix[Double]) {
-  def this(rank: Int) {
-    this(rank, DenseMatrix.zeros[Double](rank, rank), DenseMatrix.zeros[Double](rank, rank))
-  }
-  
-  def apply(i: scalala.tensor.SelectAll, j: Int): DenseVectorC = {
-    new DenseVectorC(rank, elemsRe(::,  j), elemsIm(::, j))
-  }
-}
-
-
-trait CalculateTrace {
-  def calc(f: DenseVectorC => DenseVectorC): Double
-}
-
-object StochasticTrace extends CalculateTrace {
-  def calc(f: DenseVectorC => DenseVectorC): Double = {
-    0
-  }
-}
-
-
-// file format:
-// (row col val)
-// 
 
 object Quantum {
-  
+  type T = Scalar.ComplexDbl
 }
-*/
+
+// Notation:
+//  d    = vector component (3 dimensional)
+//  sp   = Dirac spin index
+//  x, y = coordinates on triangular lattice
+//  n    = nearest neighbor index on lattice 
+//
+class Quantum(w: Int, h: Int, t: Double, J_eff: Double) {
+  import Quantum._
+  
+  val vectorDim = 3
+  
+  def matrixIndex(sp: Int, x: Int, y: Int): Int = {
+    sp + x*(2) + y*(2*w)
+  }
+  
+  def fieldIndex(d: Int, x: Int, y: Int): Int = {
+    d + x*(3) + y*(3*w)
+  }
+  val field: Array[T#A] = Array.fill(vectorDim*w*h)(0) 
+
+  def pauliIndex(sp1: Int, sp2: Int, d: Int): Int = {
+    sp1 + sp2*(2) + d*(2*2)
+  }
+  def pauli = Array[T#A] (
+    0, 1,
+    1, 0,
+    
+    0, I, // visually transposed, due to row major ordering
+   -I, 0,
+    
+    1, 0,
+    0, -1
+  )
+  
+
+  //   
+  //   o - o - o
+  //   | \ | \ |    y
+  //   o - o - o    ^
+  //   | / | / |    |
+  //   o - o - o    ----> x
+  //
+  def neighbors(x: Int, y: Int): (Array[Int], Array[Int]) = {
+    val xdel = (y % 2) match {
+
+      //      2   1
+      //      | /
+      //  3 - o - 0
+      //      | \
+      //      4   5
+      case 0 => Seq(1, 1, 0, -1, 0, 1)
+
+      //  2   1
+      //    \ |
+      //  3 - o - 0
+      //    / |
+      //  4   5
+      case 1 => Seq(1, 0, -1, -1, -1, 0)
+    }
+    val ydel = Seq(0, 1, 1, 0, -1, -1)
+    
+    val xs = Array.tabulate(6) { d => (x+xdel(d)+w)%w }
+    val ys = Array.tabulate(6) { d => (y+ydel(d)+h)%h } 
+    (xs, ys)
+  }
+  
+  def fillMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[T]) {
+    for (y <- 0 until h;
+         x <- 0 until w) {
+      
+      // neighbor hopping
+      val (xn, yn) = neighbors(x, y)
+      for (n <- 0 until 6;
+           sp <- 0 until 2) {
+        val i = matrixIndex(sp, x, y)
+        val j = matrixIndex(sp, xn(n), yn(n))
+        m(i, j) = -t
+      }
+      
+      // hund coupling 
+      for (sp1 <- 0 until 2;
+           sp2 <- 0 until 2) {
+        
+        var coupling = 0: T#A
+        for (d <- 0 until 3) {
+          coupling += pauli(pauliIndex(d, sp1, sp2)) * field(fieldIndex(d, x, y))
+        }
+        val i = matrixIndex(sp1, x, y)
+        val j = matrixIndex(sp2, x, y)
+        m(i, j) = 0 // -J_eff * coupling
+      }
+    }
+  }
+  
+  
+  val A: PackedSparse[Scalar.ComplexDbl] = {
+    val ret = sparse(2*h*w, 2*h*w)
+    fillMatrix(ret)
+    ret.toPacked
+  }
+}
