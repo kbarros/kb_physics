@@ -16,7 +16,6 @@ acs-*.bib
 *.bbl
 *.blg
 *.dvi
-*.eps
 *.fmt
 *.log
 *.end
