@@ -111,7 +111,7 @@ class SpherePatches(val patches: Array[Patch], val errorFraction: Double) {
     val printFrequency = numSamples / 50
     val acc = Array.fill(patches.size)(0.0)
     
-    Util.time ( {
+    Util.time("Evaluating %d samples".format(numSamples)) {
       for (iter <- 0 until numSamples) {
         if (iter % printFrequency == 0)
           print(".")
@@ -119,7 +119,7 @@ class SpherePatches(val patches: Array[Patch], val errorFraction: Double) {
         val i = nearestPatchIndex(x)
         acc(i) += 1
       }
-    }, "Evaluating %d samples".format(numSamples))
+    }
     
     val newPatches = Array.tabulate(patches.size) { i =>
       val sphereArea = 4.0*math.Pi

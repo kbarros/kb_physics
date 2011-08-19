@@ -112,7 +112,7 @@ object Nano {
     val b1 = {
       val s0 = snaps1(0)
       val idsCore = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
-      time(pairCorrelationWithError(snaps1, dr, rmax, idsCore, idsCore), "Sphere-sphere")
+      time("Sphere-sphere")(pairCorrelationWithError(snaps1, dr, rmax, idsCore, idsCore))
     }
     
     // sphere-ion correlation
@@ -121,9 +121,9 @@ object Nano {
       val idsCore   = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
       val idsCation = (0 until s0.natoms) filter (i => s0.typ(i) == typCation || s0.typ(i) == typSphereCation)
       val idsAnion  = (0 until s0.natoms) filter (i => s0.typ(i) == typAnion)
-      (time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsCation), "Sphere-cation"),
-       time(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion), "Sphere-anion"),
-       time(pairCorrelationWithError(snaps2, dr, rmax, idsCation, idsCation), "Cation-cation"))
+      (time("Sphere-cation")(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsCation)),
+       time("Sphere-anion")(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion)),
+       time("Cation-cation")(pairCorrelationWithError(snaps2, dr, rmax, idsCation, idsCation)))
     }
     
     if (b1.exists(b => b.error > 0 && !b.isDecorrelated))
@@ -153,7 +153,7 @@ object Nano {
   def writeAngleHistogram(snaps: Seq[Snapshot], dtheta: Double) {
     val s0 = snaps(0)
     val idsCore = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
-    val g = time(bondAngleHistogram(snaps, dtheta, idsCore, idsCore, rcutoff=8.5), "Angle histogram")
+    val g = time("Angle histogram")(bondAngleHistogram(snaps, dtheta, idsCore, idsCore, rcutoff=8.5))
     val formatted = formatDataInColumns(
       ("radii", g.elemCenters),
       ("g(theta)", g.elems)
@@ -183,9 +183,9 @@ object Nano {
     def terminate(snaps: Seq[Snapshot]): Boolean = {
       snaps.lastOption.map(_.time > tmax).getOrElse(false)
     }
-    val snaps1 = time(LammpsParser.readLammpsDump("dump1-0.gz", process, terminate, readEvery), "Reading dump1.gz")
-    val snaps2 = time(LammpsParser.readLammpsDump("dump2-0.gz", process, terminate, readEvery), "Reading dump2.gz")
-    time(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")), "Weaving thermo")
+    val snaps1 = time("Reading dump1.gz")(LammpsParser.readLammpsDump("dump1-0.gz", process, terminate, readEvery))
+    val snaps2 = time("Reading dump2.gz")(LammpsParser.readLammpsDump("dump2-0.gz", process, terminate, readEvery))
+    time("Weaving thermo")(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")))
     println("Processing "+snaps1.size+" of "+(snaps1.size*readEvery)+" snapshots")
     println("Average temperature = "+averageTemperature(snaps1))
     

@@ -76,9 +76,9 @@ object Two {
         None
       }
     }
-    val snaps1 = time(LammpsParser.readLammpsDump("dump1.gz", process), "Reading dump1.gz")
-    val snaps2 = time(LammpsParser.readLammpsDump("dump2.gz", process), "Reading dump2.gz")
-    time(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")), "Weaving thermo")
+    val snaps1 = time("Reading dump1.gz")(LammpsParser.readLammpsDump("dump1.gz", process))
+    val snaps2 = time("Reading dump2.gz")(LammpsParser.readLammpsDump("dump2.gz", process))
+    time("Weaving thermo")(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")))
     println("Average temperature = "+averageTemperature(snaps1))
     println("Average energy      = "+averageEnergy(snaps1))
     println("Processing "+snaps1.size+" snapshots")
@@ -88,13 +88,13 @@ object Two {
     val cationCharge = {
       val s = snaps1(0)
       val idsCation  = filterIds (s, i => s.typ(i) == typSphereCation)
-      time(accumulatedCharge(snaps1, dx, xmax, idsCation), "Cation")
+      time("Cation")(accumulatedCharge(snaps1, dx, xmax, idsCation))
     }
 
     val patchCharge = {
       val s = snaps2(0)
       val idsPatch = filterIds (s, i => s.typ(i) == typPatch)
-      time(accumulatedCharge(snaps2, dx, xmax, idsPatch),  "Patch")
+      time("Patch")(accumulatedCharge(snaps2, dx, xmax, idsPatch))
     }
     
     // sphere-ion correlation

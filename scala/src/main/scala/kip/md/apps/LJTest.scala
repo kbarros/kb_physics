@@ -237,7 +237,7 @@ object LJTest {
     // Main loop
     //
     var iter = 0
-    while (world.time < maxTime && !hasWrapped()) kip.util.Util.time2("Iterating") {
+    while (world.time < maxTime && !hasWrapped()) kip.util.Util.time("Iterating") {
       iter += 1
       
       // ----------------

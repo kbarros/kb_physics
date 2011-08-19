@@ -90,7 +90,7 @@ object DCDParser {
       Frame(lx, ly, lz, x, y, z)
     }
     
-    val frames = Util.time ( Array.fill(numFrames) { readFrame() }, "Reading data" )
+    val frames = Util.time("Reading data")(Array.fill(numFrames)(readFrame()))
     in.close()
     frames
   }

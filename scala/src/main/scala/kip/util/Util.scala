@@ -11,16 +11,7 @@ import java.util.zip.GZIPInputStream
 
 
 object Util {
-  def time[A](f: => A, s: String): A = {
-    print("Timing '"+s+"'...")
-    val t1 = System.currentTimeMillis
-    val ret = f
-    val t2 = System.currentTimeMillis
-    println(" done. Elapsed time "+(t2-t1)/1000.+"s");
-    ret
-  }
-
-  def time2[A](s: String)(f: => A): A = {
+  def time[A](s: String)(f: => A): A = {
     print("Timing '"+s+"'...")
     val t1 = System.currentTimeMillis
     val ret = f

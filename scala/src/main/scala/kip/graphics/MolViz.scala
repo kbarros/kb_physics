@@ -152,8 +152,8 @@ object MolViz {
   }
   
   def makeMolviz(file: String, readEvery: Int): MolViz = {
-    val snaps = time(LammpsParser.readLammpsDump(file, readEvery=readEvery), "Reading '%s'".format(file))
-    time(new MolViz(snaps, RenderProperties.nano), "Creating MolViz")
+    val snaps = time("Reading '%s'".format(file))(LammpsParser.readLammpsDump(file, readEvery=readEvery))
+    time("Creating MolViz")(new MolViz(snaps, RenderProperties.nano))
   }
   
   def load(): MolViz = {
