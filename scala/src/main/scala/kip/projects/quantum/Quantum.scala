@@ -1,12 +1,25 @@
 package kip.projects.quantum
 
 import smatrix._
-import Constructors.complexDbl._
-
-
-object Quantum {
-  type T = Scalar.ComplexDbl
+object ScalarTyp {
+  type S = Scalar.ComplexDbl
+  type R = S#Raw
+  val ctor = Constructors.complexDbl
 }
+import ScalarTyp._
+import ctor._
+
+
+object Quantum extends App {
+  val q = new Quantum(w=20, h=20, t=1, J_eff=2)
+  val H = q.allocAndFillMatrix()
+  q.scaleMatrix(H, -6, 3)
+  println(H.toString)
+  val plot = KPM.mkPlot()
+//  KPM.plotHistogram(plot, KPM.eigenvaluesExact(H))
+  KPM.plotLines(plot, KPM.eigenvaluesApprox(H, 10))
+}
+
 
 // Notation:
 //  d    = vector component (3 dimensional)
@@ -14,9 +27,7 @@ object Quantum {
 //  x, y = coordinates on triangular lattice
 //  n    = nearest neighbor index on lattice 
 //
-class Quantum(w: Int, h: Int, t: Double, J_eff: Double) {
-  import Quantum._
-  
+class Quantum(w: Int, h: Int, t: R, J_eff: R) {  
   val vectorDim = 3
   
   def matrixIndex(sp: Int, x: Int, y: Int): Int = {
@@ -26,12 +37,12 @@ class Quantum(w: Int, h: Int, t: Double, J_eff: Double) {
   def fieldIndex(d: Int, x: Int, y: Int): Int = {
     d + x*(3) + y*(3*w)
   }
-  val field: Array[T#A] = Array.fill(vectorDim*w*h)(0) 
+  val field: Array[S#A] = Array.fill(vectorDim*w*h)(0) 
 
   def pauliIndex(sp1: Int, sp2: Int, d: Int): Int = {
     sp1 + sp2*(2) + d*(2*2)
   }
-  def pauli = Array[T#A] (
+  def pauli = Array[S#A] (
     0, 1,
     1, 0,
     
@@ -41,7 +52,6 @@ class Quantum(w: Int, h: Int, t: Double, J_eff: Double) {
     1, 0,
     0, -1
   )
-  
 
   //   
   //   o - o - o
@@ -74,7 +84,15 @@ class Quantum(w: Int, h: Int, t: Double, J_eff: Double) {
     (xs, ys)
   }
   
-  def fillMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[T]) {
+  def fillMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
+    m.clear()
+    
+    // make sure diagonal indices are defined 
+    for (i <- 0 until m.numRows) {
+      m(i,i) = 0
+    }
+    
+    // loop over all lattice sites
     for (y <- 0 until h;
          x <- 0 until w) {
       
@@ -91,19 +109,25 @@ class Quantum(w: Int, h: Int, t: Double, J_eff: Double) {
       for (sp1 <- 0 until 2;
            sp2 <- 0 until 2) {
         
-        var coupling = 0: T#A
+        var coupling = 0: S#A
         for (d <- 0 until 3) {
           coupling += pauli(pauliIndex(d, sp1, sp2)) * field(fieldIndex(d, x, y))
         }
         val i = matrixIndex(sp1, x, y)
         val j = matrixIndex(sp2, x, y)
-        m(i, j) = 0 // -J_eff * coupling
+        m(i, j) = -J_eff * coupling
       }
     }
   }
   
+  def scaleMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S], e_min: R, e_max: R) {
+    for (i <- 0 until m.numRows) {
+      m(i,i) -= e_min
+    }
+    m /= (e_max - e_min)
+  }
   
-  val A: PackedSparse[Scalar.ComplexDbl] = {
+  def allocAndFillMatrix(): PackedSparse[S] = {
     val ret = sparse(2*h*w, 2*h*w)
     fillMatrix(ret)
     ret.toPacked
