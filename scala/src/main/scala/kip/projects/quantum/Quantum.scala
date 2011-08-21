@@ -1,6 +1,7 @@
 package kip.projects.quantum
 
 import smatrix._
+
 object ScalarTyp {
   type S = Scalar.ComplexDbl
   type R = S#Raw
@@ -11,13 +12,22 @@ import ctor._
 
 
 object Quantum extends App {
-  val q = new Quantum(w=20, h=20, t=1, J_eff=2)
+  val q = new Quantum(w=10, h=10, t=1, J_eff=2)
   val H = q.allocAndFillMatrix()
-  q.scaleMatrix(H, -6, 3)
-  println(H.toString)
+  
+  require((H.toDense - H.toDense.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
+
+  q.scaleMatrix(H, -6-0.5, 3+0.5)
+  
+  val kpm = new KPM(H, order=200)
+  val range = kpm.range
+  val eig = KPM.eigenvaluesExact(H)
+  
   val plot = KPM.mkPlot()
-//  KPM.plotHistogram(plot, KPM.eigenvaluesExact(H))
-  KPM.plotLines(plot, KPM.eigenvaluesApprox(H, 10))
+  // KPM.plotHistogram(plot, eig)
+  
+  KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, eig)), "Exact", java.awt.Color.RED)
+  KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel))), "Approx", java.awt.Color.BLACK)
 }
 
 
@@ -27,7 +37,8 @@ object Quantum extends App {
 //  x, y = coordinates on triangular lattice
 //  n    = nearest neighbor index on lattice 
 //
-class Quantum(w: Int, h: Int, t: R, J_eff: R) {  
+class Quantum(w: Int, h: Int, t: R, J_eff: R) {
+  require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
   val vectorDim = 3
   
   def matrixIndex(sp: Int, x: Int, y: Int): Int = {
@@ -121,10 +132,10 @@ class Quantum(w: Int, h: Int, t: R, J_eff: R) {
   }
   
   def scaleMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S], e_min: R, e_max: R) {
+    m *= (2/(e_max - e_min))
     for (i <- 0 until m.numRows) {
-      m(i,i) -= e_min
+      m(i,i) -= (e_max + e_min) / (e_max - e_min) 
     }
-    m /= (e_max - e_min)
   }
   
   def allocAndFillMatrix(): PackedSparse[S] = {
