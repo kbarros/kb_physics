@@ -15,13 +15,13 @@ object Quantum extends App {
   val q = new Quantum(w=10, h=10, t=1, J_eff=2)
   val H = q.allocAndFillMatrix()
   
-  require((H.toDense - H.toDense.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
-
+  require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
+  
   q.scaleMatrix(H, -6-0.5, 3+0.5)
   
-  val kpm = new KPM(H, order=200)
+  val kpm = new KPM(H, order=500)
   val range = kpm.range
-  val eig = KPM.eigenvaluesExact(H)
+  val eig = kpm.eigenvaluesExact()
   
   val plot = KPM.mkPlot()
   // KPM.plotHistogram(plot, eig)

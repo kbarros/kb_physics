@@ -28,16 +28,6 @@ object KPM {
     plot.registerLines(name, pts, color)
   }
   
-  def eigenvaluesExact(H: PackedSparse[S]): Array[R] = {
-    val (v, w) = time("Exact diagonalization of N=%d matrix".format(H.numRows))(H.toDense.eig)
-    v.map(_.re).toArray.sorted
-  }
-  
-  def eigenvaluesApprox(H: PackedSparse[S], order: Int): Array[R] = {
-    val kpm = new KPM(H, order)
-    kpm.eigenvaluesApprox(kpm.jacksonKernel)
-  }
-  
   def chebyshev(m: Int, x: Double): Double = {
     if (m == 0) {
       1d
@@ -90,7 +80,7 @@ class KPM(H: PackedSparse[S], order: Int) {
   
   // calculate moments
   // mu_i = Tr[Tn(H)]
-  def moments: Array[R] = {
+  def moments(): Array[R] = {
     val ret = Array.fill(order)(0d)
     
     val v0 = dense(n, 1)
@@ -122,24 +112,24 @@ class KPM(H: PackedSparse[S], order: Int) {
   }
   
   // slow calculation of moments
-  def momentsSlow: Array[R] = {
+  def momentsSlow(): Array[R] = {
     val ret = Array.fill(order)(0d)
     
-    val h = H.toDense 
+    val Hd = H // H.toDense
     
     val t0 = eye(n)
     val t1 = H.toDense
     val t2 = dense(n, n)
-      
+    
     ret(0) = t0.trace.re
     ret(1) = t1.trace.re
-
+    
     for (m <- 2 until order) {
       // t0 = T_{m-2}(H)
       // t1 = T_{m-1}(H)
       // t2 = T_m(H) = 2 H t1 - t0
       t2 := t0
-      t2.gemm(2, h, t1, -1)
+      t2.gemm(2, Hd, t1, -1)
       
       ret(m) = t2.trace.re
       t0 := t1
@@ -183,11 +173,14 @@ class KPM(H: PackedSparse[S], order: Int) {
     }
   }
   
+  def eigenvaluesExact(): Array[R] = {
+    val (v, w) = time("Exact diagonalization of N=%d matrix".format(H.numRows))(H.toDense.eig)
+    v.map(_.re).toArray.sorted
+  }
+  
   def eigenvaluesApprox(kernel: Array[R]): Array[R] = {
-    val mu = time("Calculating %d moments".format(order))(moments)
-    
-//    val mu2 = time("Calculating %d moments".format(order))(momentsSlow)
-//    (mu zip mu2).foreach(println(_))
+    val mu = time("Calculating %d moments of N=%d matrix".format(order, H.numRows))(moments())
+//    val mu = time("Calculating %d moments (slow)".format(order))(momentsSlow())
     
     time("Reconstructing density")(range.map(reconstruct(mu, kernel, _)))
   }
