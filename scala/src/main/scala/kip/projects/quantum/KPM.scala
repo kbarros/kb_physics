@@ -44,30 +44,34 @@ object KPM {
     }
   }
   
-  def integrate(xs: Array[Double], ys: Array[Double]): Array[Double] = {
+  // \int dx x^{moment} y(x) 
+  def integrate(xs: Array[Double], ys: Array[Double], moment: Int): Array[Double] = {
     require(xs.size >= 2 && xs.size == ys.size)
     require((1 until xs.size).forall(i => xs(i-1) < xs(i)))
     xs.indices.toArray.foldMapLeft(0d) { (acc, i) =>
       val x0 = if (i > 0)         xs(i-1) else xs(i)
       val x2 = if (i < xs.size-1) xs(i+1) else xs(i)
+      val x = 0.5*(x0 + x2)
       val dx = 0.5 * (x2 - x0)
-      acc + dx*ys(i)
+      acc + dx*math.pow(x, moment)*ys(i)
     }
   }
   
-  def integrateDeltas(xs: Array[Double], deltas: Array[Double]): Array[Double] = {
+  def integrateDeltas(xs: Array[Double], deltas: Array[Double], moment: Int): Array[Double] = {
     require(xs.size >= 2)
     require((1 until xs.size).forall(i => xs(i-1) < xs(i)))
     require((1 until deltas.size).forall(i => deltas(i-1) <= deltas(i)))
     require(deltas.head >= xs.head && deltas.last <= xs.last)
     val ret = new Array[Double](xs.length)
     var j = 0
+    var acc = 0d
     for (i <- xs.indices) {
       val binEnd = if (i < xs.size-1) avg(xs(i), xs(i+1)) else xs(i)
       while (j < deltas.size && deltas(j) <= binEnd) {
+        acc += math.pow(deltas(j), moment)
         j += 1
       }
-      ret(i) = j
+      ret(i) = acc
     }
     ret
   }
@@ -75,7 +79,8 @@ object KPM {
 
 // Kernel polynomial method
 
-class KPM(H: PackedSparse[S], order: Int) {
+class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
+  val rand = new util.Random(seed)
   val n = H.numRows
   
   // calculate moments
@@ -111,13 +116,52 @@ class KPM(H: PackedSparse[S], order: Int) {
     ret
   }
   
+  def momentsStochastic(): Array[R] = {
+    val ret = Array.fill(order)(0d)
+    val npar = 5
+    require(nrand % npar == 0)
+    
+    val r  = dense(n, npar)
+    val t0 = dense(n, npar)
+    val t1 = dense(n, npar)
+    val t2 = dense(n, npar)
+    
+    for (b <- 0 until nrand/npar) {
+      // fill columns of r with random vectors 
+      r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
+      
+      t0 := r
+      t1 :=* (H, t0)         // T_1[H] |r> = H |r>
+      
+      // Below is commented out because the first two moments are set to their exact values
+      // ret(0) += (r dagDot t0).re
+      // ret(1) += (r dagDot t1).re
+      
+      for (m <- 2 until order) {
+        // t0 = T_{m-2}[H] r
+        // t1 = T_{m-1}[H] r
+        // t2 = T_m[H] r = 2 H t1 - t0
+        t2 := t0
+        t2.gemm(2, H, t1, -1)
+        
+        ret(m) += (r dagDot t2).re
+        t0 := t1
+        t1 := t2
+      }
+    }
+    
+    ret(0) = n*nrand
+    ret(1) = H.trace.re*nrand
+    ret.map(_ / nrand)
+  }
+  
   // slow calculation of moments
   def momentsSlow(): Array[R] = {
     val ret = Array.fill(order)(0d)
     
     val Hd = H // H.toDense
     
-    val t0 = eye(n)
+    val t0 = eye(n).toDense
     val t1 = H.toDense
     val t2 = dense(n, n)
     
@@ -179,9 +223,11 @@ class KPM(H: PackedSparse[S], order: Int) {
   }
   
   def eigenvaluesApprox(kernel: Array[R]): Array[R] = {
-    val mu = time("Calculating %d moments of N=%d matrix".format(order, H.numRows))(moments())
+//    val mu = time("Calculating %d moments of N=%d matrix".format(order, H.numRows))(moments())
 //    val mu = time("Calculating %d moments (slow)".format(order))(momentsSlow())
     
+    val mu = time("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic())
+      
     time("Reconstructing density")(range.map(reconstruct(mu, kernel, _)))
   }
 }
