@@ -12,12 +12,12 @@ import ctor._
 
 
 object Quantum extends App {
-  val q = new Quantum(w=20, h=20, t=1, J_eff=2)
+  val q = new Quantum(w=10, h=10, t=1, J_eff=2)
   val H = q.allocAndFillMatrix()
   require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
   q.scaleMatrix(H, -6-0.5, 3+0.5)
   
-  val kpm = new KPM(H, order=2000, nrand=10)
+  val kpm = new KPM(H, order=500, nrand=10)
   val range = kpm.range
   
   val plot = KPM.mkPlot()

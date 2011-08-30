@@ -83,76 +83,40 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
   val rand = new util.Random(seed)
   val n = H.numRows
   
-  // calculate moments
-  // mu_i = Tr[Tn(H)]
-  def moments(): Array[R] = {
-    val ret = Array.fill(order)(0d)
-    
-    val v0 = dense(n, 1)
-    val v1 = dense(n, 1)
-    val v2 = dense(n, 1)
-    
-    // basis vectors
-    for (b <- 0 until n) {
-      v0.clear(); v0(b) = 1  // alpha_0 = T_0[H] |b> =   |b>
-      v1 :=* (H, v0)         // alpha_1 = T_1[H] |b> = H |b>
-      
-      ret(0) += v0(b).re
-      ret(1) += v1(b).re
-      
-      for (m <- 2 until order) {
-        // v0 = alpha_{m-2}
-        // v1 = alpha_{m-1}
-        // v2 = alpha_m = 2 H v1 - v0
-        v2 := v0
-        v2.gemm(2, H, v1, -1)
-        
-        ret(m) += v2(b).re
-        v0 := v1
-        v1 := v2
-      }
-    }
-    
-    ret
-  }
   
   def momentsStochastic(): Array[R] = {
     val ret = Array.fill(order)(0d)
-    val npar = 5
-    require(nrand % npar == 0)
     
-    val r  = dense(n, npar)
-    val t0 = dense(n, npar)
-    val t1 = dense(n, npar)
-    val t2 = dense(n, npar)
+    val r  = dense(n, nrand)
+    val t0 = dense(n, nrand)
+    val t1 = dense(n, nrand)
+    val t2 = dense(n, nrand)
     
-    for (b <- 0 until nrand/npar) {
-      // fill columns of r with random vectors 
-      r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
-      
-      t0 := r
-      t1 :=* (H, t0)         // T_1[H] |r> = H |r>
-      
-      // Below is commented out because the first two moments are set to their exact values
-      // ret(0) += (r dagDot t0).re
-      // ret(1) += (r dagDot t1).re
-      
-      for (m <- 2 until order) {
-        // t0 = T_{m-2}[H] r
-        // t1 = T_{m-1}[H] r
-        // t2 = T_m[H] r = 2 H t1 - t0
-        t2 := t0
-        t2.gemm(2, H, t1, -1)
-        
-        ret(m) += (r dagDot t2).re
-        t0 := t1
-        t1 := t2
-      }
+    // r random vectors with uniformly distributed values (1, i, -1, -i) 
+    r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
+    
+    t0 := r
+    t1 :=* (H, t0)         // T_1[H] |r> = H |r>
+    
+    // Set first two moments are set to their exact values
+    ret(0) = n
+    ret(1) = H.trace.re
+    // ret(0) += (r dagDot t0).re
+    // ret(1) += (r dagDot t1).re
+    
+    for (m <- 2 until order) {
+      // t0 = T_{m-2}[H] r
+      // t1 = T_{m-1}[H] r
+      // t2 = T_m[H] r = 2 H t1 - t0
+      t2 := t0
+      t2.gemm(2, H, t1, -1)
+
+      ret(m) = (r dagDot t2).re / nrand
+      t0 := t1
+      t1 := t2
     }
     
-    ret(0) = n*nrand
-    ret(1) = H.trace.re*nrand
-    ret.map(_ / nrand)
+    ret
   }
   
   // slow calculation of moments
