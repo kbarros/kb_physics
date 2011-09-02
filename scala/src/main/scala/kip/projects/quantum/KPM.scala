@@ -156,26 +156,27 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     ret
   }
   
-  // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
-  def momentsStochastic(): (Array[R], Dense[S], Dense[S]) = {
-    val mu = Array.fill(order)(0d)
-    // Set first two moments are set to their exact values
-    mu(0) = n
-    mu(1) = H.trace.re
-        
+  // Vector with randomly values, uniform among (1, i, -1, -i)
+  def randomVector(): Dense[S] = {
     val r  = dense(n, nrand)
+    r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
+  }
+  
+  // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
+  def momentsStochastic(r: Dense[S]): (Array[R], Dense[S], Dense[S]) = {
+    val mu = Array.fill(order)(0d)
+    mu(0) = n                   // Tr[T_0[H]] = Tr[1]
+    mu(1) = H.trace.re          // Tr[T_1[H]] = Tr[H]
+    
     val a0 = dense(n, nrand)
     val a1 = dense(n, nrand)
     val a2 = dense(n, nrand)
     
-    // r random vectors with uniformly distributed values (1, i, -1, -i) 
-    r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
     a0 := r                      // T_0[H] |r> = 1 |r>
     a1 :=* (H, r)                // T_1[H] |r> = H |r>
     
-    for (m <- 2 until order) {
-      a2 := a0
-      a2.gemm(2, H, a1, -1)      // alpha_m = T_m[H] r = 2 H a1 - a0
+    for (m <- 2 to order-1) {
+      a2 := a0; a2.gemm(2, H, a1, -1)  // alpha_m = T_m[H] r = 2 H a1 - a0
 
       mu(m) = (r dagDot a2).re / nrand
       a0 := a1
@@ -185,12 +186,36 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     (mu, a0, a1)
   }
   
-  def functionAndGradient(forward: (Array[R], Dense[S], Dense[S]), fn: Double => Double, grad: PackedSparse[S]): R = {
-    val (mu, a0, a1) = forward
+  def functionAndGradient(fn: Double => Double, grad: PackedSparse[S]): R = {
+    grad.clear()
+
+    val f = expansionCoefficients(fn)
+    val r = randomVector()
+    val rdag = r.dag
     
-    val coeff = expansionCoefficients(fn)
-//    val moments = momentsStochastic()
-    (coeff, mu).zipped.map(_*_).sum
+    val a2 = dense(n, nrand)
+    val (mu, a0, a1) = momentsStochastic(r)
+    
+    val b3 = dense(nrand, n)
+    val b2 = dense(nrand, n)
+    val b1 = rdag * f(order - 1)
+    
+    for (m <- order-1 to 1 by -1) {
+      for ((i, j) <- grad.definedIndices) {
+        grad(i, j) += 2 * b1(i) * a0(j)
+      }
+      a2 := a1
+      a1 := a0
+      // a0 = alpha_{m-2} = 2 H a1 - a2
+      a0 := a2; a0.gemm(2, H, a1, -1)
+      
+      b3 := b2
+      b2 := b1
+      // b1 = beta_{m-1} = f(m-1) rdag + 2 b2 H - b3
+      b1 :=* (f(m-1), rdag); b1.gemm(2, b2, H, 1); b1 -= b3;
+    }
+    
+    (f, mu).zipped.map(_*_).sum
   }
   
   def eigenvaluesExact(): Array[R] = {
@@ -207,7 +232,8 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
 //    println("version B " + functionAndGradient(forward, e => e, null))
 
 //    val mu = time("Calculating %d moments (slow)".format(order))(momentsSlow())
-    val (mu, _, _) = time("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic())
+    val r = randomVector()
+    val (mu, _, _) = time("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic(r))
     range.map(densityOfStates(mu, _))
     
   }
