@@ -23,8 +23,36 @@ object Quantum extends App {
 //  KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, kpm.eigenvaluesExact(), moment=1)), "Exact", java.awt.Color.RED)
 //  KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
 
-  kpm.test()
-//  for (i <- 0 until 10) kpm.test2()
+//  for (i <- 0 until 10) kpm.test0()
+//  kpm.test1()
+  
+  test2(q)
+  
+  def test2(q: Quantum) {
+    val H = q.matrix
+    val dH = q.delMatrix
+    val kpm = new KPM(H, order=100, nrand=1)
+    val r = kpm.randomVector()
+    val f = kpm.expansionCoefficients(e => e*e)
+    val f0 = kpm.functionAndGradient(r, f, dH)
+    println("H = "+H)
+    println("dH = "+dH)
+
+    val k = 13
+    val del = 1e-7
+    q.fieldDerivative(dH, q.delField)
+    val deriv = q.delField(k)
+    
+    q.field(k) += del
+    q.fillMatrix(H)
+    println("new H = "+H)
+    
+    val f1 = kpm.functionAndGradient(r, f, dH)
+    println("deriv = "+deriv)
+    println("raw fn: f0 = %g f1 = %g".format(f0, f1))
+    println("approx deriv: (f1 - f0)/del = "+ (f1 - f0)/del)
+    println("error1: (f1 - f0)/del - dH = "+((f1 - f0)/del - deriv))
+  }
 }
 
 
@@ -61,7 +89,7 @@ class Quantum(w: Int, h: Int, t: R, J_eff: R, e_min: R, e_max: R) {
   )
   
   val field: Array[S#A] = {
-    val ret = Array.fill(vectorDim*w*h)(math.random-0.5: S#A)
+    val ret = Array.fill(vectorDim*w*h)(1: S#A)
     normalizeField(ret)
     ret
   }
@@ -170,12 +198,12 @@ class Quantum(w: Int, h: Int, t: R, J_eff: R, e_min: R, e_max: R) {
            sp2 <- 0 until 2) {
         val i = matrixIndex(sp1, x, y)
         val j = matrixIndex(sp2, x, y)
-        dCoupling += -J_eff * dH(i, j) * pauli(pauliIndex(sp1, sp2, d)) 
+        dCoupling += dH(i, j) * pauli(pauliIndex(sp1, sp2, d))
       }
       dS(fieldIndex(d, x, y)) = -J_eff * dCoupling
     }
     
-    // undo matrix scaling
-    dS.transform(_ / (2/(e_max - e_min)))
+    // consistent matrix scaling
+    dS.transform(_ * (2/(e_max - e_min)))
   }
 }

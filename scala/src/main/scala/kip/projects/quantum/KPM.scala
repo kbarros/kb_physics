@@ -253,7 +253,7 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     range.map(densityOfStates(mu, _))
   }
   
-  def test2() {
+  def test0() {
     val r = randomVector()
     val f = expansionCoefficients(e => e) 
  
@@ -262,7 +262,7 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     time("Backward")(functionAndGradient(r, f, dH))
   }
   
-  def test() {
+  def test1() {
     val dH = H.duplicate
     val r = randomVector()
     val f = expansionCoefficients(e => e*e)
@@ -287,6 +287,5 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     H(0, k) -= 2*del
     val f2 = functionAndGradient(r, f, dH)
     println("error2: (f1 - f2)/(2 del) - dH = "+((f1 - f2)/(2*del) - deriv)) 
-
   }
 }
