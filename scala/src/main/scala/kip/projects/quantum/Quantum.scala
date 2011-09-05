@@ -12,12 +12,11 @@ import ctor._
 
 
 object Quantum extends App {
-  val q = new Quantum(w=14, h=14, t=1, J_eff=2)
-  val H = q.allocAndFillMatrix()
+  val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+  val H = q.matrix
   require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
-  q.scaleMatrix(H, -6-0.5, 3+0.5)
-  
-  val kpm = new KPM(H, order=1000, nrand=1)
+  println("N = "+H.numRows)
+  val kpm = new KPM(H, order=100, nrand=1)
   val range = kpm.range
   
 //  val plot = KPM.mkPlot()
@@ -35,7 +34,7 @@ object Quantum extends App {
 //  x, y = coordinates on triangular lattice
 //  n    = nearest neighbor index on lattice 
 //
-class Quantum(w: Int, h: Int, t: R, J_eff: R) {
+class Quantum(w: Int, h: Int, t: R, J_eff: R, e_min: R, e_max: R) {
   require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
   val vectorDim = 3
   
@@ -46,7 +45,6 @@ class Quantum(w: Int, h: Int, t: R, J_eff: R) {
   def fieldIndex(d: Int, x: Int, y: Int): Int = {
     d + x*(3) + y*(3*w)
   }
-  val field: Array[S#A] = Array.fill(vectorDim*w*h)(0) 
 
   def pauliIndex(sp1: Int, sp2: Int, d: Int): Int = {
     sp1 + sp2*(2) + d*(2*2)
@@ -61,7 +59,37 @@ class Quantum(w: Int, h: Int, t: R, J_eff: R) {
     1, 0,
     0, -1
   )
-
+  
+  val field: Array[S#A] = {
+    val ret = Array.fill(vectorDim*w*h)(math.random-0.5: S#A)
+    normalizeField(ret)
+    ret
+  }
+  val delField: Array[S#A] = Array.fill(vectorDim*w*h)(0)
+  
+  val matrix = {
+    val ret = sparse(2*h*w, 2*h*w)
+    fillMatrix(ret)
+    ret.toPacked
+  }
+  val delMatrix: PackedSparse[S] = {
+    matrix.duplicate.clear
+  }
+  
+  def normalizeField(field: Array[S#A]) {
+    for (y <- 0 until h;
+         x <- 0 until w) {
+      var acc = 0d
+      for (d <- 0 until 3) {
+        acc += field(fieldIndex(d, x, y)).abs2
+      }
+      acc = math.sqrt(acc)
+      for (d <- 0 until 3) {
+        field(fieldIndex(d, x, y)) /= acc
+      }
+    }
+  }
+  
   //   
   //   o - o - o
   //   | \ | \ |    y
@@ -96,11 +124,6 @@ class Quantum(w: Int, h: Int, t: R, J_eff: R) {
   def fillMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
     m.clear()
     
-    // make sure diagonal indices are defined 
-    for (i <- 0 until m.numRows) {
-      m(i,i) = 0
-    }
-    
     // loop over all lattice sites
     for (y <- 0 until h;
          x <- 0 until w) {
@@ -120,25 +143,39 @@ class Quantum(w: Int, h: Int, t: R, J_eff: R) {
         
         var coupling = 0: S#A
         for (d <- 0 until 3) {
-          coupling += pauli(pauliIndex(d, sp1, sp2)) * field(fieldIndex(d, x, y))
+          coupling += pauli(pauliIndex(sp1, sp2, d)) * field(fieldIndex(d, x, y))
         }
         val i = matrixIndex(sp1, x, y)
         val j = matrixIndex(sp2, x, y)
         m(i, j) = -J_eff * coupling
       }
     }
-  }
-  
-  def scaleMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S], e_min: R, e_max: R) {
-    m *= (2/(e_max - e_min))
+    
+    // scale matrix appropriately so that eigenvalues lie beween -1 and +1
+    m *= 2/(e_max - e_min)
     for (i <- 0 until m.numRows) {
       m(i,i) -= (e_max + e_min) / (e_max - e_min) 
     }
   }
   
-  def allocAndFillMatrix(): PackedSparse[S] = {
-    val ret = sparse(2*h*w, 2*h*w)
-    fillMatrix(ret)
-    ret.toPacked
+  // Derivative of field S corresponding to derivative of matrix H (hund coupling)
+  def fieldDerivative(dH: PackedSparse[S], dS: Array[S#A]) {
+    // loop over all lattice sites and vector indices
+    for (y <- 0 until h;
+         x <- 0 until w;
+         d <- 0 until 3) {
+      
+      var dCoupling: S#A = 0
+      for (sp1 <- 0 until 2;
+           sp2 <- 0 until 2) {
+        val i = matrixIndex(sp1, x, y)
+        val j = matrixIndex(sp2, x, y)
+        dCoupling += -J_eff * dH(i, j) * pauli(pauliIndex(sp1, sp2, d)) 
+      }
+      dS(fieldIndex(d, x, y)) = -J_eff * dCoupling
+    }
+    
+    // undo matrix scaling
+    dS.transform(_ / (2/(e_max - e_min)))
   }
 }
