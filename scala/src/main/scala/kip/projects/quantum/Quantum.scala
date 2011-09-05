@@ -12,19 +12,21 @@ import ctor._
 
 
 object Quantum extends App {
-  val q = new Quantum(w=10, h=10, t=1, J_eff=2)
+  val q = new Quantum(w=14, h=14, t=1, J_eff=2)
   val H = q.allocAndFillMatrix()
   require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
   q.scaleMatrix(H, -6-0.5, 3+0.5)
   
-  val kpm = new KPM(H, order=2000, nrand=10)
+  val kpm = new KPM(H, order=1000, nrand=1)
   val range = kpm.range
   
   val plot = KPM.mkPlot()
   
-  val dH = H.duplicate
   KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, kpm.eigenvaluesExact(), moment=1)), "Exact", java.awt.Color.RED)
   KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
+
+  val dH = H.duplicate
+  kpm.test()
 }
 
 

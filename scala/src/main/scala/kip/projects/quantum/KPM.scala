@@ -186,11 +186,10 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     (mu, a0, a1)
   }
   
-  def functionAndGradient(fn: Double => Double, grad: PackedSparse[S]): R = {
+  def functionAndGradient(r: Dense[S], fn: Double => Double, grad: PackedSparse[S]): R = {
     grad.clear()
 
     val f = expansionCoefficients(fn)
-    val r = randomVector()
     val rdag = r.dag
     
     val a2 = dense(n, nrand)
@@ -201,8 +200,9 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     val b1 = rdag * f(order - 1)
     
     for (m <- order-1 to 1 by -1) {
-      for ((i, j) <- grad.definedIndices) {
-        grad(i, j) += 2 * b1(i) * a0(j)
+      val c = if (m > 1) 2 else 1
+      for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
+        grad(i, j) += c * b1(k, i) * a0(j, k)
       }
       a2 := a1
       a1 := a0
@@ -224,17 +224,42 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
   }
   
   def eigenvaluesApprox(kernel: Array[R]): Array[R] = {
-
 //    // Test reordering of sums is correct
-//    val forward = momentsStochastic()
+//    val r1 = randomVector()
+//    val forward = momentsStochastic(r1)
 //    val rho = range.map(densityOfStates(forward._1, _))
 //    println("version A " + ((rho, range).zipped.map(_*_).sum * (range(1) - range(0))))
-//    println("version B " + functionAndGradient(forward, e => e, null))
+//    println("version B " + functionAndGradient(e => e, null)) // different random vector => different result
 
 //    val mu = time("Calculating %d moments (slow)".format(order))(momentsSlow())
     val r = randomVector()
     val (mu, _, _) = time("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic(r))
     range.map(densityOfStates(mu, _))
+  }
+  
+  def test() {
+    val dH = H.duplicate
+    val r = randomVector()
+    val fn: R => R = e => e*e
+    val f0 = time("Function and gradient")(functionAndGradient(r, fn, dH)) // integral of all eigenvalues
+    println("f0 = "+f0)
+    println("H = "+H)
+    println("dH = "+dH)
     
+    val deriv = dH(2, 0) + dH(0, 2)
+    val del = 1e-7
+    
+    H(2, 0) += del
+    H(0, 2) += del
+    val f1 = functionAndGradient(r, fn, dH)
+    println("raw fn: f1 = " + f1)
+    println("approx deriv: (f1 - f0)/del = "+ (f1 - f0)/del)
+    println("error1: (f1 - f0)/del - dH = "+((f1 - f0)/del - deriv))
+    
+    H(2, 0) -= 2*del
+    H(0, 2) -= 2*del
+    val f2 = functionAndGradient(r, fn, dH)
+    println("error2: (f1 - f2)/(2 del) - dH = "+((f1 - f2)/(2*del) - deriv)) 
+
   }
 }
