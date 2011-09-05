@@ -20,13 +20,12 @@ object Quantum extends App {
   val kpm = new KPM(H, order=1000, nrand=1)
   val range = kpm.range
   
-  val plot = KPM.mkPlot()
-  
-  KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, kpm.eigenvaluesExact(), moment=1)), "Exact", java.awt.Color.RED)
-  KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
+//  val plot = KPM.mkPlot()
+//  KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, kpm.eigenvaluesExact(), moment=1)), "Exact", java.awt.Color.RED)
+//  KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
 
-  val dH = H.duplicate
   kpm.test()
+//  for (i <- 0 until 10) kpm.test2()
 }
 
 

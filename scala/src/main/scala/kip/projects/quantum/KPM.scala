@@ -29,9 +29,10 @@ object KPM {
   }
   
   def chebyshevFillArray(x: Double, ret: Array[Double]) {
-    require(ret.size >= 2)
-    ret(0) = 1
-    ret(1) = x
+    if (ret.size > 0)
+      ret(0) = 1
+    if (ret.size > 1)
+      ret(1) = x
     for (m <- 2 until ret.size) {
       ret(m) = 2*x*ret(m-1) - ret(m-2)
     }
@@ -114,6 +115,7 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
         ret(m) += (if (m == 0) 1 else 2) * kernel(m) * t(m) * f * de
       }
     }
+    // for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
     ret
   }
   
@@ -186,10 +188,8 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     (mu, a0, a1)
   }
   
-  def functionAndGradient(r: Dense[S], fn: Double => Double, grad: PackedSparse[S]): R = {
+  def functionAndGradient(r: Dense[S], f: Array[R], grad: PackedSparse[S]): R = {
     grad.clear()
-
-    val f = expansionCoefficients(fn)
     val rdag = r.dag
     
     val a2 = dense(n, nrand)
@@ -199,11 +199,27 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     val b2 = dense(nrand, n)
     val b1 = rdag * f(order - 1)
     
+    // need special logic since (mu_1) is calculated exactly
+    for (i <- 0 until grad.numRows) { grad(i, i) += f(1) }
+    def fp(m: Int) = if (m == 1) 0d else f(m)
+    
+    // cache defined indices for speed
+    val (indicesI, indicesJ) = {
+      val (i, j) = grad.definedIndices.unzip
+      (i.toArray, j.toArray)
+    }
+    
     for (m <- order-1 to 1 by -1) {
-      val c = if (m > 1) 2 else 1
-      for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
-        grad(i, j) += c * b1(k, i) * a0(j, k)
+//      for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
+//        grad(i, j) += (if (m > 1) 2 else 1) * b1(k, i) * a0(j, k)
+//      }
+      
+      // equivalent to above, but much faster. b3 is used as a temporary vector.
+      if (m > 1) (b3 :=* (2, b1)) else (b3 := b1)
+      for (iter <- 0 until indicesI.length) {
+        grad.scalar.maddTo(false, b3.data, indicesI(iter), a0.data, indicesJ(iter), grad.data, iter)
       }
+      
       a2 := a1
       a1 := a0
       // a0 = alpha_{m-2} = 2 H a1 - a2
@@ -212,7 +228,7 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
       b3 := b2
       b2 := b1
       // b1 = beta_{m-1} = f(m-1) rdag + 2 b2 H - b3
-      b1 :=* (f(m-1), rdag); b1.gemm(2, b2, H, 1); b1 -= b3;
+      b1 :=* (fp(m-1), rdag); b1.gemm(2, b2, H, 1); b1 -= b3;
     }
     
     (f, mu).zipped.map(_*_).sum
@@ -237,28 +253,39 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
     range.map(densityOfStates(mu, _))
   }
   
+  def test2() {
+    val r = randomVector()
+    val f = expansionCoefficients(e => e) 
+ 
+    val dH = H.duplicate
+    time("Forward")(momentsStochastic(r))
+    time("Backward")(functionAndGradient(r, f, dH))
+  }
+  
   def test() {
     val dH = H.duplicate
     val r = randomVector()
-    val fn: R => R = e => e*e
-    val f0 = time("Function and gradient")(functionAndGradient(r, fn, dH)) // integral of all eigenvalues
-    println("f0 = "+f0)
+    val f = expansionCoefficients(e => e*e)
+    val f0 = time("Function and gradient")(functionAndGradient(r, f, dH)) // integral of all eigenvalues
     println("H = "+H)
     println("dH = "+dH)
     
-    val deriv = dH(2, 0) + dH(0, 2)
+    val k = 0
+    val deriv = dH(k, 0) + dH(0, k)
     val del = 1e-7
     
-    H(2, 0) += del
-    H(0, 2) += del
-    val f1 = functionAndGradient(r, fn, dH)
-    println("raw fn: f1 = " + f1)
+    H(k, 0) += del
+    H(0, k) += del
+    
+    val f1 = functionAndGradient(r, f, dH)
+    println("deriv = "+deriv)
+    println("raw fn: f0 = %g f1 = %g".format(f0, f1))
     println("approx deriv: (f1 - f0)/del = "+ (f1 - f0)/del)
     println("error1: (f1 - f0)/del - dH = "+((f1 - f0)/del - deriv))
     
-    H(2, 0) -= 2*del
-    H(0, 2) -= 2*del
-    val f2 = functionAndGradient(r, fn, dH)
+    H(k, 0) -= 2*del
+    H(0, k) -= 2*del
+    val f2 = functionAndGradient(r, f, dH)
     println("error2: (f1 - f2)/(2 del) - dH = "+((f1 - f2)/(2*del) - deriv)) 
 
   }
