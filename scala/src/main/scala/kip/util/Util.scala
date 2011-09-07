@@ -20,7 +20,10 @@ object Util {
     ret
   }
 
-  
+  def notime[A](s: String)(f: => A): A = {
+    f
+  }
+
   def tr[A](v: A, str: String) = {
     println(str + v)
     v

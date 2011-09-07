@@ -80,7 +80,7 @@ object KPM {
 
 // Kernel polynomial method
 
-class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
+class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int = 0) {
   val rand = new util.Random(seed)
   val n = H.numRows
   
@@ -91,31 +91,23 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
       (1/Mp)*((Mp-m)*cos(Pi*m/Mp) + sin(Pi*m/Mp)/tan(Pi/Mp))
     }
   }
-  
   lazy val kernel = jacksonKernel
   
-  val range: Array[R] = {
-    val nx = 5*order 
-    Array.tabulate[R](nx) { i =>
-      2.0 * (i+0.5) / nx - 1.0
-    }
-  }
-
   // Coefficients f_m of linear combination of moments for weight calculation
   //   F = \sum mu_m f_m = \int rho(e) fn(e)
-  // The choice (fn == identity) integrates the density of states.
-  def expansionCoefficients(fn: Double => Double): Array[Double] = {
+  // The choice (fn(e) == 1) is the integrated density of states.
+  // The choice (fn(e) == e) is the integrated energy
+  def expansionCoefficients(de: Double, fn: Double => Double): Array[Double] = {
     import math._
     val ret = Array.fill[Double](order)(0d)
-    val de = range(1) - range(0)
-    for (e <- range) {
+    for (e <- -1.0+de to 1.0-de by de) {
       val t = KPM.chebyshevArray(e, order)
       val f = fn(e) / (Pi * sqrt(1 - e*e))
       for (m <- 0 until order) {
         ret(m) += (if (m == 0) 1 else 2) * kernel(m) * t(m) * f * de
       }
     }
-    // for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
+    for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
     ret
   }
   
@@ -235,8 +227,15 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
   }
   
   def eigenvaluesExact(): Array[R] = {
-    val (v, w) = time("Exact diagonalization of N=%d matrix".format(H.numRows))(H.toDense.eig)
+    val (v, w) = H.toDense.eig
     v.map(_.re).toArray.sorted
+  }
+  
+  val range: Array[R] = {
+    val nx = 5*order 
+    Array.tabulate[R](nx) { i =>
+      2.0 * (i+0.5) / nx - 1.0
+    }
   }
   
   def eigenvaluesApprox(kernel: Array[R]): Array[R] = {
@@ -255,7 +254,7 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
   
   def test0() {
     val r = randomVector()
-    val f = expansionCoefficients(e => e) 
+    val f = expansionCoefficients(de=1e-4, e => e) 
  
     val dH = H.duplicate
     time("Forward")(momentsStochastic(r))
@@ -265,7 +264,7 @@ class KPM(H: PackedSparse[S], order: Int, nrand: Int, seed: Int = 0) {
   def test1() {
     val dH = H.duplicate
     val r = randomVector()
-    val f = expansionCoefficients(e => e*e)
+    val f = expansionCoefficients(de=1e-4, e => e*e)
     val f0 = time("Function and gradient")(functionAndGradient(r, f, dH)) // integral of all eigenvalues
     println("H = "+H)
     println("dH = "+dH)
