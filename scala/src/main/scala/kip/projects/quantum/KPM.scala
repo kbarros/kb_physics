@@ -11,8 +11,8 @@ import ctor._
 object KPM {
   import scikit.graphics.dim2._
   
-  def mkPlot(): Plot = {
-    val plot = new Plot("Histogram")
+  def mkPlot(name: String): Plot = {
+    val plot = new Plot(name)
     scikit.util.Utilities.frame(plot.getComponent(), plot.getTitle())
     plot
   }
@@ -23,7 +23,7 @@ object KPM {
     plot.registerBars("Density", hist, java.awt.Color.BLACK)
   }
   
-  def plotLines(plot: Plot, data: (Array[R], Array[R]), name: String, color: java.awt.Color) {
+  def plotLines(plot: Plot, data: (Array[R], Array[R]), name: String = "data", color: java.awt.Color = java.awt.Color.BLACK) {
     val pts = new scikit.dataset.PointSet(data._1, data._2)
     plot.registerLines(name, pts, color)
   }

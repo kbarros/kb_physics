@@ -79,7 +79,7 @@ object Quantum extends App {
       println(q.field(0)+" "+q.field(3))
       q.fillMatrix(q.matrix)
       
-      val plot = KPM.mkPlot()
+      val plot = KPM.mkPlot("Integrated rho")
       KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, kpm.eigenvaluesExact(), moment=1)), "Exact", java.awt.Color.RED)
 //      KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
     }
