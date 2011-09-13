@@ -28,6 +28,12 @@ object KPM {
     plot.registerLines(name, pts, color)
   }
   
+    
+  def eigenvaluesExact(H: PackedSparse[S]): Array[R] = {
+    val (v, w) = H.toDense.eig
+    v.map(_.re).toArray.sorted
+  }
+
   def chebyshevFillArray(x: Double, ret: Array[Double]) {
     if (ret.size > 0)
       ret(0) = 1
@@ -107,7 +113,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
         ret(m) += (if (m == 0) 1 else 2) * kernel(m) * t(m) * f * de
       }
     }
-    for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
+    // for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
     ret
   }
   
@@ -224,11 +230,6 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     }
     
     (f, mu).zipped.map(_*_).sum
-  }
-  
-  def eigenvaluesExact(): Array[R] = {
-    val (v, w) = H.toDense.eig
-    v.map(_.re).toArray.sorted
   }
   
   val range: Array[R] = {
