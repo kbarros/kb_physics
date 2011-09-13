@@ -126,16 +126,24 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   
   def drawTriangles(ps: Vec3*) {
     gl.glBegin(GL.GL_TRIANGLES)
-    for (p <- ps) {
-      gl.glVertex3d(p.x, p.y, p.z)
+    for (qs <- ps.grouped(3)) {
+      val n = ((qs(1) - qs(0)) cross (qs(2) - qs(0))).normalize
+      gl.glNormal3d(n.x, n.y, n.z)
+      for (q <- qs) {
+        gl.glVertex3d(q.x, q.y, q.z)
+      }
     }
     gl.glEnd();
   }
 
   def drawQuads(ps: Vec3*) {
     gl.glBegin(GL.GL_QUADS)
-    for (p <- ps) {
-      gl.glVertex3d(p.x, p.y, p.z)
+    for (qs <- ps.grouped(4)) {
+      val n = ((qs(1) - qs(0)) cross (qs(2) - qs(0))).normalize
+      gl.glNormal3d(n.x, n.y, n.z)
+      for (q <- qs) {
+        gl.glVertex3d(q.x, q.y, q.z)
+      }
     }
     gl.glEnd();
   }

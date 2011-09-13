@@ -18,6 +18,7 @@ trait Vec3 {
   def norm:  Double = math.sqrt(norm2)
   
   def normalize: Vec3 = this / norm
+  def unary_+ :  Vec3 = this
   def unary_- :  Vec3 = Vec3(-x, -y, -z)
   
   def *(a: Double): Vec3 = Vec3(x*a, y*a, z*a)
