@@ -16,18 +16,6 @@ object KondoApp extends App {
   println("N=%d matrix, %d moments".format(q.matrix.numRows, kpm.order))
   val c = time("Building coefficients. de=%g".format(de))(kpm.expansionCoefficients(de, fn))
   
-//  val eig = KPM.eigenvaluesExact(q.matrix)
-//  println(eig.size)
-//  val idx_cut = eig.size * 3 / 4
-//  val eng_cut = (eig(idx_cut-1) + eig(idx_cut)) / 2.0
-//  println("Gap between: [%g, %g]".format(eig(idx_cut-1), eig(idx_cut)))
-//  println("Choosing potential mu=%g".format(eng_cut))
-//  var acc = 0.0
-//  for (i <- 0 until idx_cut) {
-//    acc += eig(i).re - eng_cut
-//  }
-//  println(acc)
-  
   import kip.graphics._
   import kip.math.Vec3
   val bds = Bounds3d(Vec3(0, 0, 0), Vec3(linearSize-1, linearSize-1, 0))

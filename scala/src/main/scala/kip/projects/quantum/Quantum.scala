@@ -15,8 +15,27 @@ object Quantum extends App {
   testEigenvalues()
 
   def testEigenvalues() {
-    val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -1, e_max=1)
-    KPM.eigenvaluesExact(q.matrix).sorted.foreach(println(_))
+    val q = new Quantum(w=10, h=10, t=1, J_eff=0.3, e_min= -10, e_max=10)
+    val n = q.matrix.numRows
+    println("Matrix dim = "+n)
+    
+    q.setFieldAllOut(q.field)
+    q.fillMatrix(q.matrix)
+    val eig1 = KPM.eigenvaluesExact(q.matrix)
+    val i_cut = n * 3 / 4
+    val e_cut = eig1(i_cut-1)+1e-8 // (eig(i_cut-1) + eig(i_cut)) / 2.0
+    val filledEig1 = eig1.takeWhile(_ < e_cut)
+    println("Gap between: [%g, %g]".format(eig1(i_cut-1), eig1(i_cut)))
+    println("Choosing potential mu = %g".format(e_cut))
+    println("All-out fraction = %g".format(filledEig1.size / n.toDouble))
+    println("All-out weight = %g".format(filledEig1.map(_.re - e_cut).sum))
+    
+    q.setFieldFerro(q.field)
+    q.fillMatrix(q.matrix)
+    val eig2 = KPM.eigenvaluesExact(q.matrix)
+    val filledEig2 = eig2.takeWhile(_ < e_cut)
+    println("Ferro fraction = %g".format(filledEig2.size / n.toDouble))
+    println("Ferro weight = %g".format(filledEig2.map(_.re - e_cut).sum))
   }
   
   def test0() {
@@ -129,14 +148,8 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
   )
   
   val field: Array[R] = {
-    val ret = Array.fill(vectorDim*w*h)(1: R)
-    for (x <- 0 until w;
-         y <- 0 until h;
-         val s = initFieldAllOut(x, y);
-         d <- 0 until vectorDim) {
-      ret(fieldIndex(d, x, y)) = s(d)
-    }
-    normalizeField(ret)
+    val ret = new Array[R](vectorDim*w*h)
+    setFieldFerro(ret)
     ret
   }
   val delField: Array[R] = Array.fill(vectorDim*w*h)(0)
@@ -150,19 +163,23 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
     matrix.duplicate.clear
   }
   
-  
-  def initFieldFerro(x: Int, y: Int): Seq[R] = {
-    val r = 1.0 / math.sqrt(3.0)
-    Seq(r, r, r)
+  def setFieldFerro(s: Array[R]) { 
+    s.transform(_ => 1.0 / math.sqrt(3.0))
   }
   
-  def initFieldAllOut(x: Int, y: Int): Seq[R] = {
-    val r = 1.0 / math.sqrt(3.0)
-    (x%2, y%2) match {
-      case (0, 0) => Seq(+r, +r, +r)
-      case (0, 1) => Seq(+r, -r, -r)
-      case (1, 0) => Seq(-r, +r, -r)
-      case (1, 1) => Seq(-r, -r, +r)
+  def setFieldAllOut(s: Array[R]) {
+    for (x <- 0 until w;
+         y <- 0 until h) {
+      val r = 1.0 / math.sqrt(3.0)
+      val v = (x%2, y%2) match {
+        case (0, 0) => Seq(+r, +r, +r)
+        case (0, 1) => Seq(+r, -r, -r)
+        case (1, 0) => Seq(-r, +r, -r)
+        case (1, 1) => Seq(-r, -r, +r)
+      }
+      for (d <- 0 until vectorDim) { 
+        s(fieldIndex(d, x, y)) = v(d)
+      }
     }
   }
   
