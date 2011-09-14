@@ -24,7 +24,7 @@ object HelloBuild extends Build {
     val launchString = """
 CLASSPATH="%s"
 JOGL_LIBRARY_PATH="/Users/kbarros/dev/repo/scala/lib"
-scala -usejavacp -Djava.class.path="${CLASSPATH}" -Djava.library.path="${JOGL_LIBRARY_PATH}" "$@"
+scala -J-Xmx1g -usejavacp -Djava.class.path="${CLASSPATH}" -Djava.library.path="${JOGL_LIBRARY_PATH}" "$@"
 """.format(cpString)
     val targetFile = (target / "sbt-launcher").asFile
     writeFile(targetFile, launchString)
