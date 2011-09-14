@@ -6,11 +6,13 @@ import ScalarTyp._
 import ctor._
 
 object KondoApp extends App {
-  val linearSize = 8
-  val q = new Quantum(w=linearSize, h=linearSize, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
-  val kpm = new KPM(q.matrix, order=50, nrand=1)
-  val e_cutoff = q.scaleEnergy(-2.56)
-  val dt = 0.1
+  val linearSize = 20
+  val q = new Quantum(w=linearSize, h=linearSize, t=1, J_eff=0.3, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+  val kpm = new KPM(q.matrix, order=500, nrand=1)
+  q.setFieldRandom(q.field, kpm.rand)
+  q.fillMatrix(q.matrix)
+  val e_cutoff = 0.201123 // q.scaleEnergy(-2.56)
+  val dt = 1.0
   val de = 1e-4
   val fn: R => R = e => if (e < e_cutoff) (e - e_cutoff) else 0
   println("N=%d matrix, %d moments".format(q.matrix.numRows, kpm.order))
@@ -42,22 +44,23 @@ object KondoApp extends App {
   
   val plot = KPM.mkPlot("Integrated rho")
   for (iter <- 0 until 1000) {
-    for (iter2 <- 0 until 20) {
+    time("Iteration "+iter) (for (iter2 <- 0 until 100) {
       val r = kpm.randomVector()
-      val f0  = notime("Stochastic estimate")(kpm.functionAndGradient(r, c, q.delMatrix))
+      val f0  = kpm.functionAndGradient(r, c, q.delMatrix)
       q.fieldDerivative(q.delMatrix, q.delField)
       for (i <- q.field.indices) {
         q.field(i) -= dt * q.delField(i)
       }
-      q.normalizeField(q.field)
+      q.normalizeField(q.field, validate=true)
       q.fillMatrix(q.matrix)
       require(math.sqrt((q.matrix - q.matrix.dag).norm2.abs) < 1e-14, "Found non-hermitian hamiltonian!")
-    }
+    })
     drawSpins()
     
-    val eig = notime("Exact diagonalization")(KPM.eigenvaluesExact(q.matrix))
-    println("Exact: " + eig.filter(_ < e_cutoff).map(_ - e_cutoff).sum)
+    val eig = time("Exact diagonalization")(KPM.eigenvaluesExact(q.matrix))
+    println("Action: " + eig.filter(_ < e_cutoff).map(_ - e_cutoff).sum)
     println("Filling: " + eig.filter(_ < e_cutoff).size.toDouble / eig.size)
+    println()
     KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(kpm.range, eig, moment=1)), "Exact", java.awt.Color.RED)
     KPM.plotLines(plot, (kpm.range, KPM.integrate(kpm.range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
   }

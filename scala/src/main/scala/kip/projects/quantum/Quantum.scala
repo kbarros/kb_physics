@@ -15,7 +15,7 @@ object Quantum extends App {
   testEigenvalues()
 
   def testEigenvalues() {
-    val q = new Quantum(w=10, h=10, t=1, J_eff=0.3, e_min= -10, e_max=10)
+    val q = new Quantum(w=20, h=20, t=1, J_eff=0.3, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
@@ -23,7 +23,7 @@ object Quantum extends App {
     q.fillMatrix(q.matrix)
     val eig1 = KPM.eigenvaluesExact(q.matrix)
     val i_cut = n * 3 / 4
-    val e_cut = eig1(i_cut-1)+1e-8 // (eig(i_cut-1) + eig(i_cut)) / 2.0
+    val e_cut = eig1(i_cut-1) // (eig1(i_cut-1) + eig1(i_cut)) / 2.0
     val filledEig1 = eig1.takeWhile(_ < e_cut)
     println("Gap between: [%g, %g]".format(eig1(i_cut-1), eig1(i_cut)))
     println("Choosing potential mu = %g".format(e_cut))
@@ -98,7 +98,7 @@ object Quantum extends App {
       for (i <- q.field.indices) {
         q.field(i) -= 0.5 * q.delField(i)
       }
-      q.normalizeField(q.field)
+      q.normalizeField(q.field, validate=true)
       
       println(q.field(0)+" "+q.field(3))
       q.fillMatrix(q.matrix)
@@ -163,27 +163,33 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
     matrix.duplicate.clear
   }
   
-  def setFieldFerro(s: Array[R]) { 
-    s.transform(_ => 1.0 / math.sqrt(3.0))
+  def setFieldFerro(field: Array[R]) { 
+    field.transform(_ => 1.0)
+    normalizeField(field)
   }
   
-  def setFieldAllOut(s: Array[R]) {
+  def setFieldRandom(field: Array[R], rand: util.Random) {
+    field.transform(_ => rand.nextDouble() - 0.5)
+    normalizeField(field)
+  }
+  
+  def setFieldAllOut(field: Array[R]) {
     for (x <- 0 until w;
          y <- 0 until h) {
-      val r = 1.0 / math.sqrt(3.0)
-      val v = (x%2, y%2) match {
-        case (0, 0) => Seq(+r, +r, +r)
-        case (0, 1) => Seq(+r, -r, -r)
-        case (1, 0) => Seq(-r, +r, -r)
-        case (1, 1) => Seq(-r, -r, +r)
+      val s = (x%2, y%2) match {
+        case (0, 0) => Seq(+1, +1, +1)
+        case (0, 1) => Seq(+1, -1, -1)
+        case (1, 0) => Seq(-1, +1, -1)
+        case (1, 1) => Seq(-1, -1, +1)
       }
       for (d <- 0 until vectorDim) { 
-        s(fieldIndex(d, x, y)) = v(d)
+        field(fieldIndex(d, x, y)) = s(d)
       }
     }
+    normalizeField(field)
   }
   
-  def normalizeField(field: Array[R]) {
+  def normalizeField(field: Array[R], validate: Boolean = false) {
     for (y <- 0 until h;
          x <- 0 until w) {
       var acc = 0d
@@ -191,7 +197,8 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
         acc += field(fieldIndex(d, x, y)).abs2
       }
       acc = math.sqrt(acc)
-      require(acc > 0.5 && acc < 1.5, "Vector deviates too far from normalization")
+      if (validate)
+        require(acc > 0.5 && acc < 1.5, "Vector deviates too far from normalization")
       for (d <- 0 until 3) {
         field(fieldIndex(d, x, y)) /= acc
       }

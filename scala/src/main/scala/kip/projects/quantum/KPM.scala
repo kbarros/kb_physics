@@ -1,6 +1,6 @@
 package kip.projects.quantum
 
-import kip.util.Util.time
+import kip.util.Util.{time, notime}
 import kip.math.Math._
 import kip.enrich._
 import smatrix._
@@ -249,7 +249,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
 
 //    val mu = time("Calculating %d moments (slow)".format(order))(momentsSlow())
     val r = randomVector()
-    val (mu, _, _) = time("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic(r))
+    val (mu, _, _) = notime("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic(r))
     range.map(densityOfStates(mu, _))
   }
   
