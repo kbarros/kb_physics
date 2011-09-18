@@ -12,7 +12,7 @@ import ctor._
 
 
 object Quantum extends App {
-  testEigenvalues()
+  test0()
 
   def testEigenvalues() {
     val q = new Quantum(w=20, h=20, t=1, J_eff=0.3, e_min= -10, e_max=10)
@@ -46,9 +46,9 @@ object Quantum extends App {
     val kpm = new KPM(H, order=100, nrand=1)
     val range = kpm.range
 
-    //  val plot = KPM.mkPlot()
-    //  KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=1)), "Exact", java.awt.Color.RED)
-    //  KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
+      val plot = KPM.mkPlot("Integrated density of states")
+      KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
+      KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx", java.awt.Color.BLACK)
 
     //  for (i <- 0 until 10) kpm.test0()
     //  kpm.test1()
