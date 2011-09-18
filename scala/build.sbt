@@ -5,7 +5,7 @@ name := "KB"
 version := "1.0"
 
 // scala version to use for building src
-scalaVersion := "2.9.1.RC1"
+scalaVersion := "2.9.1"
 
 // scala version for building project definition ??
 
@@ -14,8 +14,8 @@ libraryDependencies ++= Seq(
   "com.twitter" % "json" % "2.1.3",
   "net.java.dev.jna" % "jna" % "3.3.0",
   "net.liftweb" % "lift-json_2.9.0-1" % "2.4-M3",
-  "org.scala-lang" % "scala-compiler" % "2.9.1.RC1",
-  "org.scala-lang" % "jline" % "2.9.1.RC1"
+  "org.scala-lang" % "scala-compiler" % "2.9.1",
+  "org.scala-lang" % "jline" % "2.9.1"
 )
 
 resolvers ++= Seq(
