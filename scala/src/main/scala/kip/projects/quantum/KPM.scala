@@ -99,10 +99,8 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   }
   lazy val kernel = jacksonKernel
   
-  // Coefficients f_m of linear combination of moments for weight calculation
-  //   F = \sum mu_m f_m = \int rho(e) fn(e)
-  // The choice (fn(e) == 1) is the integrated density of states.
-  // The choice (fn(e) == e) is the integrated energy
+  // Coefficients c_m of linear combination of moments for weight calculation
+  //   F = \sum mu_m c_m = \int rho(e) fn(e)
   def expansionCoefficients(de: Double, fn: Double => Double): Array[Double] = {
     import math._
     val ret = Array.fill[Double](order)(0d)
@@ -128,10 +126,10 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     ret / (Pi * sqrt(1 - e*e))
   }
   
-  // slow calculation of moments
-  def momentsSlow(): Array[R] = {
+  def momentsExact(): Array[R] = {
     val ret = Array.fill(order)(0d)
     
+    // TODO: test with sparse
     val Hd = H // H.toDense
     
     val t0 = eye(n).toDense
@@ -186,7 +184,38 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     (mu, a0, a1)
   }
   
-  def functionAndGradient(r: Dense[S], f: Array[R], grad: PackedSparse[S]): R = {
+  def gradientExact(c: Array[R], grad: PackedSparse[S]) {
+    grad.clear()
+    
+    // TODO use sparse
+    val Ht = H.tran
+    val Hd = Ht // H.toDense
+    
+    val u0 = eye(n).toDense  // U_{0}
+    val u1 = Ht.toDense * 2  // U_{1}
+    val u2 = dense(n, n)     // U_{2}
+
+    for ((i, j) <- grad.definedIndices) {
+      grad(i, j) += 1 * c(0) * u0(i, j)
+    }
+
+    for (m <- 2 until order) {
+      // u0 = U_{m-2}(H)
+      // u1 = U_{m-1}(H)
+      // u2 = U_m(H) = 2 H t1 - t0
+      u2 := u0
+      u2.gemm(2, Hd, u1, -1)
+      
+      for ((i, j) <- grad.definedIndices) {
+        grad(i, j) += m * c(m) * u1(i, j)
+      }
+
+      u0 := u1
+      u1 := u2
+    }
+  }
+  
+  def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
     grad.clear()
     val rdag = r.dag
     
@@ -195,11 +224,11 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     
     val b3 = dense(nrand, n)
     val b2 = dense(nrand, n)
-    val b1 = rdag * f(order - 1)
+    val b1 = rdag * c(order - 1)
     
     // need special logic since (mu_1) is calculated exactly
-    for (i <- 0 until grad.numRows) { grad(i, i) += f(1) }
-    def fp(m: Int) = if (m == 1) 0d else f(m)
+    for (i <- 0 until grad.numRows) { grad(i, i) += c(1) }
+    def cp(m: Int) = if (m == 1) 0d else c(m)
     
     // cache defined indices for speed
     val (indicesI, indicesJ) = {
@@ -226,10 +255,10 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
       b3 := b2
       b2 := b1
       // b1 = beta_{m-1} = f(m-1) rdag + 2 b2 H - b3
-      b1 :=* (fp(m-1), rdag); b1.gemm(2, b2, H, 1); b1 -= b3;
+      b1 :=* (cp(m-1), rdag); b1.gemm(2, b2, H, 1); b1 -= b3;
     }
     
-    (f, mu).zipped.map(_*_).sum
+    (c, mu).zipped.map(_*_).sum
   }
   
   val range: Array[R] = {
@@ -247,7 +276,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
 //    println("version A " + ((rho, range).zipped.map(_*_).sum * (range(1) - range(0))))
 //    println("version B " + functionAndGradient(e => e, null)) // different random vector => different result
 
-//    val mu = time("Calculating %d moments (slow)".format(order))(momentsSlow())
+//    val mu = time("Calculating %d moments (slow)".format(order))(momentsExact())
     val r = randomVector()
     val (mu, _, _) = notime("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic(r))
     range.map(densityOfStates(mu, _))
@@ -255,18 +284,18 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   
   def test0() {
     val r = randomVector()
-    val f = expansionCoefficients(de=1e-4, e => e) 
+    val c = expansionCoefficients(de=1e-4, e => e)
  
     val dH = H.duplicate
     time("Forward")(momentsStochastic(r))
-    time("Backward")(functionAndGradient(r, f, dH))
+    time("Backward")(functionAndGradient(r, c, dH))
   }
   
   def test1() {
     val dH = H.duplicate
     val r = randomVector()
-    val f = expansionCoefficients(de=1e-4, e => e*e)
-    val f0 = time("Function and gradient")(functionAndGradient(r, f, dH)) // integral of all eigenvalues
+    val c = expansionCoefficients(de=1e-4, e => e*e)
+    val f0 = time("Function and gradient")(functionAndGradient(r, c, dH)) // integral of all eigenvalues
     println("H = "+H)
     println("dH = "+dH)
     
@@ -277,7 +306,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     H(k, 0) += del
     H(0, k) += del
     
-    val f1 = functionAndGradient(r, f, dH)
+    val f1 = functionAndGradient(r, c, dH)
     println("deriv = "+deriv)
     println("raw fn: f0 = %g f1 = %g".format(f0, f1))
     println("approx deriv: (f1 - f0)/del = "+ (f1 - f0)/del)
@@ -285,7 +314,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     
     H(k, 0) -= 2*del
     H(0, k) -= 2*del
-    val f2 = functionAndGradient(r, f, dH)
+    val f2 = functionAndGradient(r, c, dH)
     println("error2: (f1 - f2)/(2 del) - dH = "+((f1 - f2)/(2*del) - deriv)) 
   }
 }
