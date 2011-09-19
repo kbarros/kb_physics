@@ -12,8 +12,10 @@ import ctor._
 
 
 object Quantum extends App {
-  test0()
-
+  // testIntegratedDensity()
+  testDerivative()
+  
+  // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
     val q = new Quantum(w=20, h=20, t=1, J_eff=0.3, e_min= -10, e_max=10)
     val n = q.matrix.numRows
@@ -38,7 +40,23 @@ object Quantum extends App {
     println("Ferro weight = %g".format(filledEig2.map(_.re - e_cut).sum))
   }
   
-  def test0() {
+  def testSpeed {
+    val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+    val H = q.matrix
+    val kpm = new KPM(H, order=100, nrand=1)
+    
+    val r = kpm.randomVector()
+    val c = kpm.expansionCoefficients(de=1e-4, e => e)
+ 
+    val dH = H.duplicate
+    for (i <- 0 until 10) {
+      kip.util.Util.time("Forward")(kpm.momentsStochastic(r))
+      kip.util.Util.time("Backward")(kpm.functionAndGradient(r, c, dH))
+    }
+  }
+
+  // Plots the integrated density of states
+  def testIntegratedDensity() {
     val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
     val H = q.matrix
     require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
@@ -49,13 +67,9 @@ object Quantum extends App {
       val plot = KPM.mkPlot("Integrated density of states")
       KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
       KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx", java.awt.Color.BLACK)
-
-    //  for (i <- 0 until 10) kpm.test0()
-    //  kpm.test1()
   }
   
-  
-  def test2() {
+  def testDerivative() {
     val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
     val H = q.matrix
     val dH = q.delMatrix
@@ -80,34 +94,6 @@ object Quantum extends App {
     println("raw fn: f0 = %g f1 = %g".format(f0, f1))
     println("approx deriv: (f1 - f0)/del = "+ (f1 - f0)/del)
     println("error1: (f1 - f0)/del - dH = "+((f1 - f0)/del - deriv))
-  }
-  
-  
-  def test3() {
-    val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
-    val kpm = new KPM(q.matrix, order=200, nrand=1)
-    val range = kpm.range
-    val c = kpm.expansionCoefficients(de=1e-4, e => if (e < 0.0) e else 0)
-    val r = kpm.randomVector()
-
-    for (iter <- 0 until 100) {
-      val f0 = kpm.functionAndGradient(r, c, q.delMatrix)
-      println("f0 = " +f0)
-      q.fieldDerivative(q.delMatrix, q.delField)
-      
-      for (i <- q.field.indices) {
-        q.field(i) -= 0.5 * q.delField(i)
-      }
-      q.normalizeField(q.field, validate=true)
-      
-      println(q.field(0)+" "+q.field(3))
-      q.fillMatrix(q.matrix)
-      
-      val plot = KPM.mkPlot("Integrated rho")
-      KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(q.matrix), moment=1)), "Exact", java.awt.Color.RED)
-//      KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
-    }
-    
   }
 }
 

@@ -281,40 +281,4 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     val (mu, _, _) = notime("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic(r))
     range.map(densityOfStates(mu, _))
   }
-  
-  def test0() {
-    val r = randomVector()
-    val c = expansionCoefficients(de=1e-4, e => e)
- 
-    val dH = H.duplicate
-    time("Forward")(momentsStochastic(r))
-    time("Backward")(functionAndGradient(r, c, dH))
-  }
-  
-  def test1() {
-    val dH = H.duplicate
-    val r = randomVector()
-    val c = expansionCoefficients(de=1e-4, e => e*e)
-    val f0 = time("Function and gradient")(functionAndGradient(r, c, dH)) // integral of all eigenvalues
-    println("H = "+H)
-    println("dH = "+dH)
-    
-    val k = 0
-    val deriv = dH(k, 0) + dH(0, k)
-    val del = 1e-7
-    
-    H(k, 0) += del
-    H(0, k) += del
-    
-    val f1 = functionAndGradient(r, c, dH)
-    println("deriv = "+deriv)
-    println("raw fn: f0 = %g f1 = %g".format(f0, f1))
-    println("approx deriv: (f1 - f0)/del = "+ (f1 - f0)/del)
-    println("error1: (f1 - f0)/del - dH = "+((f1 - f0)/del - deriv))
-    
-    H(k, 0) -= 2*del
-    H(0, k) -= 2*del
-    val f2 = functionAndGradient(r, c, dH)
-    println("error2: (f1 - f2)/(2 del) - dH = "+((f1 - f2)/(2*del) - deriv)) 
-  }
 }
