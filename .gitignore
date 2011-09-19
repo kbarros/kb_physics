@@ -30,6 +30,8 @@ scala/project/boot/
 .project
 .classpath
 .target
+.cache
+.history
 workspace/*/bin/*
 workspace/.metadata/
 
