@@ -4,9 +4,8 @@ import kip.util.Util.{time, notime}
 import kip.math.Math._
 import kip.enrich._
 import smatrix._
-
-import ScalarTyp._
 import ctor._
+
 
 object KPM {
   import scikit.graphics.dim2._

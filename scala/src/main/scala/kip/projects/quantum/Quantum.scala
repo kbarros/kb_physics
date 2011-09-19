@@ -1,13 +1,6 @@
 package kip.projects.quantum
 
 import smatrix._
-
-object ScalarTyp {
-  type S = Scalar.ComplexDbl
-  type R = S#Raw
-  val ctor = Constructors.complexDbl
-}
-import ScalarTyp._
 import ctor._
 
 

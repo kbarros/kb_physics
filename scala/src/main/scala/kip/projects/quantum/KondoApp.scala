@@ -1,12 +1,11 @@
 package kip.projects.quantum
 
-
 import kip.util.Util.{time, notime}
-import ScalarTyp._
 import ctor._
 
+
 object KondoApp extends App {
-  val linearSize = 20
+  val linearSize = 4
   val q = new Quantum(w=linearSize, h=linearSize, t=1, J_eff=0.3, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
   val kpm = new KPM(q.matrix, order=500, nrand=1)
   q.setFieldRandom(q.field, kpm.rand)
