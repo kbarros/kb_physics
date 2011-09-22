@@ -6,7 +6,7 @@ import ctor._
 
 object Quantum extends App {
   // testIntegratedDensity()
-  testDerivative()
+  testDerivative2()
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
@@ -87,6 +87,27 @@ object Quantum extends App {
     println("raw fn: f0 = %g f1 = %g".format(f0, f1))
     println("approx deriv: (f1 - f0)/del = "+ (f1 - f0)/del)
     println("error1: (f1 - f0)/del - dH = "+((f1 - f0)/del - deriv))
+  }
+  
+  
+  def testDerivative2() {
+    val q = new Quantum(w=10, h=10, t=1, J_eff=0.1, e_min= -10, e_max= 10)
+    val H = q.matrix
+    val dH1 = q.delMatrix
+    val dH2 = dH1.duplicate
+    val kpm = new KPM(H, order=100, nrand=100, seed=0)
+    
+    val c = kpm.expansionCoefficients(de=1e-4, e => e*e)
+    kpm.gradientExact(c, dH1)
+    
+    val r = kpm.randomVector()
+    kpm.functionAndGradient(r, c, dH2)
+    
+    println("exact  dH = "+dH1)
+    println("approx dH = "+dH2)
+    
+    val resid = dH1 - dH2
+    println("scaled error = " + math.sqrt(resid.norm2.re / dH1.norm2.re))
   }
 }
 

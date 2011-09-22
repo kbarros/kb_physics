@@ -195,7 +195,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     val u2 = dense(n, n)     // U_{2}
 
     for ((i, j) <- grad.definedIndices) {
-      grad(i, j) += 1 * c(0) * u0(i, j)
+      grad(i, j) += 1 * c(1) * u0(i, j)
     }
 
     for (m <- 2 until order) {
@@ -236,14 +236,17 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     }
     
     for (m <- order-1 to 1 by -1) {
-//      for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
-//        grad(i, j) += (if (m > 1) 2 else 1) * b1(k, i) * a0(j, k)
-//      }
-      
+      if (nrand > 1) {
+        for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
+          grad(i, j) += (if (m > 1) 2 else 1) * b1(k, i) * a0(j, k) / nrand
+        }
+      }
       // equivalent to above, but much faster. b3 is used as a temporary vector.
-      if (m > 1) (b3 :=* (2, b1)) else (b3 := b1)
-      for (iter <- 0 until indicesI.length) {
-        grad.scalar.maddTo(false, b3.data, indicesI(iter), a0.data, indicesJ(iter), grad.data, iter)
+      else {
+        if (m > 1) (b3 :=* (2, b1)) else (b3 := b1)
+        for (iter <- 0 until indicesI.length) {
+          grad.scalar.maddTo(false, b3.data, indicesI(iter), a0.data, indicesJ(iter), grad.data, iter)
+        }
       }
       
       a2 := a1
