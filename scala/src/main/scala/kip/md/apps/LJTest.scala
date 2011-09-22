@@ -145,8 +145,8 @@ object LJTest {
 
     val wall1norm = Vec3(0,1,0)
     val wall2norm = Vec3(0,-1,0)
-    var wall1posInit = Vec3(0, off-r1,0)
-    var wall2posInit = Vec3(0, off+layers*layerWidth, 0)
+    val wall1posInit = Vec3(0, off-r1,0)
+    val wall2posInit = Vec3(0, off+layers*layerWidth, 0)
     
     val wallSpeed = 0.02
     val maxTime = 1000
@@ -184,13 +184,13 @@ object LJTest {
     
     def isType1(idx: Int): Boolean = idx < natoms1
     
-    def setInteractions(sizeAsymmetry: Double, wall1pos: Vec3, wall2pos: Vec3) {
+    def setInteractions(sizeAsymmetry: Double, wall1pos: Vec3, wall2pos: Vec3): Seq[Seq[Interaction1]] = {
       val pairlj1 = new LennardJones(eps=1, sigma_local=1, scaled_cutoff=3)
       val pairlj2 = new LennardJones(eps=1, sigma_local=sizeAsymmetry, scaled_cutoff=3)
       
       val wallA1 = new LJWall(pos=wall1pos, normal=wall1norm, sigma=0.5*1)
-      val wallB1 = new LJWall(pos=wall2pos, normal=wall1norm, sigma=0.5*1)
-      val wallA2 = new LJWall(pos=wall1pos, normal=wall2norm, sigma=0.5*sizeAsymmetry)
+      val wallB1 = new LJWall(pos=wall2pos, normal=wall2norm, sigma=0.5*1)
+      val wallA2 = new LJWall(pos=wall1pos, normal=wall1norm, sigma=0.5*sizeAsymmetry)
       val wallB2 = new LJWall(pos=wall2pos, normal=wall2norm, sigma=0.5*sizeAsymmetry)
       
       val tag1 = new Tag(inter1 = Seq(wallA1, wallB1), inter2 = Seq(pairlj1))
@@ -199,6 +199,8 @@ object LJTest {
       for (a <- atoms) {
         a.tag = if (isType1(a.idx)) tag1 else tag2
       }
+      
+      Seq(Seq(wallA1, wallA2), Seq(wallB1, wallB2))
     }
     
     def initGrid(x0: Double, y0: Double, r: Double, rows: Int, cols: Int, atoms: Seq[Atom]) = {
@@ -222,22 +224,16 @@ object LJTest {
     }
     val initialPos = atoms.map(_.pos.copy())
     
-    // TODO: make sure this is actually right
-    def averageWallForce(): Double = {
-      val inter1s = atoms.flatMap(_.tag.inter1).distinct
-      val force1s = inter1s.map(inter => (world.forceOnObject(inter)).norm)
-      val wallForce = force1s.sum / force1s.size
-      wallForce
-    }
-    
     def hasWrapped() = atoms.find(_.wx != 0).isDefined
-
 
     // =======================
     // Main loop
     //
     var iter = 0
+    var netWallForce = Vec3.zero
+    
     while (world.time < maxTime && !hasWrapped()) kip.util.Util.time("Iterating") {
+      println("iterating %g %d".format(world.time, maxTime))
       iter += 1
       
       // ----------------
@@ -246,7 +242,7 @@ object LJTest {
       val wallDelta = wallSpeed*world.time
       val wall1pos = wall1posInit + wall1norm*wallDelta
       val wall2pos = wall2posInit + wall2norm*wallDelta
-      setInteractions(sizeAsymmetry, wall1pos, wall2pos)
+      val Seq(wallA, wallB) = setInteractions(sizeAsymmetry, wall1pos, wall2pos)
       world.step(stepsPerIter)
       val cutoff = 1.9
       val neighbors = neighborList(atoms, volume, cutoff)
@@ -255,10 +251,18 @@ object LJTest {
       // ----------------
       // Force plot
       //
-      forceHistory.append2(world.time, averageWallForce())
+      val forceA = world.forceOnObject(wallA)
+      val forceB = world.forceOnObject(wallB)
+      val avgWallForce = (forceA.norm + forceB.norm) / 2.0
+      netWallForce += forceA + forceB
+      println("force A = "+forceA)
+      println("force B = "+forceB)
+      println("delta = "+(forceA+forceB))
+      println("## NET = "+netWallForce.norm)
+      forceHistory.append2(world.time, avgWallForce)
       forcePlot.registerLines("Data", forceHistory, java.awt.Color.BLACK)
       
-
+      
       // ----------------
       // Dislocations plot
       //
@@ -346,7 +350,7 @@ object LJTest {
         val y = atoms.map(_.pos.y).toArray
         val r = atoms.map(a => if (isType1(a.idx)) r1 else r2).toArray
         val (d5, d7) = dislocationPairs.unzip
-        val frame = FrameData(index=iter, time=world.time, temp=world.temperature(), natoms1=natoms1, force=averageWallForce(), x=x, y=y, r=r, dislocations=(d5.map(_.idx).toArray, d7.map(_.idx).toArray))
+        val frame = FrameData(index=iter, time=world.time, temp=world.temperature(), natoms1=natoms1, force=avgWallForce, x=x, y=y, r=r, dislocations=(d5.map(_.idx).toArray, d7.map(_.idx).toArray))
         kip.util.Util.writeObjectGz(filename, frame)
       }
     } // Simulation loop

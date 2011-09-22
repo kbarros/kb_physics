@@ -27,9 +27,9 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
       }
       
       for (a2 <- volume.atomsInRange(a1, cutoff)) {
-	if (a1.idx < a2.idx) {
+        if (a1.idx < a2.idx) {
           for (i1 <- a1.tag.inter2;
-               i2 <- i1.compatibleInteractions(a2.tag.inter2)) {
+              i2 <- i1.compatibleInteractions(a2.tag.inter2)) {
             ret += i1.potential(this, a1, i2, a2)
           }
         }
@@ -51,10 +51,12 @@ class World(var volume: Volume, var atoms: Seq[Atom], var integrator: Integrator
     (2.0/dof) * kineticEnergy()
   }
   
-  def forceOnObject(inter1: Interaction1): Vec3 = {
+  def forceOnObject(objectInters: Seq[Interaction1]): Vec3 = {
     val f = Vec3.zero.toMutable
-    for (a <- atoms)
-      inter1.accumForce(this, a, f)
+    for (a <- atoms;
+         i <- a.tag.inter1
+         if objectInters.contains(i))
+      i.accumForce(this, a, f)
     f
   }
   
