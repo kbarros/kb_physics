@@ -31,6 +31,10 @@ javacOptions ++= Seq(
   "-Xlint:unchecked"
 )
 
+
+// Plugin to generate jar file  
+seq(sbtassembly.Plugin.assemblySettings: _*)
+
 retrieveManaged := true
 
 // define the statements initially evaluated when entering 'console', 'console-quick', or 'console-project'
