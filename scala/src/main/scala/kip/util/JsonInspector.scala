@@ -18,21 +18,21 @@ case class JsonInspector(tree: Any) {
   
   def apply(key: Any): JsonInspector = {
     tree match {
-      case m: Map[Any,Any] => JsonInspector(m(key))
+      case m: Map[keyType,_] => JsonInspector(m(key.asInstanceOf[keyType]))
     }
   }
   
   def isEmpty: Boolean = {
     tree match {
-      case m: Map[Any, Any] => m.isEmpty
-      case l: List[Any] => l.isEmpty
+      case m: Map[_, _] => m.isEmpty
+      case l: List[_] => l.isEmpty
       case _ => false
     }
   }
   
   def ++(that: JsonInspector): JsonInspector = {
     (tree, that.tree) match {
-      case (m1: Map[Any, Any], m2: Map[Any, Any]) => JsonInspector(m1++m2)
+      case (m1: Map[_, _], m2: Map[_, _]) => JsonInspector(m1++m2)
     }
   }
   
