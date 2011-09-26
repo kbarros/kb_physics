@@ -3,6 +3,7 @@ import kip.md.Visualizer
 import kip.math.Vec3
 import kip.graphics.Bounds3d
 import java.awt.Color
+import scala.collection.mutable.ArrayBuffer
 
 object Analyzer extends App {
   if (args.size == 0) {
@@ -31,12 +32,24 @@ object Analyzer extends App {
   val bulkDislocHistory = new scikit.dataset.DynamicArray()
   var initDislocs = None: Option[Int]
 
+
   val dumpFiles = {
     val dfs = dir.listFiles().filter(_.getName.matches("""frame\d+\.gz"""))
     dfs.sortBy(df => """\d+""".r.findFirstIn(df.getName).get.toInt)
   }
+  
+  val fd0 = kip.util.Util.readObjectGz[FrameData](dumpFiles.head.getPath)
+  val fd1 = kip.util.Util.readObjectGz[FrameData](dumpFiles.last.getPath)
+  val rand = new util.Random(0)
+  val pathIndices = Seq.fill(100)(rand.nextInt(fd0.x.size)).distinct
+  val pathData: Seq[ArrayBuffer[Vec3]] = Seq.fill(pathIndices.size)(ArrayBuffer[Vec3]())
+  
   for (df <- dumpFiles) {
     val frameData = kip.util.Util.readObjectGz[FrameData](df.getPath)
+    
+    for ((i, j) <- pathIndices zipWithIndex) {
+      pathData(j) += Vec3(frameData.x(i), frameData.y(i), 0.01)
+    }
     
     forceHistory.append2(frameData.time, frameData.force)
     forcePlot.registerLines("Data", forceHistory, java.awt.Color.BLACK)
@@ -58,7 +71,7 @@ object Analyzer extends App {
   }
   
   ///////////////////////////////////
-  // Arrows
+  // Visualizer
   val viz = new Visualizer(sizew=1000, sizeh=500)
   viz.scene.translation = Vec3(0, 0, 1.1) // zoom in for improved movie frames
   val bounds = {
@@ -75,12 +88,12 @@ object Analyzer extends App {
     Bounds3d(Vec3.zero, Vec3(2*r1*cols1+2*off, layers*layerWidth+2*off, 0))
   }
   viz.setBounds(bounds)
-  val targetNumArrows = 1000
-  val fd0 = kip.util.Util.readObjectGz[FrameData](dumpFiles.head.getPath)
-  val fd1 = kip.util.Util.readObjectGz[FrameData](dumpFiles.last.getPath)
-  val rand = new util.Random(0)
+  
+  // ------
+  // Arrows
+  val targetNumArrows = 500
   val arrowIndices = Seq.fill(targetNumArrows)(rand.nextInt(fd0.x.size)).distinct
-  viz.arrowHeadSize = 1.7
+  viz.arrowHeadSize = 1.0
   viz.arrows = for (i <- arrowIndices) yield {
     val p0 = Vec3(fd0.x(i), fd0.y(i), 0)
     val p1 = Vec3(fd1.x(i), fd1.y(i), 0)
@@ -88,6 +101,13 @@ object Analyzer extends App {
     val del = (p0 - p1) * scale
     Visualizer.Arrow(from=p1+del, to=p1, normal=Vec3(0,0,1), color=(if (i < fd0.natoms1) Color.BLUE else Color.RED))
   }
+  
+  // ------
+  // Paths
+  viz.paths = for (pd <- pathData) yield {
+    Visualizer.Path(pts=pd.toSeq, color=Color.GREEN)
+  }
+  
   viz.display()
 
 }

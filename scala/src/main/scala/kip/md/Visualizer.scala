@@ -11,6 +11,7 @@ object Visualizer {
   case class Sphere(pt: Vec3, radius: Double, color: Color, resolution: Int = 2)
   case class Wall(norm: Vec3, pos: Vec3, color: Color)
   case class Arrow(from: Vec3, to: Vec3, normal: Vec3, color: Color)
+  case class Path(pts: Seq[Vec3], color: Color)
 }
 
 class Visualizer(sizew: Int = 600, sizeh: Int = 600) {
@@ -18,6 +19,7 @@ class Visualizer(sizew: Int = 600, sizeh: Int = 600) {
   var particles = Seq[Visualizer.Sphere]()
   var walls = Seq[Visualizer.Wall]()
   var arrows = Seq[Visualizer.Arrow]()
+  var paths = Seq[Visualizer.Path]()
   var bds = Bounds3d(Vec3(0,0,0), Vec3(1,1,1))
   var rasterString = ""
   var arrowHeadSize = 1.0
@@ -82,6 +84,13 @@ class Visualizer(sizew: Int = 600, sizeh: Int = 600) {
         val v2 = mid - t*(arrowHeadWidth)
         gfx.drawTriangles(v0, v1, v2)
       }
+      
+      gfx.gl.glLineWidth(2)
+      for (p <- paths) {
+        gfx.setColor(p.color)
+        gfx.drawLineStrip(p.pts: _*)
+      }
+      
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)
       val pixOffset = 4

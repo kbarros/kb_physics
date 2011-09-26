@@ -233,7 +233,6 @@ object LJTest {
     var netWallForce = Vec3.zero
     
     while (world.time < maxTime && !hasWrapped()) kip.util.Util.time("Iterating") {
-      println("iterating %g %d".format(world.time, maxTime))
       iter += 1
       
       // ----------------
@@ -255,10 +254,11 @@ object LJTest {
       val forceB = world.forceOnObject(wallB)
       val avgWallForce = (forceA.norm + forceB.norm) / 2.0
       netWallForce += forceA + forceB
-      println("force A = "+forceA)
-      println("force B = "+forceB)
-      println("delta = "+(forceA+forceB))
-      println("## NET = "+netWallForce.norm)
+//      println("force A = "+forceA)
+//      println("force B = "+forceB)
+//      println("avg force = "+avgWallForce)
+//      println("time = "+world.time)
+//      println("wall2pos = "+wall2pos)
       forceHistory.append2(world.time, avgWallForce)
       forcePlot.registerLines("Data", forceHistory, java.awt.Color.BLACK)
       
