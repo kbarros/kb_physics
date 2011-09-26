@@ -99,8 +99,7 @@ object Quantum extends App {
     
     val c = kpm.expansionCoefficients(de=1e-4, e => e*e)
     kpm.gradientExact(c, dH1)
-    
-    val r = kpm.randomVector()
+    val r = kpm.randomGaussianVector()
     kpm.functionAndGradient(r, c, dH2)
     
     println("exact  dH = "+dH1)

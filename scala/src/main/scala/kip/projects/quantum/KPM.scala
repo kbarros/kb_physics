@@ -159,6 +159,20 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
   }
   
+  def randomGaussianVector(): Dense[S] = {
+    val r  = dense(n, nrand)
+    r.fill((rand.nextGaussian() + I*rand.nextGaussian) / math.sqrt(2))
+    // normalizing random vectors may slightly improve accuracy
+//    for (j <- 0 until r.numCols) {
+//      val c = r(::, j).norm2.re
+//      for (i <- 0 until r.numRows) {
+//        r(i, j) *= math.sqrt(n / c) 
+//      }
+//    }
+//    println(r(::,0).norm2.re)
+    r
+  }
+  
   // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
   def momentsStochastic(r: Dense[S]): (Array[R], Dense[S], Dense[S]) = {
     val mu = Array.fill(order)(0d)
@@ -186,9 +200,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   def gradientExact(c: Array[R], grad: PackedSparse[S]) {
     grad.clear()
     
-    // TODO use sparse
     val Ht = H.tran
-    val Hd = Ht // H.toDense
     
     val u0 = eye(n).toDense  // U_{0}
     val u1 = Ht.toDense * 2  // U_{1}
@@ -203,7 +215,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
       // u1 = U_{m-1}(H)
       // u2 = U_m(H) = 2 H t1 - t0
       u2 := u0
-      u2.gemm(2, Hd, u1, -1)
+      u2.gemm(2, Ht, u1, -1)
       
       for ((i, j) <- grad.definedIndices) {
         grad(i, j) += m * c(m) * u1(i, j)
