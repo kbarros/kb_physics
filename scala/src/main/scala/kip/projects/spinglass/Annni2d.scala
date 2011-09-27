@@ -26,32 +26,36 @@ class Annni2dSim(params: Parameters) {
     spin(i) = if (random.nextDouble() < 0.5) 1 else -1
     field(i) = random.nextGaussian() 
     occupied(i) = if (random.nextDouble() < occupiedFraction) 1 else 0
+    if (occupied(i) == 0) spin(i) = 0
   }
 
   var T: Double = _
   var fieldMean: Double = _
   var fieldStrength: Double = _
+  var J = Array[Double](-1, 1)
+  
   readParams()
-    
+  
   def readParams() {
     T = params.fget("T")
     fieldMean = params.fget("Field mean")
     fieldStrength = params.fget("Field std. dev.")
+    J(1) = params.fget("J2 / J1")
   }
-    
-  def buildNeighbors(i: Int): (Array[Int], Array[Double]) = {
-    val displacements: Seq[(Int, Int, Double)] = Seq(
+  
+  def buildNeighbors(i: Int): (Array[Int], Array[Int]) = {
+    val displacements: Seq[(Int, Int, Int)] = Seq(
       // ferromagnetic nn
-      (+1, 0, -1),
-      (0, +1, -1),
-      (-1, 0, -1),
-      (0, -1, -1),
+      (+1, 0, 0),
+      (0, +1, 0),
+      (-1, 0, 0),
+      (0, -1, 0),
       
       // anti-ferrogment nnn
-      (+1, +1, +1),
-      (-1, +1, +1),
-      (+1, -1, +1),
-      (-1, -1, +1)
+      (+1, +1, 1),
+      (-1, +1, 1),
+      (+1, -1, 1),
+      (-1, -1, 1)
     )
     
     val y = i/L
@@ -63,16 +67,16 @@ class Annni2dSim(params: Parameters) {
     }).unzip
     (idx.toArray, strength.toArray)
   }
-    
-  val neighbors = Array.tabulate[(Array[Int], Array[Double])](N)(buildNeighbors _)
+  
+  val neighbors = Array.tabulate[(Array[Int], Array[Int])](N)(buildNeighbors _)
     
   // energy contribution between spin i and neighbors
   def neighborEnergy(i: Int): Double = { 
-    val (n, strength) = neighbors(i)
+    val (n, ji) = neighbors(i)
     var acc = 0d
     for (nidx <- 0 until n.size) {
       val j = n(nidx)
-      val a = strength(nidx)
+      val a = J(ji(nidx))
       acc += occupied(i)*occupied(j)*a*spin(i)*spin(j)
     }
     acc
@@ -124,6 +128,7 @@ class Annni2d extends Simulation {
     params.add("Occupied fraction", 1.0);
     
     params.addm("T",               new DoubleValue(0, 0, 10).withSlider());
+    params.addm("J2 / J1",         new DoubleValue(0.5, 0.1, 1).withSlider())
     params.addm("Field mean",      new DoubleValue(0, -10, 10).withSlider())
     params.addm("Field std. dev.", new DoubleValue(0, 0, 2).withSlider())
   }
