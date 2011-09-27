@@ -228,14 +228,13 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   
   def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
     grad.clear()
-    val rdag = r.dag
     
     val a2 = dense(n, nrand)
     val (mu, a0, a1) = momentsStochastic(r)
     
-    val b3 = dense(nrand, n)
-    val b2 = dense(nrand, n)
-    val b1 = rdag * c(order - 1)
+    val b3 = dense(n, nrand)
+    val b2 = dense(n, nrand)
+    val b1 = r * c(order - 1)
     
     // need special logic since (mu_1) is calculated exactly
     for (i <- 0 until grad.numRows) { grad(i, i) += c(1) }
@@ -250,15 +249,16 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     for (m <- order-1 to 1 by -1) {
       if (nrand > 1) {
         for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
-          grad(i, j) += (if (m > 1) 2 else 1) * b1(k, i) * a0(j, k) / nrand
+          grad(i, j) += (if (m > 1) 2 else 1) * b1(i, k).conj * a0(j, k) / nrand
         }
       }
       // equivalent to above, but much faster. b3 is used as a temporary vector.
       else {
-        if (m > 1) (b3 :=* (2, b1)) else (b3 := b1)
-        for (iter <- 0 until indicesI.length) {
-          grad.scalar.maddTo(false, b3.data, indicesI(iter), a0.data, indicesJ(iter), grad.data, iter)
-        }
+        println("fail; need to cplx conjugate b1 and iterate over nrand")
+//        if (m > 1) (b3 :=* (2, b1)) else (b3 := b1)
+//        for (iter <- 0 until indicesI.length) {
+//          grad.scalar.maddTo(false, b3.data, indicesI(iter), a0.data, indicesJ(iter), grad.data, iter)
+//        }
       }
       
       a2 := a1
@@ -268,8 +268,8 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
       
       b3 := b2
       b2 := b1
-      // b1 = beta_{m-1} = f(m-1) rdag + 2 b2 H - b3
-      b1 :=* (cp(m-1), rdag); b1.gemm(2, b2, H, 1); b1 -= b3;
+      // b1 = beta_{m-1} = c(m-1) r + 2 H b2 - b3
+      b1 :=* (cp(m-1), r); b1.gemm(2, H, b2, 1); b1 -= b3;
     }
     
     (c, mu).zipped.map(_*_).sum
