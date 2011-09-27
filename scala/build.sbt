@@ -7,8 +7,15 @@ version := "1.0"
 // scala version to use for building src
 scalaVersion := "2.9.1"
 
-// scala version for building project definition ??
+// search subdirectories recursively for unmanaged libraries
+unmanagedJars in Compile <++= unmanagedBase map { ub =>
+  (ub ** "*.jar").classpath
+}
 
+resolvers ++= Seq(
+  "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots",
+  "download.java.net" at "http://download.java.net/maven/2"
+)
 
 libraryDependencies ++= Seq(
   "com.twitter" % "json" % "2.1.3",
@@ -18,11 +25,6 @@ libraryDependencies ++= Seq(
   "org.scala-lang" % "jline" % "2.9.1"
 )
 
-resolvers ++= Seq(
-  "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots",
-  "download.java.net" at "http://download.java.net/maven/2"
-)
-
 scalacOptions ++= Seq(
   "-deprecation", "-unchecked"
 )
@@ -30,7 +32,6 @@ scalacOptions ++= Seq(
 javacOptions ++= Seq(
   "-Xlint:unchecked"
 )
-
 
 // Plugin to generate jar file  
 seq(sbtassembly.Plugin.assemblySettings: _*)
