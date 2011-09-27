@@ -232,9 +232,9 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     val a2 = dense(n, nrand)
     val (mu, a0, a1) = momentsStochastic(r)
     
-    val b3 = dense(n, nrand)
     val b2 = dense(n, nrand)
-    val b1 = r * c(order - 1)
+    val b1 = dense(n, nrand)
+    val b0 = r * c(order - 1)
     
     // need special logic since (mu_1) is calculated exactly
     for (i <- 0 until grad.numRows) { grad(i, i) += c(1) }
@@ -246,10 +246,13 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
       (i.toArray, j.toArray)
     }
     
-    for (m <- order-1 to 1 by -1) {
+    for (m <- order-2 to 0 by -1) {
+      // a0 = alpha_{m}
+      // b0 = beta_{m}
+
       if (nrand > 1) {
         for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
-          grad(i, j) += (if (m > 1) 2 else 1) * b1(i, k).conj * a0(j, k) / nrand
+          grad(i, j) += (if (m == 0) 1 else 2) * b0(i, k).conj * a0(j, k) / nrand
         }
       }
       // equivalent to above, but much faster. b3 is used as a temporary vector.
@@ -262,14 +265,11 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
       }
       
       a2 := a1
-      a1 := a0
-      // a0 = alpha_{m-2} = 2 H a1 - a2
-      a0 := a2; a0.gemm(2, H, a1, -1)
-      
-      b3 := b2
       b2 := b1
-      // b1 = beta_{m-1} = c(m-1) r + 2 H b2 - b3
-      b1 :=* (cp(m-1), r); b1.gemm(2, H, b2, 1); b1 -= b3;
+      a1 := a0
+      b1 := b0
+      a0 := a2; a0.gemm(2, H, a1, -1)                   // a0 = 2 H a1 - a2 
+      b0 :=* (cp(m), r); b0.gemm(2, H, b1, 1); b0 -= b2 // b0 = c(m) r + 2 H b1 - b2
     }
     
     (c, mu).zipped.map(_*_).sum
