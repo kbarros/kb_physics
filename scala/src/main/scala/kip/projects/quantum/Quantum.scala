@@ -309,7 +309,7 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
         val j = matrixIndex(sp2, x, y)
         dCoupling += dH(i, j) * pauli(pauliIndex(sp1, sp2, d))
       }
-      require(math.abs(dCoupling.im) < 1e-10, "Imaginary part of field derivative non-zero")
+      require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero")
       dS(fieldIndex(d, x, y)) = -J_eff * dCoupling.re
     }
     

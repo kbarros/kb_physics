@@ -23,7 +23,7 @@ object KPM {
   }
   
   def plotLines(plot: Plot, data: (Array[R], Array[R]), name: String = "data", color: java.awt.Color = java.awt.Color.BLACK) {
-    val pts = new scikit.dataset.PointSet(data._1, data._2)
+    val pts = new scikit.dataset.PointSet(data._1.map(_.toDouble), data._2.map(_.toDouble))
     plot.registerLines(name, pts, color)
   }
   
@@ -50,10 +50,10 @@ object KPM {
   }
   
   // \int dx x^{moment} y(x) 
-  def integrate(xs: Array[Double], ys: Array[Double], moment: Int): Array[Double] = {
+  def integrate(xs: Array[R], ys: Array[R], moment: Int): Array[R] = {
     require(xs.size >= 2 && xs.size == ys.size)
     require((1 until xs.size).forall(i => xs(i-1) < xs(i)))
-    xs.indices.toArray.foldMapLeft(0d) { (acc, i) =>
+    xs.indices.toArray.foldMapLeft(0: R) { (acc, i) =>
       val x0 = if (i > 0)         xs(i-1) else xs(i)
       val x2 = if (i < xs.size-1) xs(i+1) else xs(i)
       val x = 0.5*(x0 + x2)
@@ -63,16 +63,16 @@ object KPM {
   }
   
   // \int dx x^{moment} \sum \delta(x - x_i)
-  def integrateDeltas(xs: Array[Double], deltas: Array[Double], moment: Int): Array[Double] = {
+  def integrateDeltas(xs: Array[R], deltas: Array[R], moment: Int): Array[R] = {
     require(xs.size >= 2)
     require((1 until xs.size).forall(i => xs(i-1) < xs(i)))
     require((1 until deltas.size).forall(i => deltas(i-1) <= deltas(i)))
     require(deltas.head >= xs.head && deltas.last <= xs.last)
-    val ret = new Array[Double](xs.length)
+    val ret = new Array[R](xs.length)
     var j = 0
     var acc = 0d
     for (i <- xs.indices) {
-      val binEnd = if (i < xs.size-1) avg(xs(i), xs(i+1)) else xs(i)
+      val binEnd: R = if (i < xs.size-1) avg(xs(i), xs(i+1)) else xs(i)
       while (j < deltas.size && deltas(j) <= binEnd) {
         acc += math.pow(deltas(j), moment)
         j += 1
@@ -100,9 +100,9 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   
   // Coefficients c_m of linear combination of moments for weight calculation
   //   F = \sum mu_m c_m = \int rho(e) fn(e)
-  def expansionCoefficients(de: Double, fn: Double => Double): Array[Double] = {
+  def expansionCoefficients(de: R, fn: R => R): Array[R] = {
     import math._
-    val ret = Array.fill[Double](order)(0d)
+    val ret = Array.fill[R](order)(0)
     for (e <- -1.0+de to 1.0-de by de) {
       val t = KPM.chebyshevArray(e, order)
       val f = fn(e) / (Pi * sqrt(1 - e*e))
@@ -126,7 +126,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   }
   
   def momentsExact(): Array[R] = {
-    val ret = Array.fill(order)(0d)
+    val ret = Array.fill[R](order)(0)
     
     // TODO: test with sparse
     val Hd = H // H.toDense
@@ -175,7 +175,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   
   // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
   def momentsStochastic(r: Dense[S]): (Array[R], Dense[S], Dense[S]) = {
-    val mu = Array.fill(order)(0d)
+    val mu = Array.fill[R](order)(0)
     mu(0) = n                   // Tr[T_0[H]] = Tr[1]
     mu(1) = H.trace.re          // Tr[T_1[H]] = Tr[H]
     
@@ -238,7 +238,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     
     // need special logic since (mu_1) is calculated exactly
     for (i <- 0 until grad.numRows) { grad(i, i) += c(1) }
-    def cp(m: Int) = if (m == 1) 0d else c(m)
+    def cp(m: Int): R = if (m == 1) 0 else c(m)
     
     // cache defined indices for speed
     val (indicesI, indicesJ) = {
@@ -255,13 +255,12 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
           grad(i, j) += (if (m == 0) 1 else 2) * b0(i, k).conj * a0(j, k) / nrand
         }
       }
-      // equivalent to above, but much faster. b3 is used as a temporary vector.
+      // equivalent to above, but much faster. b2 is used as a temporary vector.
       else {
-        println("fail; need to cplx conjugate b1 and iterate over nrand")
-//        if (m > 1) (b3 :=* (2, b1)) else (b3 := b1)
-//        for (iter <- 0 until indicesI.length) {
-//          grad.scalar.maddTo(false, b3.data, indicesI(iter), a0.data, indicesJ(iter), grad.data, iter)
-//        }
+        if (m == 0) (b2 := b0) else (b2 :=* (2, b0))
+        for (iter <- 0 until indicesI.length) {
+          grad.scalar.maddTo(true, b2.data, indicesI(iter), a0.data, indicesJ(iter), grad.data, iter)
+        }
       }
       
       a2 := a1
