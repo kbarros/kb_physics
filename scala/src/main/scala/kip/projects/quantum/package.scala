@@ -3,7 +3,7 @@ package kip.projects
 import smatrix._
 
 package object quantum {
-  type S = Scalar.ComplexDbl
+  type S = Scalar.ComplexFlt
   type R = S#Raw
-  val ctor = Constructors.complexDbl
+  val ctor = Constructors.complexFlt
 }
