@@ -22,6 +22,7 @@ import jcuda.runtime.JCuda.cudaMalloc
 import jcuda.runtime.JCuda.cudaMemcpy
 import jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost
 import jcuda.runtime.cudaMemcpyKind.cudaMemcpyHostToDevice
+import jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToDevice
 import jcuda.runtime.JCuda
 import jcuda.Pointer
 import jcuda.Sizeof
@@ -116,5 +117,9 @@ class JCudaWorld() {
   
   def cpyDeviceToHost(data_h: Any, data_d: Pointer) {
     cudaMemcpy(pointerTo(data_h), data_d, storageBytes(data_h), cudaMemcpyDeviceToHost)
+  }
+  
+  def cpyDeviceToDevice(d1: Pointer, d2: Pointer, nbytes: Int) {
+    cudaMemcpy(d1, d2, nbytes, cudaMemcpyDeviceToDevice)
   }
 }

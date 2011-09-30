@@ -57,9 +57,9 @@ object Quantum extends App {
     val kpm = new KPM(H, order=100, nrand=1)
     val range = kpm.range
 
-      val plot = KPM.mkPlot("Integrated density of states")
-      KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
-      KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx", java.awt.Color.BLACK)
+    val plot = KPM.mkPlot("Integrated density of states")
+    KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
+    KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx", java.awt.Color.BLACK)
   }
   
   def testDerivative() {
