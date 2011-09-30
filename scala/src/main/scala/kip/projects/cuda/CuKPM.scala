@@ -1,128 +1,75 @@
 package kip.projects.cuda
 
-import kip.util.Util.{time, notime}
-import kip.math.Math._
-import kip.enrich._
-import smatrix._
+import jcuda.cuComplex.cuCmplx
+import jcuda.jcusparse.JCusparse.cusparseCcsrmm
+import jcuda.jcusparse.JCusparse.cusparseCdotci
+import jcuda.jcusparse.JCusparse.cusparseCreate
+import jcuda.jcusparse.JCusparse.cusparseCreateMatDescr
+import jcuda.jcusparse.JCusparse.cusparseSetMatIndexBase
+import jcuda.jcusparse.JCusparse.cusparseSetMatType
+import jcuda.jcusparse.JCusparse.cusparseXcoo2csr
+import jcuda.jcusparse.cusparseIndexBase.CUSPARSE_INDEX_BASE_ZERO
+import jcuda.jcusparse.cusparseMatrixType.CUSPARSE_MATRIX_TYPE_GENERAL
+import jcuda.jcusparse.cusparseOperation.CUSPARSE_OPERATION_NON_TRANSPOSE
+import jcuda.jcusparse.cusparseHandle
+import jcuda.jcusparse.cusparseMatDescr
+
 import kip.projects.quantum._
+
+import smatrix._
 import Constructors.complexFlt._
 import Scalar.ComplexFlt
 
-import jcuda.jcusparse.JCusparse._
-import jcuda.jcusparse.cusparseIndexBase._;
-import jcuda.jcusparse.cusparseMatrixType._;
-import jcuda.jcusparse.cusparseOperation._
-import jcuda.runtime.JCuda._;
-import jcuda.runtime.cudaMemcpyKind._;
-import jcuda._;
-import jcuda.jcusparse._;
-import jcuda.runtime.JCuda;
-import jcuda.cuComplex._
-  
-import jcuda.driver.CUdevice_attribute._;
-import jcuda.driver.JCudaDriver._;
-import java.util._;
-
-import jcuda.driver._;
 
 
 object CuKPM extends App {
-  // Enable exceptions and subsequently omit error checks in this sample
-  JCusparse.setExceptionsEnabled(true);
-  JCuda.setExceptionsEnabled(true);
-
-  deviceProperties()
-  
-  // Initialize JCusparse library
-  val handle = new cusparseHandle();
-  cusparseCreate(handle);
-
-  // Create and set up matrix descriptor
-  val descra = new cusparseMatDescr();
-  cusparseCreateMatDescr(descra);
-  cusparseSetMatType(descra, CUSPARSE_MATRIX_TYPE_GENERAL); // CUSPARSE_MATRIX_TYPE_HERMITIAN
-  cusparseSetMatIndexBase(descra, CUSPARSE_INDEX_BASE_ZERO);
+  val cworld = new JCudaWorld()
+  cworld.printDeviceProperties()
   
   val H = sparse(2, 2)
   H(0, 0) = 1
   H(0, 1) = I
   H(1, 0) = 10
   H(1, 1) = 20*I
-  val ckpm = new CuKPM(H.toPacked, null, r = col(1, 2), nrand=2, 0)
-  
-    
-  def deviceProperties() {
-    cuInit(0);
-
-    // Obtain the number of devices
-    val deviceCountArray = Array(0)
-    cuDeviceGetCount(deviceCountArray);
-    val deviceCount = deviceCountArray(0)
-    System.out.println("Found " + deviceCount + " devices");
-
-    for (i <- 0 until deviceCount) {
-      val device = new CUdevice();
-      cuDeviceGet(device, i);
-
-      // Obtain the device name
-      val deviceName = new Array[Byte](1024)
-      cuDeviceGetName(deviceName, deviceName.length, device);
-      val name = deviceName.map(_.toChar).mkString
-
-      // Obtain the compute capability
-      val majorArray = Array(0);
-      val minorArray = Array(0);
-      cuDeviceComputeCapability(
-          majorArray, minorArray, device);
-      val major = majorArray(0);
-      val minor = minorArray(0);
-
-      println("Device " + i + ": " + name + " with Compute Capability " + major + "." + minor);
-    }    
-  }
+  val r = fromRows(row(1, 0), row(0, 1))
+  val ckpm = new CuKPM(cworld, H.toPacked, null, r, nrand=2, 0)
 }
 
-class CuKPM(val H: PackedSparse[ComplexFlt], val c: Array[Float], val r: Dense[S], val nrand: Int, val seed: Int = 0) {
+
+class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val c: Array[Float], val r: Dense[S], val nrand: Int, val seed: Int = 0) {
   val n = H.numRows
-  import CuKPM._
+   
+  // Initialize JCusparse library
+  val handle = new cusparseHandle();
+  cusparseCreate(handle);
   
-  val SizeofComplex = 2 * Sizeof.FLOAT
+  // Create and set up matrix descriptor
+  val descra = new cusparseMatDescr();
+  cusparseCreateMatDescr(descra);
+  cusparseSetMatType(descra, CUSPARSE_MATRIX_TYPE_GENERAL); // CUSPARSE_MATRIX_TYPE_HERMITIAN
+  cusparseSetMatIndexBase(descra, CUSPARSE_INDEX_BASE_ZERO);
+
   val (is, js) = H.definedIndices.unzip
   val nnz = is.size // number of non-zero elements
   println("is " + is)
   println("js " + js)
   // Allocate and copy COO matrix
-  val cooRowIndex = new Pointer();
-  val cooColIndex = new Pointer();
-  val cooVal = new Pointer();
-  cudaMalloc(cooRowIndex, nnz * Sizeof.INT);
-  cudaMalloc(cooColIndex, nnz * Sizeof.INT);
-  cudaMalloc(cooVal,      nnz * SizeofComplex);
-  cudaMemcpy(cooRowIndex, Pointer.to(is.toArray),    nnz * Sizeof.INT,    cudaMemcpyHostToDevice);
-  cudaMemcpy(cooColIndex, Pointer.to(js.toArray),    nnz * Sizeof.INT,    cudaMemcpyHostToDevice);
-  cudaMemcpy(cooVal,      Pointer.to(H.data.buffer), nnz * SizeofComplex, cudaMemcpyHostToDevice);
-//  cudaMemcpy(cooVal,      Pointer.to(Array[Float](1, 0, 0, 1)), nnz * SizeofComplex, cudaMemcpyHostToDevice);
+  val cooRowIndex = cworld.allocDeviceArray(is.toArray)
+  val cooColIndex = cworld.allocDeviceArray(js.toArray)
+  val cooVal      = cworld.allocDeviceArray(H.data.buffer)
   
   // Convert to CSR matrix
-  val csrRowPtr = new Pointer();
-  cudaMalloc(csrRowPtr, (n+1)*Sizeof.INT);
+  val csrRowPtr = cworld.allocDeviceArray(new Array[Int](n+1))
   cusparseXcoo2csr(handle, cooRowIndex, nnz, n, csrRowPtr, CUSPARSE_INDEX_BASE_ZERO);
   
   // Dense random vectors
   require(r.numRows == n && r.numCols == nrand)
-  val r_d = new Pointer();
-  cudaMalloc(r_d, n*nrand*SizeofComplex);
-  cudaMemcpy(r_d, Pointer.to(r.data.buffer), n*nrand*SizeofComplex, cudaMemcpyHostToDevice)
-
-  val yhost = Array.fill[Float](n*nrand*2)(0)
-  yhost(5) = 1
-//  yhost(0) = 1
-  val y = new Pointer();
-  val z = new Pointer();
-  cudaMalloc(y, n*nrand*SizeofComplex);
-  cudaMalloc(z, n*nrand*SizeofComplex);
-  cudaMemcpy(y, Pointer.to(yhost), n*nrand*SizeofComplex, cudaMemcpyHostToDevice)
-  cudaMemset(z, 0, n*nrand*SizeofComplex);
+  val r_d = cworld.allocDeviceArray(r.data.buffer)
+  val y_h = Array.fill[Float](n*nrand*2)(0)
+  val z_h = Array.fill[Float](n*nrand*2)(0)
+  y_h(5) = 1
+  val y_d = cworld.allocDeviceArray(y_h)
+  val z_d = cworld.allocDeviceArray(z_h)
   
   // Sparse-dense matrix multiply
   cusparseCcsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -131,15 +78,22 @@ class CuKPM(val H: PackedSparse[ComplexFlt], val c: Array[Float], val r: Dense[S
                  descra, cooVal, csrRowPtr, cooColIndex, // A matrix
                  r_d, n, // (B, B.numRows)
                  cuCmplx(0, 0), // beta
-                 z, n); // (C, C.numRows)
+                 z_d, n); // (C, C.numRows)
 
-//  val ret = new Array[Float](n*nrand*2)
+  // Sparse-dense dot product
+  val vecIdxs_d = cworld.allocDeviceArray(Array.tabulate[Int](n*nrand)(identity))
+  val dotRes = cuCmplx(0, 0)
+  cusparseCdotci(handle,
+                 n*nrand, // nnz for dense matrix
+                 z_d, vecIdxs_d, // "sparse" vector and (full) indices
+                 z_d, // dense vector
+                 dotRes, // result
+                 CUSPARSE_INDEX_BASE_ZERO // idxBase
+                 )
+  println("dot product = "+dotRes)
+  
   val ret = dense(n, nrand)
-  cudaMemcpy(Pointer.to(ret.data.buffer), r_d, n*nrand*SizeofComplex, cudaMemcpyDeviceToHost);
-
-//  for (i <- 0 until n*nrand) {
-//    println(ret(2*i) + ret(2*i+1)*I)
-//  }
+  cworld.cpyDeviceToHost(ret.data.buffer, z_d)
   println(ret)
   
   /*
