@@ -1,13 +1,10 @@
 package kip.projects.cuda
 
+import jcuda.cuComplex
+import jcuda.Pointer
+import jcuda.Sizeof
 import jcuda.cuComplex.cuCmplx
-import jcuda.jcusparse.JCusparse.cusparseCcsrmm
-import jcuda.jcusparse.JCusparse.cusparseCdotci
-import jcuda.jcusparse.JCusparse.cusparseCreate
-import jcuda.jcusparse.JCusparse.cusparseCreateMatDescr
-import jcuda.jcusparse.JCusparse.cusparseSetMatIndexBase
-import jcuda.jcusparse.JCusparse.cusparseSetMatType
-import jcuda.jcusparse.JCusparse.cusparseXcoo2csr
+import jcuda.jcusparse.JCusparse._
 import jcuda.jcusparse.cusparseIndexBase.CUSPARSE_INDEX_BASE_ZERO
 import jcuda.jcusparse.cusparseMatrixType.CUSPARSE_MATRIX_TYPE_GENERAL
 import jcuda.jcusparse.cusparseOperation.CUSPARSE_OPERATION_NON_TRANSPOSE
@@ -26,19 +23,37 @@ object CuKPM extends App {
   val cworld = new JCudaWorld()
   cworld.printDeviceProperties()
   
-  val H = sparse(2, 2)
-  H(0, 0) = 1
-  H(0, 1) = I
-  H(1, 0) = 10
-  H(1, 1) = 20*I
-  val r = fromRows(row(1, 0), row(0, 1))
-  val ckpm = new CuKPM(cworld, H.toPacked, null, r, nrand=2, 0)
+  val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+  val H = q.matrix
+  require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
+  println("N = "+H.numRows)
+
+  val order = 100
+  val nrand = 2000
+  val kpm = new KPM(H, order, nrand)
+  val r = kpm.randomVector()
+  
+//  kpm.momentsStochastic(r)
+  
+  val ckpm = new CuKPM(cworld, H, order, null, nrand, seed=0)
+  val mu1 = ckpm.momentsStochastic(r)
+  val (mu2, _, _) = kpm.momentsStochastic(r)
+  
+  for (m <- 0 until order) {
+    println("%d = %f : %f".format(m, mu1(m), mu2(m)))
+  }
+//  val range = kpm.range
+//  val plot = KPM.mkPlot("Integrated density of states")
+//  KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
+//  KPM.plotLines(plot, (kpm.range, KPM.integrate(range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx", java.awt.Color.BLACK)
+
 }
 
 
-class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val c: Array[Float], val r: Dense[S], val nrand: Int, val seed: Int = 0) {
+class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: Int, val c: Array[Float], val nrand: Int, val seed: Int = 0) {
   val n = H.numRows
-   
+  val vecBytes = n*nrand*2*Sizeof.FLOAT
+  
   // Initialize JCusparse library
   val handle = new cusparseHandle();
   cusparseCreate(handle);
@@ -49,52 +64,105 @@ class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val c: Arra
   cusparseSetMatType(descra, CUSPARSE_MATRIX_TYPE_GENERAL); // CUSPARSE_MATRIX_TYPE_HERMITIAN
   cusparseSetMatIndexBase(descra, CUSPARSE_INDEX_BASE_ZERO);
 
+  // Matrix representation on device
   val (is, js) = H.definedIndices.unzip
   val nnz = is.size // number of non-zero elements
-  println("is " + is)
-  println("js " + js)
-  // Allocate and copy COO matrix
   val cooRowIndex = cworld.allocDeviceArray(is.toArray)
   val cooColIndex = cworld.allocDeviceArray(js.toArray)
   val cooVal      = cworld.allocDeviceArray(H.data.buffer)
-  
+  val csrRowPtr   = cworld.allocDeviceArray(new Array[Int](n+1))
   // Convert to CSR matrix
-  val csrRowPtr = cworld.allocDeviceArray(new Array[Int](n+1))
   cusparseXcoo2csr(handle, cooRowIndex, nnz, n, csrRowPtr, CUSPARSE_INDEX_BASE_ZERO);
   
-  // Dense random vectors
-  require(r.numRows == n && r.numCols == nrand)
-  val r_d = cworld.allocDeviceArray(r.data.buffer)
-  val y_h = Array.fill[Float](n*nrand*2)(0)
-  val z_h = Array.fill[Float](n*nrand*2)(0)
-  y_h(5) = 1
-  val y_d = cworld.allocDeviceArray(y_h)
-  val z_d = cworld.allocDeviceArray(z_h)
-  
-  // Sparse-dense matrix multiply
-  cusparseCcsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                 n, nrand, n, // (A.numRows, B.numCols, A.numCols)
-                 cuCmplx(1, 0), // alpha
-                 descra, cooVal, csrRowPtr, cooColIndex, // A matrix
-                 r_d, n, // (B, B.numRows)
-                 cuCmplx(0, 0), // beta
-                 z_d, n); // (C, C.numRows)
-
-  // Sparse-dense dot product
+  // Array of indices for dot product
   val vecIdxs_d = cworld.allocDeviceArray(Array.tabulate[Int](n*nrand)(identity))
-  val dotRes = cuCmplx(0, 0)
-  cusparseCdotci(handle,
-                 n*nrand, // nnz for dense matrix
-                 z_d, vecIdxs_d, // "sparse" vector and (full) indices
-                 z_d, // dense vector
-                 dotRes, // result
-                 CUSPARSE_INDEX_BASE_ZERO // idxBase
-                 )
-  println("dot product = "+dotRes)
   
-  val ret = dense(n, nrand)
-  cworld.cpyDeviceToHost(ret.data.buffer, z_d)
-  println(ret)
+  // Array storage on device
+  val empty = new Array[Float](n*nrand*2)
+  val r_d  = cworld.allocDeviceArray(empty)
+  var a0_d = cworld.allocDeviceArray(empty)
+  var a1_d = cworld.allocDeviceArray(empty)
+  var a2_d = cworld.allocDeviceArray(empty)
+  
+  def cgemmH(alpha: cuComplex, b: Pointer, beta: cuComplex, c: Pointer) {
+    // Sparse-dense matrix multiply
+    cusparseCcsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+        n, nrand, n, // (A.numRows, B.numCols, A.numCols)
+        alpha,
+        descra, cooVal, csrRowPtr, cooColIndex, // A matrix
+        b, n, // (B, B.numRows)
+        beta,
+        c, n) // (C, C.numRows)
+  }
+  
+  def dotc(x: Pointer, y: Pointer): cuComplex = {
+    val ret = cuCmplx(0, 0)
+    cusparseCdotci(handle,
+        n*nrand, // nnz for dense matrix
+        x, vecIdxs_d, // "sparse" vector and (full) indices
+        y, // dense vector
+        ret, // result
+        CUSPARSE_INDEX_BASE_ZERO // idxBase
+        )
+    ret
+  }
+  
+  val neg_one = cuCmplx(-1, 0)
+  val zero = cuCmplx(0, 0)
+  val one  = cuCmplx(1, 0)
+  val two  = cuCmplx(2, 0)
+  
+  // final two vectors are stored in a0 and a1
+  def momentsStochastic(r: Dense[S]): Array[R] = {
+    require(r.numRows == n && r.numCols == nrand)
+
+    val mu = Array.fill(order)(0f)
+    mu(0) = n                   // Tr[T_0[H]] = Tr[1]
+    mu(1) = H.trace.re          // Tr[T_1[H]] = Tr[H]
+
+    cworld.cpyHostToDevice(r_d, r.data.buffer)
+    
+    cworld.cpyDeviceToDevice(a0_d, r_d, vecBytes) // a1 = T_0[H] |r> = 1 |r>
+    cgemmH(alpha=one, b=r_d, beta=zero, a1_d)     // a2 = T_1[H] |r> = H |r>
+    
+    for (m <- 2 to order-1) {
+      cworld.cpyDeviceToDevice(a2_d, a0_d, vecBytes)
+      cgemmH(alpha=two, b=a1_d, beta=neg_one, a2_d) // a2 <- alpha_m = T_m[H] r = 2 H a1 - a0 
+      
+      mu(m) = dotc(r_d, a2_d).x / nrand
+
+      val temp = a0_d
+      a0_d = a1_d
+      a1_d = a2_d
+      a2_d = temp
+    }
+    
+    mu
+  }
+  
+//  // Dense random vectors
+//  val r_d = cworld.allocDeviceArray(r.data.buffer)
+//  val y_h = Array.fill[Float](n*nrand*2)(0)
+//  val z_h = Array.fill[Float](n*nrand*2)(0)
+//  y_h(5) = 1
+//  val y_d = cworld.allocDeviceArray(y_h)
+//  val z_d = cworld.allocDeviceArray(z_h)
+//
+//  // Sparse-dense dot product
+//  val vecIdxs_d = cworld.allocDeviceArray(Array.tabulate[Int](n*nrand)(identity))
+//  val dotRes = cuCmplx(0, 0)
+//  cusparseCdotci(handle,
+//                 n*nrand, // nnz for dense matrix
+//                 z_d, vecIdxs_d, // "sparse" vector and (full) indices
+//                 z_d, // dense vector
+//                 dotRes, // result
+//                 CUSPARSE_INDEX_BASE_ZERO // idxBase
+//                 )
+//  println("dot product = "+dotRes)
+//  
+//  val ret = dense(n, nrand)
+//  cworld.cpyDeviceToHost(ret.data.buffer, z_d)
+//  println(ret)
   
   /*
   // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
