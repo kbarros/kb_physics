@@ -20,6 +20,7 @@ import jcuda.driver.CUmodule
 import jcuda.jcusparse.JCusparse
 import jcuda.runtime.JCuda.cudaMalloc
 import jcuda.runtime.JCuda.cudaMemcpy
+import jcuda.runtime.JCuda.cudaMemset
 import jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost
 import jcuda.runtime.cudaMemcpyKind.cudaMemcpyHostToDevice
 import jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToDevice
@@ -111,6 +112,10 @@ class JCudaWorld() {
     data_d
   }
   
+  def clearDeviceArray(data_d: Pointer, nbytes: Int) {
+    cudaMemset(data_d, 0, nbytes)
+  }
+  
   def cpyHostToDevice(data_d: Pointer, data_h: Any) {
     cudaMemcpy(data_d, pointerTo(data_h), storageBytes(data_h), cudaMemcpyHostToDevice)
   }
@@ -119,7 +124,7 @@ class JCudaWorld() {
     cudaMemcpy(pointerTo(data_h), data_d, storageBytes(data_h), cudaMemcpyDeviceToHost)
   }
   
-  def cpyDeviceToDevice(d1: Pointer, d2: Pointer, nbytes: Int) {
-    cudaMemcpy(d1, d2, nbytes, cudaMemcpyDeviceToDevice)
+  def cpyDeviceToDevice(dst_d: Pointer, src_d: Pointer, nbytes: Int) {
+    cudaMemcpy(dst_d, src_d, nbytes, cudaMemcpyDeviceToDevice)
   }
 }
