@@ -91,7 +91,7 @@ __global__ void add(int n, float *a, float *b, float *sum)
 
     // Call the kernel function.
     val blockSizeX = 256;
-    val gridSizeX = Math.ceil(numElements.toDouble / blockSizeX).toInt;
+    val gridSizeX = math.ceil(numElements.toDouble / blockSizeX).toInt;
     cuLaunchKernel(function,
       gridSizeX, 1, 1, // Grid dimension
       blockSizeX, 1, 1, // Block dimension
@@ -110,7 +110,7 @@ __global__ void add(int n, float *a, float *b, float *sum)
     var passed = true;
     for (i <- 0 until numElements; if passed) {
       val expected = i + i;
-      if (Math.abs(hostOutput(i) - expected) > 1e-5) {
+      if (math.abs(hostOutput(i) - expected) > 1e-5) {
         println(
           "At index " + i + " found " + hostOutput(i) +
             " but expected " + expected);
