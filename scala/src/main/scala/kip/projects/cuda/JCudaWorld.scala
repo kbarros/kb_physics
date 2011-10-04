@@ -27,12 +27,14 @@ import jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToDevice
 import jcuda.runtime.JCuda
 import jcuda.Pointer
 import jcuda.Sizeof
+import jcuda.driver.JCudaDriver
 
 
 class JCudaWorld() {
   cuInit(0)
   JCusparse.setExceptionsEnabled(true);
   JCuda.setExceptionsEnabled(true);
+  JCudaDriver.setExceptionsEnabled(true);
 
   val device = new CUdevice();
   cuDeviceGet(device, 0);
