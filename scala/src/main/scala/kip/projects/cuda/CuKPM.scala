@@ -39,6 +39,8 @@ object CuKPM extends App {
   
   val c = kpm.expansionCoefficients(de=1e-4, e => e)
   val dH = H.duplicate
+  
+  kpm.functionAndGradient(r, c, dH)
   ckpm.functionAndGradient(r, c, dH)
   
 //  for (m <- 0 until order) {
@@ -143,9 +145,9 @@ class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: 
   
   def scaleVector(alpha: S#A, src_d: Pointer, dst_d: Pointer) {
     cworld.cpyDeviceToDevice(dst_d, src_d, vecBytes)
-    cublasCscal(n*nrand, // number of elemens
+    cublasCscal(n*nrand, // number of elements
                 cuCmplx(alpha.re, alpha.im),
-                dst_d, 0)
+                dst_d, 1)
   }
   
   val neg_one = cuCmplx(-1, 0)
@@ -221,20 +223,13 @@ class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: 
       cgemmH(alpha=two, b=b1_d, beta=neg_one, b0_d) // b0 := 2 H b1 - b2
       cublasCaxpy(n*nrand,                          // b0 += c(m) r
                   cuCmplx(cp(m), 0),
-                  r_d, 0,
-                  b0_d, 0)
+                  r_d, 1,
+                  b0_d, 1)
     }
     
     cworld.cpyDeviceToHost(gradVal_h, gradVal_d)
     for (idx <- 0 until nnz) {
       grad(dis(idx), djs(idx)) += gradVal_h(2*idx+0) + I*gradVal_h(2*idx+1)
-    }
-    
-    val atest = new Array[Float](2*n*nrand)
-    cworld.cpyDeviceToHost(atest, a1_d)
-    println("PRINTING: ")
-    for (i <- 0 until 5) {
-      println("%s %s".format(atest(2*i+0) + I*atest(2*i+1), r(i, 0))) 
     }
     
     (c, mu).zipped.map(_*_).sum
