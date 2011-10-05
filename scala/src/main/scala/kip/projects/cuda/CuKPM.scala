@@ -4,6 +4,7 @@ import jcuda.cuComplex
 import jcuda.Pointer
 import jcuda.Sizeof
 import jcuda.cuComplex.cuCmplx
+import jcuda.driver.JCudaDriver._
 import jcuda.jcublas.JCublas._
 import jcuda.jcusparse.JCusparse._
 import jcuda.jcusparse.cusparseIndexBase.CUSPARSE_INDEX_BASE_ZERO
@@ -22,16 +23,15 @@ object CuKPM extends App {
   val cworld = new JCudaWorld()
   cworld.printDeviceProperties()
   
-  val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+  val q = new Quantum(w=20, h=20, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
   val H = q.matrix
   require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
   println("N = "+H.numRows)
 
-  val order = 5
-  val nrand = 20
+  val order = 500
+  val nrand = 6
   val kpm = new KPM(H, order, nrand)
   val r = kpm.randomVector()
-  
   
   val ckpm = new CuKPM(cworld, H, order, null, nrand, seed=0)
 //  val mu1 = kip.util.Util.time("Cuda")(ckpm.momentsStochastic(r))
@@ -39,9 +39,10 @@ object CuKPM extends App {
   
   val c = kpm.expansionCoefficients(de=1e-4, e => e)
   val dH = H.duplicate
-  
-  kpm.functionAndGradient(r, c, dH)
-  ckpm.functionAndGradient(r, c, dH)
+  kip.util.Util.time("Scala")(kpm.functionAndGradient(r, c, dH))
+  println("Scala norm2 = " + dH.norm2)
+  kip.util.Util.time("Cuda")(ckpm.functionAndGradient(r, c, dH))
+  println("CUDA norm2 = " + dH.norm2)
   
 //  for (m <- 0 until order) {
 //    println("%d = %f : %f".format(m, mu1(m), mu2(m)))
@@ -119,6 +120,54 @@ class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: 
   var b1_d = cworld.allocDeviceArray(emptyVec)
   var b2_d = cworld.allocDeviceArray(emptyVec)
 
+  // Kernel function equivalent to:
+  //   for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
+  //     grad(i, j) += scal * b0(i, k).conj * a0(j, k)
+  //   }
+  val cudaSource = """
+#include <cuComplex.h>
+extern "C"
+__global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatComplex *b, float scal, cuFloatComplex *gradVal) {
+  int nnz = %d;   // number of non-zero elements
+  int n = %d;     // number of rows in (column) vector
+  int nrand = %d; // number of random vectors
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  while (idx < nnz) {
+    int di = dis[idx];
+    int dj = djs[idx];
+    float acc_re = 0;
+    float acc_im = 0;
+    for (int k = 0; k < nrand; k++) {
+      cuFloatComplex cb = b[k*n+di];
+      cuFloatComplex ca = a[k*n+dj];
+      // acc += conj(b) * a
+      acc_re += cuCrealf(cb) * cuCrealf(ca) + cuCimagf(cb) * cuCimagf(ca);
+      acc_im += cuCrealf(cb) * cuCimagf(ca) - cuCimagf(cb) * cuCrealf(ca);
+    }
+    // gradVal[idx] += scal * acc
+    gradVal[idx] = cuCaddf(gradVal[idx], make_cuFloatComplex(scal * acc_re, scal * acc_im));
+    idx += gridDim.x*blockDim.x;
+  }
+}
+""".format(nnz, n, nrand)
+  cworld.loadModule(CuPreparePtx.fromSrcString(cudaSource), Seq("accumulateGrad"))
+  def accumulateGrad(dis_d: Pointer, djs_d: Pointer, a_d: Pointer, b_d: Pointer, scal: Float, gradVal_d: Pointer) {
+    val kernelParameters = Pointer.to(
+      Pointer.to(dis_d),
+      Pointer.to(djs_d),
+      Pointer.to(a_d),
+      Pointer.to(b_d),
+      Pointer.to(Array(scal)),
+      Pointer.to(gradVal_d));
+    val blockSizeX = 64;
+    val gridSizeX = ((nnz / blockSizeX) max 1) min 256
+    cuLaunchKernel(cworld.functions("accumulateGrad"),
+      gridSizeX, 1, 1, // Grid dimension
+      blockSizeX, 1, 1, // Block dimension
+      0, null, // Shared memory size and stream
+      kernelParameters, null) // Kernel- and extra parameters
+    cuCtxSynchronize();
+  }
   
   def cgemmH(alpha: cuComplex, b: Pointer, beta: cuComplex, c: Pointer) {
     // Sparse-dense matrix multiply
@@ -199,12 +248,8 @@ class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: 
     for (m <- order-2 to 0 by -1) {
       // a0 = alpha_{m}
       // b0 = beta_{m}
-
-//      if (nrand > 1) {
-//        for ((i, j) <- grad.definedIndices; k <- 0 until nrand) {
-//          grad(i, j) += (if (m == 0) 1 else 2) * b0(i, k).conj * a0(j, k) / nrand
-//        }
-//      }
+      val scal = (if (m == 0) 1f else 2f) / nrand
+      accumulateGrad(dis_d, djs_d, a0_d, b0_d, scal, gradVal_d)
       
       // (a0, a1, a2) <= (2 H a1 - a2, a0, a1)
       val temp = a2_d
@@ -231,7 +276,6 @@ class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: 
     for (idx <- 0 until nnz) {
       grad(dis(idx), djs(idx)) += gradVal_h(2*idx+0) + I*gradVal_h(2*idx+1)
     }
-    
     (c, mu).zipped.map(_*_).sum
   }
   
