@@ -37,9 +37,10 @@ class JCudaWorld() {
   JCudaDriver.setExceptionsEnabled(true);
 
   val device = new CUdevice();
-  cuDeviceGet(device, 0);
+  val deviceIndex = 1
+  cuDeviceGet(device, deviceIndex);
   val context = new CUcontext();
-  cuCtxCreate(context, 0, device);
+  cuCtxCreate(context, 0 /* flags */, device);
     
   def destroy() {
   }

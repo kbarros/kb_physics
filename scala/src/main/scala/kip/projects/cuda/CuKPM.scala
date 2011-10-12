@@ -23,30 +23,26 @@ object CuKPM extends App {
   val cworld = new JCudaWorld()
   cworld.printDeviceProperties()
   
-  val q = new Quantum(w=20, h=20, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+  val q = new Quantum(w=40, h=40, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
   val H = q.matrix
   require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
   println("N = "+H.numRows)
 
   val order = 500
-  val nrand = 6
+  val nrand = 1
   val kpm = new KPM(H, order, nrand)
   val r = kpm.randomVector()
-  
-  val ckpm = new CuKPM(cworld, H, order, null, nrand, seed=0)
-//  val mu1 = kip.util.Util.time("Cuda")(ckpm.momentsStochastic(r))
-//  val (mu2, _, _) = kip.util.Util.time("Cpu")(kpm.momentsStochastic(r))
-  
   val c = kpm.expansionCoefficients(de=1e-4, e => e)
-  val dH = H.duplicate
-  kip.util.Util.time("Scala")(kpm.functionAndGradient(r, c, dH))
-  println("Scala norm2 = " + dH.norm2)
-  kip.util.Util.time("Cuda")(ckpm.functionAndGradient(r, c, dH))
-  println("CUDA norm2 = " + dH.norm2)
+  val ckpm = new CuKPM(cworld, H, order, null, nrand, seed=0)
   
-//  for (m <- 0 until order) {
-//    println("%d = %f : %f".format(m, mu1(m), mu2(m)))
-//  }
+  val dH = H.duplicate
+  kip.util.Util.time("Cuda")(ckpm.functionAndGradient(r, c, dH))
+  
+  val dH1 = H.duplicate
+  for (i <- 0 until 2) kpm.functionAndGradient(r, c, dH1) // warm up
+  dH1.clear
+  kip.util.Util.time("Scala")(kpm.functionAndGradient(r, c, dH1))
+  println("Relative error = " + math.sqrt(((dH1 - dH).norm2 / dH1.norm2).re))
   
 //  val range = kpm.range
 //  val plot = KPM.mkPlot("Integrated density of states")
