@@ -8,6 +8,8 @@ import java.io.FileInputStream
 import java.io.ObjectInputStream
 import java.util.zip.GZIPOutputStream
 import java.util.zip.GZIPInputStream
+import java.io.File
+import java.io.IOException
 
 
 object Util {
@@ -106,4 +108,17 @@ object Util {
     ret
   }
 
+  def createEmptyDir(dir: File) {
+    if (dir.exists) {
+      if (!dir.isDirectory()) {
+        throw new IOException("File '%s' exists but is not directory".format(dir))
+      }
+      if (dir.list.size > 0) {
+        println("WARNING: Using non-empty directory " + dir)
+      }
+    }
+    if (!dir.exists) {
+      dir.mkdir()
+    }
+  }
 }
