@@ -14,13 +14,14 @@ unmanagedJars in Compile <++= unmanagedBase map { ub =>
 
 resolvers ++= Seq(
   "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots",
-  "download.java.net" at "http://download.java.net/maven/2"
+  "download.java.net" at "http://download.java.net/maven/2",
+  "Codahale" at "http://repo.codahale.com"
 )
 
 libraryDependencies ++= Seq(
   "com.twitter" % "json" % "2.1.3",
+  "com.codahale" %% "jerkson" % "0.5.0",
   "net.java.dev.jna" % "jna" % "3.3.0",
-  "net.liftweb" % "lift-json_2.9.0-1" % "2.4-M3",
   "org.scala-lang" % "scala-compiler" % "2.9.1",
   "org.scala-lang" % "jline" % "2.9.1"
 )
