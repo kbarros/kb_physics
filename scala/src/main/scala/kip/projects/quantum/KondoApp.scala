@@ -21,8 +21,8 @@ object KondoViz extends App {
   val bds = Bounds3d(Vec3(0, 0, 0), Vec3(conf.w-1, conf.h-1, 0))
   val viz = new RetainedScene(bds)
   def drawSpins(field: Array[R]) {
-     val arrows = for (y <- 0 until conf.h;
-                       x <- 0 until conf.w) yield {
+    val arrows = for (y <- 0 until conf.h;
+                      x <- 0 until conf.w) yield {
       val sx = 0.5*field(0 + x*3 + y*3*conf.w)
       val sy = 0.5*field(1 + x*3 + y*3*conf.w)
       val sz = 0.5*field(2 + x*3 + y*3*conf.w)
@@ -53,10 +53,15 @@ object KondoViz extends App {
 
 
 object KondoApp extends App {
+  if (args.size != 2) {
+    println("KondoApp requires <dir> and <device> parameters")
+    sys.exit
+  }
   val dir = args(0)
+  val deviceIndex = args(1).toInt
   val conf = parse[KondoConf](new File(dir+"/cfg.json"))
   import conf._
-  
+
   // create output directory for spin configurations
   val dumpdir = new java.io.File(dir+"/dump")
   Util.createEmptyDir(dumpdir)
@@ -70,10 +75,15 @@ object KondoApp extends App {
   println("N=%d matrix, %d moments".format(q.matrix.numRows, kpm.order))
   val c = Util.time("Building coefficients. de=%g".format(de))(kpm.expansionCoefficients(de, fn))
   
+  import kip.projects.cuda._
+  val cworld = new JCudaWorld(deviceIndex)
+  val ckpm = new CuKPM(cworld, q.matrix, order, nrand)
+  
   for (iter <- 0 until 1000) {
     Util.time("Iteration "+iter) (for (iter2 <- 0 until dumpPeriod) {
       val r = kpm.randomVector()
-      val f0  = kpm.functionAndGradient(r, c, q.delMatrix)
+//      val f0  = kpm.functionAndGradient(r, c, q.delMatrix)
+      val f0  = ckpm.functionAndGradient(r, c, q.delMatrix)
       q.fieldDerivative(q.delMatrix, q.delField)
       for (i <- q.field.indices) {
         q.field(i) -= dt * q.delField(i)

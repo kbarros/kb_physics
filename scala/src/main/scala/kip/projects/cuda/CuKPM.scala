@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object CuKPM extends App {
-  val cworld = new JCudaWorld()
+  val cworld = new JCudaWorld(deviceIndex=1)
   cworld.printDeviceProperties()
   
   val q = new Quantum(w=40, h=40, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
@@ -33,14 +33,13 @@ object CuKPM extends App {
   val kpm = new KPM(H, order, nrand)
   val r = kpm.randomVector()
   val c = kpm.expansionCoefficients(de=1e-4, e => e)
-  val ckpm = new CuKPM(cworld, H, order, null, nrand, seed=0)
+  val ckpm = new CuKPM(cworld, H, order, nrand)
   
   val dH = H.duplicate
   kip.util.Util.time("Cuda")(ckpm.functionAndGradient(r, c, dH))
   
   val dH1 = H.duplicate
   for (i <- 0 until 2) kpm.functionAndGradient(r, c, dH1) // warm up
-  dH1.clear
   kip.util.Util.time("Scala")(kpm.functionAndGradient(r, c, dH1))
   println("Relative error = " + math.sqrt(((dH1 - dH).norm2 / dH1.norm2).re))
   
@@ -52,7 +51,7 @@ object CuKPM extends App {
 }
 
 
-class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: Int, val c: Array[Float], val nrand: Int, val seed: Int = 0) {
+class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: Int, val nrand: Int) {
   val n = H.numRows
   val vecBytes = n*nrand*2*Sizeof.FLOAT
   
@@ -208,6 +207,7 @@ __global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatCom
     mu(0) = n                   // Tr[T_0[H]] = Tr[1]
     mu(1) = H.trace.re          // Tr[T_1[H]] = Tr[H]
 
+    cworld.cpyHostToDevice(cooVal, H.data.buffer)
     cworld.cpyHostToDevice(r_d, r.data.buffer)
     
     cworld.cpyDeviceToDevice(a0_d, r_d, vecBytes) // a1 = T_0[H] |r> = 1 |r>
