@@ -6,7 +6,9 @@ import ctor._
 import java.io.File
 
 
-case class KondoConf(w: Int, h: Int, t: Double, J_eff: Double, mu: Double, order: Int, de: Double, dt_per_rand: Double, nrand: Int, dumpPeriod: Int)
+case class KondoConf(w: Int, h: Int, t: Double, J_eff: Double, mu: Double,
+                     order: Int, de: Double, dt_per_rand: Double, nrand: Int, dumpPeriod: Int,
+                     initConf: String)
 case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[Float], spin: Array[Float])
 
 
@@ -68,7 +70,10 @@ object KondoApp extends App {
   
   val q = new Quantum(w=w, h=h, t=t, J_eff=J_eff, e_min= -10, e_max= 10)
   val kpm = new KPM(q.matrix, order=order, nrand=nrand)
-  q.setFieldRandom(q.field, kpm.rand)
+  initConf match {
+    case "random" => q.setFieldRandom(q.field, kpm.rand)
+    case "allout" => q.setFieldAllOut(q.field)
+  }
   q.fillMatrix(q.matrix)
   val dt = dt_per_rand * nrand
   val fn: R => R = e => if (e < mu) (e - mu) else 0
