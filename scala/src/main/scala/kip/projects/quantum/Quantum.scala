@@ -79,6 +79,7 @@ object Quantum extends App {
     val deriv = q.delField(k)
     
     q.field(k) += del
+    q.normalizeField(q.field)
     q.fillMatrix(H)
     println("new H = "+H)
     
@@ -197,7 +198,7 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
       }
       acc = math.sqrt(acc)
       if (validate)
-        require(acc > 0.5 && acc < 1.5, "Vector deviates too far from normalization")
+        require(acc > 0.95 && acc < 1.05, "Vector deviates too far from normalization")
       for (d <- 0 until 3) {
         field(fieldIndex(d, x, y)) /= acc
       }
@@ -311,6 +312,23 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
       }
       require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero")
       dS(fieldIndex(d, x, y)) = -J_eff * dCoupling.re
+    }
+    
+    // remove component of dS parallel to S
+    for (y <- 0 until h;
+         x <- 0 until w) {
+      var s_dot_s = 0d
+      var s_dot_ds = 0d
+      for (d <- 0 until 3) {
+        val i = fieldIndex(d, x, y)
+        s_dot_s  += field(i)*field(i)
+        s_dot_ds += field(i)*dS(i) 
+      }
+      val alpha = s_dot_ds / s_dot_s
+      for (d <- 0 until 3) {
+        val i = fieldIndex(d, x, y)
+        dS(i) -= alpha * field(i)
+      }
     }
     
     // consistent matrix scaling
