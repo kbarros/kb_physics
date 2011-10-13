@@ -30,14 +30,13 @@ import jcuda.Sizeof
 import jcuda.driver.JCudaDriver
 
 
-class JCudaWorld() {
+class JCudaWorld(deviceIndex: Int) {
   cuInit(0)
   JCusparse.setExceptionsEnabled(true);
   JCuda.setExceptionsEnabled(true);
   JCudaDriver.setExceptionsEnabled(true);
 
   val device = new CUdevice();
-  val deviceIndex = 1
   cuDeviceGet(device, deviceIndex);
   val context = new CUcontext();
   cuCtxCreate(context, 0 /* flags */, device);
