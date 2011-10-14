@@ -6,7 +6,8 @@ import ctor._
 
 object Quantum extends App {
   // testIntegratedDensity()
-  testDerivative2()
+  // testDerivative2()
+  testEigenvalues()
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
@@ -16,21 +17,28 @@ object Quantum extends App {
     
     q.setFieldAllOut(q.field)
     q.fillMatrix(q.matrix)
-    val eig1 = KPM.eigenvaluesExact(q.matrix)
+    var eig = KPM.eigenvaluesExact(q.matrix)
     val i_cut = n * 3 / 4
-    val e_cut = eig1(i_cut-1) // (eig1(i_cut-1) + eig1(i_cut)) / 2.0
-    val filledEig1 = eig1.takeWhile(_ < e_cut)
-    println("Gap between: [%g, %g]".format(eig1(i_cut-1), eig1(i_cut)))
-    println("Choosing potential mu = %g".format(e_cut))
-    println("All-out fraction = %g".format(filledEig1.size / n.toDouble))
-    println("All-out weight = %g".format(filledEig1.map(_.re - e_cut).sum))
+    val e_cut1 = eig(i_cut-1)
+    val e_cut2 = (eig(i_cut-1) + eig(i_cut)) / 2.0
+    println("Gap between: [%g, %g]".format(eig(i_cut-1), eig(i_cut)))
+    println("Low = %g, mid = %g".format(e_cut1, e_cut2))
+    println()
     
+    def weight(eig: Array[Double], cut: Double) = eig.takeWhile(_ <= cut).map(_.re - cut).sum
+    def filling(eig: Array[Double], cut: Double) = eig.takeWhile(_ <= cut).size / n.toDouble
+    
+    println("All-out   low = %g  mid %g  (frac: %g, %g)".format(weight(eig, e_cut1), weight(eig, e_cut2),filling(eig, e_cut1), filling(eig, e_cut2)))
+    
+    q.setFieldThreeOut(q.field)
+    q.fillMatrix(q.matrix)
+    eig = KPM.eigenvaluesExact(q.matrix)
+    println("Three-out low = %g  mid %g  (frac: %g, %g)".format(weight(eig, e_cut1), weight(eig, e_cut2),filling(eig, e_cut1), filling(eig, e_cut2)))
+
     q.setFieldFerro(q.field)
     q.fillMatrix(q.matrix)
-    val eig2 = KPM.eigenvaluesExact(q.matrix)
-    val filledEig2 = eig2.takeWhile(_ < e_cut)
-    println("Ferro fraction = %g".format(filledEig2.size / n.toDouble))
-    println("Ferro weight = %g".format(filledEig2.map(_.re - e_cut).sum))
+    eig = KPM.eigenvaluesExact(q.matrix)
+    println("Ferro     low = %g  mid %g  (frac: %g, %g)".format(weight(eig, e_cut1), weight(eig, e_cut2),filling(eig, e_cut1), filling(eig, e_cut2)))
   }
   
   def testSpeed {
@@ -189,6 +197,22 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
     normalizeField(field)
   }
   
+  def setFieldThreeOut(field: Array[R]) {
+    for (x <- 0 until w;
+         y <- 0 until h) {
+      val s = (x%2, y%2) match {
+        case (0, 0) => Seq(-1, -1, -1)
+        case (0, 1) => Seq(+1, -1, -1)
+        case (1, 0) => Seq(-1, +1, -1)
+        case (1, 1) => Seq(-1, -1, +1)
+      }
+      for (d <- 0 until vectorDim) { 
+        field(fieldIndex(d, x, y)) = s(d)
+      }
+    }
+    normalizeField(field)
+  }
+  
   def normalizeField(field: Array[R], validate: Boolean = false) {
     for (y <- 0 until h;
          x <- 0 until w) {
@@ -197,8 +221,8 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
         acc += field(fieldIndex(d, x, y)).abs2
       }
       acc = math.sqrt(acc)
-      if (validate)
-        require(acc > 0.95 && acc < 1.05, "Vector deviates too far from normalization")
+      if (validate && !(acc > 0.95 && acc < 1.05))
+        println("Vector magnitude %g deviates too far from normalization".format(acc))
       for (d <- 0 until 3) {
         field(fieldIndex(d, x, y)) /= acc
       }
