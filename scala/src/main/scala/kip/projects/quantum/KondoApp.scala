@@ -23,25 +23,22 @@ object KondoViz extends App {
   require(dumpdir.isDirectory(), "Cannot load directory %s".format(dumpdir))
   
   def readSpin(x: Int, y: Int, field: Array[R]): Vec3 = {
-    val sx = field(0 + x*3 + y*3*conf.w)
-    val sy = field(1 + x*3 + y*3*conf.w)
-    val sz = field(2 + x*3 + y*3*conf.w)
+    val sx = field(0 + x*3 + y*3*w)
+    val sy = field(1 + x*3 + y*3*w)
+    val sz = field(2 + x*3 + y*3*w)
     Vec3(sx, sy, sz)
   }
 
   import kip.graphics._
   import kip.math.Vec3
-  val bds = Bounds3d(Vec3(0, 0, 0), Vec3(conf.w-1, conf.h-1, 0))
+  val bds = Bounds3d(Vec3(0, 0, 0), Vec3(w-1, h-1, 0))
   val viz = new RetainedScene(bds)
   def drawSpins(field: Array[R]) {
-    val arrows = for (y <- 0 until conf.h;
-                      x <- 0 until conf.w) yield {
-      val sx = 0.5*field(0 + x*3 + y*3*conf.w)
-      val sy = 0.5*field(1 + x*3 + y*3*conf.w)
-      val sz = 0.5*field(2 + x*3 + y*3*conf.w)
-      
+    val arrows = for (y <- 0 until h;
+                      x <- 0 until w) yield {
+      val s = readSpin(x, y, field) * 0.5
       val origin = Vec3(x, y, 0)
-      val delta  = Vec3(sx.re, sy.re, sz.re)
+      val delta  = Vec3(s.x, s.y, s.z)
       new RetainedScene.Arrow(origin, delta, width=0.1)
     }
     viz.drawables = Vector(new RetainedScene.Cuboid(bds))
