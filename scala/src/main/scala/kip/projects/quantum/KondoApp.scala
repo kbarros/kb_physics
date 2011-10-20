@@ -98,15 +98,16 @@ object KondoApp extends App {
       require(math.sqrt((q.matrix - q.matrix.dag).norm2.abs) < 1e-14, "Found non-hermitian hamiltonian!")
     })
     
-    val eig = Util.time("Exact diagonalization")(KPM.eigenvaluesExact(q.matrix))
-    val action = eig.filter(_ < mu).map(_ - mu).sum
-    val filling = eig.filter(_ < mu).size.toDouble / eig.size
-    println("Action: " + action)
-    println("Filling: " + filling)
-    println()
+//    val eig = Util.time("Exact diagonalization")(KPM.eigenvaluesExact(q.matrix))
+//    val action = eig.filter(_ < mu).map(_ - mu).sum
+//    val filling = eig.filter(_ < mu).size.toDouble / eig.size
+//    println("Action: " + action)
+//    println("Filling: " + filling)
+//    println()
     
     val time = iter*dumpPeriod*dt
-    val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field)
+//    val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field)
+    val snap = KondoSnap(time=time, action=0, filling=0, eig=Array(0f), spin=q.field)
     generate(snap, new File(dumpdir+"/%04d.json".format(iter)))
   }
 }
