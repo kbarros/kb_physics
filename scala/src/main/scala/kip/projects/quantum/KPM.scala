@@ -27,9 +27,8 @@ object KPM {
     plot.registerLines(name, pts, color)
   }
   
-    
-  def eigenvaluesExact(H: PackedSparse[S]): Array[R] = {
-    val (v, w) = H.toDense.eig
+  def eigenvaluesExact(H: PackedSparse[S]): Array[Double] = {
+    val (v, w) = H.toDense.map(_.toComplexd).eig
     v.map(_.re).toArray.sorted
   }
 
@@ -63,7 +62,7 @@ object KPM {
   }
   
   // \int dx x^{moment} \sum \delta(x - x_i)
-  def integrateDeltas(xs: Array[R], deltas: Array[R], moment: Int): Array[R] = {
+  def integrateDeltas(xs: Array[R], deltas: Array[Double], moment: Int): Array[R] = {
     require(xs.size >= 2)
     require((1 until xs.size).forall(i => xs(i-1) < xs(i)))
     require((1 until deltas.size).forall(i => deltas(i-1) <= deltas(i)))
