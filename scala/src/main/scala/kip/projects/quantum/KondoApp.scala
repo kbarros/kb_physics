@@ -36,10 +36,10 @@ object KondoViz extends App {
   def drawSpins(field: Array[R]) {
     val arrows = for (y <- 0 until h;
                       x <- 0 until w) yield {
-      val s = readSpin(x, y, field) * 0.5
+      val s = readSpin(x, y, field) * 0.8
       val origin = Vec3(x, y, 0)
       val delta  = Vec3(s.x, s.y, s.z)
-      new RetainedScene.Arrow(origin, delta, width=0.1)
+      new RetainedScene.Arrow(origin, delta, width=0.1, color1=java.awt.Color.RED, color2=java.awt.Color.BLUE)
     }
     viz.drawables = Vector(new RetainedScene.Cuboid(bds))
     viz.drawables ++= arrows
@@ -49,7 +49,7 @@ object KondoViz extends App {
   val grid = new Grid("Order parameter")
   grid.setScale(-1, 1)
   scikit.util.Utilities.frame(grid.getComponent(), grid.getTitle())
-  val gridData = new Array[Double](w*(2*h))
+  val gridData = new Array[Double]((2*w)*(2*h))
   def drawGrid(field: Array[R]) {
     for (y <- 0 until h;
          x <- 0 until w) yield {
@@ -62,18 +62,31 @@ object KondoViz extends App {
       val s2 = readSpin((x+1)%w, (y+0)%h, field)
       val s3 = readSpin((x+1)%w, (y+1)%h, field)
       val s4 = readSpin((x+0)%w, (y+1)%h, field)
-      gridData((2*y+0)*w + x) = s1 dot (s2 cross s3)
-      gridData((2*y+1)*w + x) = s1 dot (s3 cross s4)
+      gridData((2*y+0)*(2*w) + 2*x+0) = s1 dot (s2 cross s3)
+      gridData((2*y+1)*(2*w) + 2*x+0) = s1 dot (s3 cross s4)
+      gridData((2*y+0)*(2*w) + 2*x+1) = s1 dot (s2 cross s3)
+      gridData((2*y+1)*(2*w) + 2*x+1) = s1 dot (s3 cross s4)
     }
-    grid.registerData(w, 2*h, gridData)
+    grid.registerData(2*w, 2*h, gridData)
+    
+//    for (y <- 0 until 3;
+//         x <- 0 until 3) {
+//      val s = readSpin(x, y, field).normalize
+//      println("%d %d %s %s %s".format(x, y, s.x, s.y, s.z))
+//    }
+//    println()
   }
   
+  var i = 0
   for (f <- dumpdir.listFiles()) {
     val snap = parse[KondoSnap](f)
     println(snap.time + " "+snap.action)
     drawSpins(snap.spin)
     drawGrid(snap.spin)
-    Thread.sleep(200)
+//    Thread.sleep(200)
+//    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/%03d.png".format(i)))
+//    javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
+    i += 1
   }
   
   
