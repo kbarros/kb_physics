@@ -80,27 +80,42 @@ object KPM {
     }
     ret
   }
+  
+  
+  def range(npts: Int): Array[R] = {
+    Array.tabulate[R](npts) { i =>
+      2.0 * (i+0.5) / npts - 1.0
+    }
+  }
+  
+  def eigenvaluesApprox(order: Int, kpm: KPM): Array[R] = {
+//    val mu = time("Calculating %d moments (slow)".format(order))(momentsExact())
+    val r = kpm.randomVector()
+    val kernel = kpm.jacksonKernel(order)
+    val (mu, _, _) = kpm.momentsStochastic(order, r)
+    range(5*order).map(kpm.densityOfStates(mu, kernel, _))
+  }
 }
 
 // Kernel polynomial method
 
-class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int = 0) {
+class KPM(val H: PackedSparse[S], val nrand: Int, val seed: Int = 0) {
   val rand = new util.Random(seed)
   val n = H.numRows
   
-  lazy val jacksonKernel: Array[R] = {
+  def jacksonKernel(order: Int): Array[R] = {
     import math._
     val Mp = order+1d
     Array.tabulate(order) { m => 
       (1/Mp)*((Mp-m)*cos(Pi*m/Mp) + sin(Pi*m/Mp)/tan(Pi/Mp))
     }
   }
-  lazy val kernel = jacksonKernel
   
   // Coefficients c_m of linear combination of moments for weight calculation
   //   F = \sum mu_m c_m = \int rho(e) fn(e)
-  def expansionCoefficients(de: R, fn: R => R): Array[R] = {
+  def expansionCoefficients(order: Int, de: R, fn: R => R): Array[R] = {
     import math._
+    val kernel = jacksonKernel(order)
     val ret = Array.fill[R](order)(0)
     for (e <- -1.0+de to 1.0-de by de) {
       val t = KPM.chebyshevArray(e, order)
@@ -114,8 +129,9 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   }
   
   // converts moments into a density of states
-  def densityOfStates(mu: Array[R], e: R): R = {
+  def densityOfStates(mu: Array[R], kernel: Array[R], e: R): R = {
     import math._
+    val order = mu.size
     val t = KPM.chebyshevArray(e, order)
     var ret = 0d
     for (m <- 0 until order) {
@@ -124,7 +140,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     ret / (Pi * sqrt(1 - e*e))
   }
   
-  def momentsExact(): Array[R] = {
+  def momentsExact(order: Int): Array[R] = {
     val ret = Array.fill[R](order)(0)
     
     // TODO: test with sparse
@@ -173,7 +189,7 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   }
   
   // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
-  def momentsStochastic(r: Dense[S]): (Array[R], Dense[S], Dense[S]) = {
+  def momentsStochastic(order: Int, r: Dense[S]): (Array[R], Dense[S], Dense[S]) = {
     val mu = Array.fill[R](order)(0)
     mu(0) = n                   // Tr[T_0[H]] = Tr[1]
     mu(1) = H.trace.re          // Tr[T_1[H]] = Tr[H]
@@ -197,8 +213,8 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   }
   
   def gradientExact(c: Array[R], grad: PackedSparse[S]) {
+    val order = c.size
     grad.clear()
-    
     val Ht = H.tran
     
     val u0 = eye(n).toDense  // U_{0}
@@ -226,10 +242,11 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
   }
   
   def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
+    val order = c.size
     grad.clear()
     
     val a2 = dense(n, nrand)
-    val (mu, a0, a1) = momentsStochastic(r)
+    val (mu, a0, a1) = momentsStochastic(order, r)
     
     val b2 = dense(n, nrand)
     val b1 = dense(n, nrand)
@@ -271,26 +288,5 @@ class KPM(val H: PackedSparse[S], val order: Int, val nrand: Int, val seed: Int 
     }
     
     (c, mu).zipped.map(_*_).sum
-  }
-  
-  val range: Array[R] = {
-    val nx = 5*order 
-    Array.tabulate[R](nx) { i =>
-      2.0 * (i+0.5) / nx - 1.0
-    }
-  }
-  
-  def eigenvaluesApprox(kernel: Array[R]): Array[R] = {
-//    // Test reordering of sums is correct
-//    val r1 = randomVector()
-//    val forward = momentsStochastic(r1)
-//    val rho = range.map(densityOfStates(forward._1, _))
-//    println("version A " + ((rho, range).zipped.map(_*_).sum * (range(1) - range(0))))
-//    println("version B " + functionAndGradient(e => e, null)) // different random vector => different result
-
-//    val mu = time("Calculating %d moments (slow)".format(order))(momentsExact())
-    val r = randomVector()
-    val (mu, _, _) = notime("Calculating %d moments (stoch) of N=%d matrix".format(order, H.numRows))(momentsStochastic(r))
-    range.map(densityOfStates(mu, _))
   }
 }

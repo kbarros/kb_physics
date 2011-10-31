@@ -53,6 +53,11 @@ object Statistics {
     if (vs.size == 0) Double.NaN else vs.sum / vs.size
   }
   
+  // Approximate error in the mean
+  def mean_err(vs: Traversable[Double]) = {
+    stddev(vs) / math.sqrt(vs.size)
+  }
+  
   def stddev(vs: Traversable[Double]) = {
     val o = new OnlineVariance
     vs.foreach(o accum _)

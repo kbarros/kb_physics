@@ -23,17 +23,17 @@ object CuKPM extends App {
   val cworld = new JCudaWorld(deviceIndex=1)
   cworld.printDeviceProperties()
   
-  val q = new Quantum(w=40, h=40, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+  val q = new Quantum(w=40, h=40, t=1, J_H=2, e_min= -10, e_max= 10)
   val H = q.matrix
   require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
   println("N = "+H.numRows)
 
   val order = 500
   val nrand = 1
-  val kpm = new KPM(H, order, nrand)
+  val kpm = new KPM(H, nrand)
   val r = kpm.randomVector()
-  val c = kpm.expansionCoefficients(de=1e-4, e => e)
-  val ckpm = new CuKPM(cworld, H, order, nrand)
+  val c = kpm.expansionCoefficients(order, de=1e-4, e => e)
+  val ckpm = new CuKPM(cworld, H, nrand)
   
   val dH = H.duplicate
   kip.util.Util.time("Cuda")(ckpm.functionAndGradient(r, c, dH))
@@ -51,7 +51,7 @@ object CuKPM extends App {
 }
 
 
-class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val order: Int, val nrand: Int) {
+class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val nrand: Int) {
   val n = H.numRows
   val vecBytes = n*nrand*2*Sizeof.FLOAT
   
@@ -200,7 +200,7 @@ __global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatCom
   val two  = cuCmplx(2, 0)
 
   // final two vectors are stored in a0 and a1
-  def momentsStochastic(r: Dense[S]): Array[R] = {
+  def momentsStochastic(order: Int, r: Dense[S]): Array[R] = {
     require(r.numRows == n && r.numCols == nrand)
 
     val mu = Array.fill(order)(0f)
@@ -229,10 +229,11 @@ __global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatCom
   }
 
   def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
+    val order = c.size
     grad.clear()
     cworld.clearDeviceArray(gradVal_d, gradBytes)
 
-    val mu = momentsStochastic(r) // sets a0_d=alpha_{M-2} and a1_d=alpha_{M-1}
+    val mu = momentsStochastic(order, r) // sets a0_d=alpha_{M-2} and a1_d=alpha_{M-1}
     
     cworld.clearDeviceArray(b1_d, vecBytes) // b1 = 0
     scaleVector(c(order-1), r_d, b0_d)      // b0 = c(order-1) r 

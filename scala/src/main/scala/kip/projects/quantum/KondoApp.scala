@@ -8,11 +8,12 @@ import scikit.graphics.dim2.Grid
 import kip.math.Vec3
 
 
-case class KondoConf(w: Int, h: Int, t: Double, J_eff: Double, mu: Double,
+case class KondoConf(w: Int, h: Int, t: Double, J_H: Double, mu: Double,
                      order: Int, de: Double, dt_per_rand: Double, nrand: Int, dumpPeriod: Int,
                      initConf: String)
-case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[Double], spin: Array[Float])
-
+case class KondoSnap(time: Double,
+                     action: Double, action_err: Double, filling: Double, filling_err: Double,
+                     moments: Array[Float], spin: Array[Float])
 
 object KondoViz extends App {
   val dir = args(0)
@@ -109,13 +110,13 @@ object KondoApp extends App {
   val deviceIndex = args(1).toInt
   val conf = parse[KondoConf](new File(dir+"/cfg.json"))
   import conf._
-
+  
   // create output directory for spin configurations
   val dumpdir = new java.io.File(dir+"/dump")
   Util.createEmptyDir(dumpdir)
   
-  val q = new Quantum(w=w, h=h, t=t, J_eff=J_eff, e_min= -10, e_max= 10)
-  val kpm = new KPM(q.matrix, order=order, nrand=nrand)
+  val q = new Quantum(w=w, h=h, t=t, J_H=J_H, e_min= -10, e_max= 10)
+  val kpm = new KPM(q.matrix, nrand=nrand)
   initConf match {
     case "random" => q.setFieldRandom(q.field, kpm.rand)
     case "allout" => q.setFieldAllOut(q.field)
@@ -123,19 +124,32 @@ object KondoApp extends App {
   }
   q.fillMatrix(q.matrix)
   val dt = dt_per_rand * nrand
-  val fn: R => R = e => if (e < mu) (e - mu) else 0
-  println("N=%d matrix, %d moments".format(q.matrix.numRows, kpm.order))
-  val c = Util.time("Building coefficients. de=%g".format(de))(kpm.expansionCoefficients(de, fn))
+  val mup = q.scaleEnergy(mu)
   
-  import kip.projects.cuda._
-  val cworld = new JCudaWorld(deviceIndex)
-  val ckpm = new CuKPM(cworld, q.matrix, order, nrand)
+  val fn_action:  (R => R) = e => if (e < mup) (e - mup) else 0
+  val fn_filling: (R => R) = e => if (e < mup) (1.0 / q.matrix.numRows) else 0
+  
+  println("N=%d matrix, %d moments".format(q.matrix.numRows, order))
+  val c = Util.time("Building coefficients. de=%g".format(de)) {
+    kpm.expansionCoefficients(order, de, fn_action)
+  }
+  
+  val ckpm = try {
+    import kip.projects.cuda._
+    new CuKPM(new JCudaWorld(deviceIndex), q.matrix, nrand)
+  } catch {
+    case _ => { println("CUDA not found"); null }
+  }
   
   for (iter <- 0 until 1000) {
     Util.time("Iteration "+iter) (for (iter2 <- 0 until dumpPeriod) {
       val r = kpm.randomVector()
-//      val f0  = kpm.functionAndGradient(r, c, q.delMatrix)
-      val f0  = ckpm.functionAndGradient(r, c, q.delMatrix)
+      val f0 = {
+        if (ckpm != null)
+          ckpm.functionAndGradient(r, c, q.delMatrix)
+        else
+          kpm.functionAndGradient(r, c, q.delMatrix)
+      }
       q.fieldDerivative(q.delMatrix, q.delField)
       for (i <- q.field.indices) {
         q.field(i) -= dt * q.delField(i)
@@ -144,17 +158,49 @@ object KondoApp extends App {
       q.fillMatrix(q.matrix)
       require(math.sqrt((q.matrix - q.matrix.dag).norm2.abs) < 1e-14, "Found non-hermitian hamiltonian!")
     })
+
+//    { val eig = Util.time("Exact diagonalization")(KPM.eigenvaluesExact(q.matrix))
+//      val action = eig.filter(_ < mup).map(_ - mup).sum
+//      val filling = eig.filter(_ < mup).size.toDouble / eig.size
+//      println("exact action=%g filling=%g\n".format(action, filling)) }
     
-//    val eig = Util.time("Exact diagonalization")(KPM.eigenvaluesExact(q.matrix))
-//    val action = eig.filter(_ < mu).map(_ - mu).sum
-//    val filling = eig.filter(_ < mu).size.toDouble / eig.size
-//    println("Action: " + action)
-//    println("Filling: " + filling)
-//    println()
+    val (moments, action, action_err, filling, filling_err) = Util.time("Precision moments") {
+      val alpha = 4
+      val momentsOrder = alpha*order
+      val nsamples = dumpPeriod/alpha
+
+      val c_action  = kpm.expansionCoefficients(momentsOrder, de, fn_action)
+      val c_filling = kpm.expansionCoefficients(momentsOrder, de, fn_filling)
+      val actions  = new Array[Double](nsamples)
+      val fillings = new Array[Double](nsamples)
+      val moments = Array.fill[R](momentsOrder)(0)
+      
+      for (iter2 <- 0 until nsamples) {
+        val r = kpm.randomVector()
+        val momentsOne = {
+          if (ckpm != null)
+            ckpm.momentsStochastic(momentsOrder, r)
+          else
+            kpm.momentsStochastic(momentsOrder, r)._1
+        }
+        
+        actions(iter2)  = (c_action,  momentsOne).zipped.map(_*_).sum
+        fillings(iter2) = (c_filling, momentsOne).zipped.map(_*_).sum
+        for (i <- moments.indices)
+          moments(i) += momentsOne(i) / nsamples
+      }
+      
+      import kip.util.Statistics._
+      (moments, mean(actions), mean_err(actions), mean(fillings), mean_err(fillings))
+    }
     
+    println("Action = %g +- %g".format(action, action_err))
+    println("Filling = %g +- %g".format(filling, filling_err))
+    println()
+
     val time = iter*dumpPeriod*dt
 //    val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field)
-    val snap = KondoSnap(time=time, action=0, filling=0, eig=Array(0f), spin=q.field)
+    val snap = KondoSnap(time=time, action=action, action_err=action_err, filling=filling, filling_err=filling_err, moments=moments, spin=q.field)
     generate(snap, new File(dumpdir+"/%04d.json".format(iter)))
   }
 }

@@ -5,13 +5,13 @@ import ctor._
 
 
 object Quantum extends App {
-   testIntegratedDensity()
-  // testDerivative2()
+  testIntegratedDensity()
+//  testDerivative2()
 //  testEigenvalues()
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
-    val q = new Quantum(w=30, h=30, t=1, J_eff=0.2, e_min= -10, e_max=10)
+    val q = new Quantum(w=30, h=30, t=1, J_H=0.2, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
@@ -42,47 +42,43 @@ object Quantum extends App {
   }
   
   def testSpeed {
-    val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+    val q = new Quantum(w=10, h=10, t=1, J_H=2, e_min= -10, e_max= 10)
     val H = q.matrix
-    val kpm = new KPM(H, order=100, nrand=1)
-    
+    val kpm = new KPM(H, nrand=1)
+    val order = 100
     val r = kpm.randomVector()
-    val c = kpm.expansionCoefficients(de=1e-4, e => e)
+    val c = kpm.expansionCoefficients(order, de=1e-4, e => e)
  
     val dH = H.duplicate
     for (i <- 0 until 10) {
-      kip.util.Util.time("Forward")(kpm.momentsStochastic(r))
+      kip.util.Util.time("Forward")(kpm.momentsStochastic(order, r))
       kip.util.Util.time("Backward")(kpm.functionAndGradient(r, c, dH))
     }
   }
 
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new Quantum(w=8, h=8, t=1, J_eff=0.0, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+    val q = new Quantum(w=8, h=8, t=1, J_H=0.0, e_min= -10, e_max= 10)
     val H = q.matrix
     require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
     println("N = "+H.numRows)
-    val kpm = new KPM(H, order=500, nrand=1)
-    val range = kpm.range
-
+    val order = 100
+    val kpm = new KPM(H, nrand=1)
+    val range = KPM.range(npts=5*order)
     
     val plot = KPM.mkPlot("Integrated density of states")
-    KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
-    KPM.plotLines(plot, (kpm.range, KPM.integrate(kpm.range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx", java.awt.Color.BLACK)
-
-//    val kpm1 = new KPM(H, order=100, nrand = 100) 
-//    val kpm2 = new KPM(H, order=500, nrand = 100) 
-//    KPM.plotLines(plot, (kpm1.range, KPM.integrate(kpm1.range, kpm1.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx1", java.awt.Color.RED)
-//    KPM.plotLines(plot, (kpm2.range, KPM.integrate(kpm2.range, kpm2.eigenvaluesApprox(kpm.jacksonKernel), moment=0)), "Approx2", java.awt.Color.BLUE)
+    KPM.plotLines(plot, (range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
+    KPM.plotLines(plot, (range, KPM.integrate(range, KPM.eigenvaluesApprox(order, kpm), moment=0)), "Approx", java.awt.Color.BLACK)
   }
   
   def testDerivative() {
-    val q = new Quantum(w=10, h=10, t=1, J_eff=2, e_min= -10, e_max= 10)  // hopping only: e_min= -6-0.5, e_max= 3+0.5
+    val q = new Quantum(w=10, h=10, t=1, J_H=2, e_min= -10, e_max= 10)
     val H = q.matrix
     val dH = q.delMatrix
-    val kpm = new KPM(H, order=100, nrand=1)
+    val order = 100
+    val kpm = new KPM(H, nrand=1)
     val r = kpm.randomVector()
-    val c = kpm.expansionCoefficients(de=1e-4, e => e*e)
+    val c = kpm.expansionCoefficients(order, de=1e-4, e => e*e)
     val f0 = kpm.functionAndGradient(r, c, dH)
     println("H = "+H)
     println("dH = "+dH)
@@ -106,13 +102,14 @@ object Quantum extends App {
   
   
   def testDerivative2() {
-    val q = new Quantum(w=10, h=10, t=1, J_eff=0.1, e_min= -10, e_max= 10)
+    val q = new Quantum(w=10, h=10, t=1, J_H=0.1, e_min= -10, e_max= 10)
     val H = q.matrix
     val dH1 = q.delMatrix
     val dH2 = dH1.duplicate
-    val kpm = new KPM(H, order=100, nrand=100, seed=0)
+    val order = 100
+    val kpm = new KPM(H, nrand=200)
     
-    val c = kpm.expansionCoefficients(de=1e-4, e => e*e)
+    val c = kpm.expansionCoefficients(order, de=1e-4, e => e*e)
     kpm.gradientExact(c, dH1)
     val r = kpm.randomGaussianVector()
     kpm.functionAndGradient(r, c, dH2)
@@ -132,7 +129,7 @@ object Quantum extends App {
 //  x, y = coordinates on triangular lattice
 //  n    = nearest neighbor index on lattice 
 //
-class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val e_max: R) {
+class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, val e_max: R) {
   require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
   val vectorDim = 3
   
@@ -313,7 +310,7 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
         }
         val i = matrixIndex(sp1, x, y)
         val j = matrixIndex(sp2, x, y)
-        m(i, j) = -J_eff * coupling
+        m(i, j) = -J_H * coupling
       }
     }
     
@@ -341,7 +338,7 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_eff: R, val e_min: R, val 
         dCoupling += dH(i, j) * pauli(pauliIndex(sp1, sp2, d))
       }
       require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero")
-      dS(fieldIndex(d, x, y)) = -J_eff * dCoupling.re
+      dS(fieldIndex(d, x, y)) = -J_H * dCoupling.re
     }
     
     // remove component of dS parallel to S
