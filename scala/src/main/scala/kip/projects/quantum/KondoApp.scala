@@ -78,26 +78,28 @@ object KondoViz extends App {
 //    println()
   }
   
+  val plot = KPM.mkPlot("Integrated rho")
+  def drawDensity(moments: Array[R]) {
+    val order = moments.size
+    val range = KPM.range(5*order)
+    val kernel = KPM.jacksonKernel(order)
+    val rho = range.map(e => KPM.densityOfStates(moments, kernel, e))
+    KPM.plotLines(plot, (range, KPM.integrate(range, rho, moment=1)), "Approx", java.awt.Color.BLACK)
+  }
+  
   var i = 0
   for (f <- dumpdir.listFiles()) {
     val snap = parse[KondoSnap](f)
-    println(snap.time + " "+snap.action)
+    println("t=%g, action=%g+-%g".format(snap.time, snap.action, snap.action_err))
     drawSpins(snap.spin)
     drawGrid(snap.spin)
+//    drawDensity(snap.moments)
+    
 //    Thread.sleep(200)
 //    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/%03d.png".format(i)))
 //    javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
     i += 1
   }
-  
-  
-    
-//  val cplot = KPM.mkPlot("Coefficients")
-//  KPM.plotLines(cplot, (c.indices.toArray.map(i => (i+0.5)/c.size), c.toArray.map(math.abs(_))))
-//  val plot = KPM.mkPlot("Integrated rho")
-//  KPM.plotLines(plot, (kpm.range, KPM.integrateDeltas(kpm.range, eig, moment=1)), "Exact", java.awt.Color.RED)
-//  KPM.plotLines(plot, (kpm.range, KPM.integrate(kpm.range, kpm.eigenvaluesApprox(kpm.jacksonKernel), moment=1)), "Approx", java.awt.Color.BLACK)
-
 }
 
 
@@ -128,11 +130,9 @@ object KondoApp extends App {
   
   val fn_action:  (R => R) = e => if (e < mup) (e - mup) else 0
   val fn_filling: (R => R) = e => if (e < mup) (1.0 / q.matrix.numRows) else 0
+  val c = KPM.expansionCoefficients(order, de, fn_action)
   
   println("N=%d matrix, %d moments".format(q.matrix.numRows, order))
-  val c = Util.time("Building coefficients. de=%g".format(de)) {
-    kpm.expansionCoefficients(order, de, fn_action)
-  }
   
   val ckpm = try {
     import kip.projects.cuda._
@@ -169,8 +169,8 @@ object KondoApp extends App {
       val momentsOrder = alpha*order
       val nsamples = dumpPeriod/alpha
 
-      val c_action  = kpm.expansionCoefficients(momentsOrder, de, fn_action)
-      val c_filling = kpm.expansionCoefficients(momentsOrder, de, fn_filling)
+      val c_action  = KPM.expansionCoefficients(momentsOrder, de, fn_action)
+      val c_filling = KPM.expansionCoefficients(momentsOrder, de, fn_filling)
       val actions  = new Array[Double](nsamples)
       val fillings = new Array[Double](nsamples)
       val moments = Array.fill[R](momentsOrder)(0)

@@ -47,7 +47,7 @@ object Quantum extends App {
     val kpm = new KPM(H, nrand=1)
     val order = 100
     val r = kpm.randomVector()
-    val c = kpm.expansionCoefficients(order, de=1e-4, e => e)
+    val c = KPM.expansionCoefficients(order, de=1e-4, e => e)
  
     val dH = H.duplicate
     for (i <- 0 until 10) {
@@ -68,7 +68,7 @@ object Quantum extends App {
     
     val plot = KPM.mkPlot("Integrated density of states")
     KPM.plotLines(plot, (range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
-    KPM.plotLines(plot, (range, KPM.integrate(range, KPM.eigenvaluesApprox(order, kpm), moment=0)), "Approx", java.awt.Color.BLACK)
+    KPM.plotLines(plot, (range, KPM.integrate(range, KPM.eigenvaluesApprox(order, range, kpm), moment=0)), "Approx", java.awt.Color.BLACK)
   }
   
   def testDerivative() {
@@ -78,7 +78,7 @@ object Quantum extends App {
     val order = 100
     val kpm = new KPM(H, nrand=1)
     val r = kpm.randomVector()
-    val c = kpm.expansionCoefficients(order, de=1e-4, e => e*e)
+    val c = KPM.expansionCoefficients(order, de=1e-4, e => e*e)
     val f0 = kpm.functionAndGradient(r, c, dH)
     println("H = "+H)
     println("dH = "+dH)
@@ -109,7 +109,7 @@ object Quantum extends App {
     val order = 100
     val kpm = new KPM(H, nrand=200)
     
-    val c = kpm.expansionCoefficients(order, de=1e-4, e => e*e)
+    val c = KPM.expansionCoefficients(order, de=1e-4, e => e*e)
     kpm.gradientExact(c, dH1)
     val r = kpm.randomGaussianVector()
     kpm.functionAndGradient(r, c, dH2)

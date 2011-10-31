@@ -9,28 +9,6 @@ import ctor._
 
 object KPM {
   import scikit.graphics.dim2._
-  
-  def mkPlot(name: String): Plot = {
-    val plot = new Plot(name)
-    scikit.util.Utilities.frame(plot.getComponent(), plot.getTitle())
-    plot
-  }
-  
-  def plotHistogram(plot: Plot, a: Array[R]) {
-    val hist = new scikit.dataset.Histogram(0.01)
-    a.foreach { hist.accum(_) }
-    plot.registerBars("Density", hist, java.awt.Color.BLACK)
-  }
-  
-  def plotLines(plot: Plot, data: (Array[R], Array[R]), name: String = "data", color: java.awt.Color = java.awt.Color.BLACK) {
-    val pts = new scikit.dataset.PointSet(data._1.map(_.toDouble), data._2.map(_.toDouble))
-    plot.registerLines(name, pts, color)
-  }
-  
-  def eigenvaluesExact(H: PackedSparse[S]): Array[Double] = {
-    val (v, w) = H.toDense.map(_.toComplexd).eig
-    v.map(_.re).toArray.sorted
-  }
 
   def chebyshevFillArray(x: Double, ret: Array[Double]) {
     if (ret.size > 0)
@@ -48,7 +26,59 @@ object KPM {
     ret
   }
   
-  // \int dx x^{moment} y(x) 
+  def jacksonKernel(order: Int): Array[R] = {
+    import math._
+    val Mp = order+1d
+    Array.tabulate(order) { m => 
+      (1/Mp)*((Mp-m)*cos(Pi*m/Mp) + sin(Pi*m/Mp)/tan(Pi/Mp))
+    }
+  }
+  
+  // Coefficients c_m of linear combination of moments for weight calculation
+  //   F = \sum mu_m c_m = \int rho(e) fn(e)
+  def expansionCoefficients(order: Int, de: R, fn: R => R): Array[R] = {
+    import math._
+    val kernel = jacksonKernel(order)
+    val ret = Array.fill[R](order)(0)
+    for (e <- -1.0+de to 1.0-de by de) {
+      val t = KPM.chebyshevArray(e, order)
+      val f = fn(e) / (Pi * sqrt(1 - e*e))
+      for (m <- 0 until order) {
+        ret(m) += (if (m == 0) 1 else 2) * kernel(m) * t(m) * f * de
+      }
+    }
+    // for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
+    ret
+  }
+
+  // --- Plotting stuff ---
+    
+  // converts moments into a density of states
+  def densityOfStates(moments: Array[R], kernel: Array[R], e: R): R = {
+    import math._
+    val order = moments.size
+    val t = KPM.chebyshevArray(e, order)
+    var ret = 0d
+    for (m <- 0 until order) {
+      ret += (if (m == 0) 1 else 2) * kernel(m) * moments(m) * t(m)
+    }
+    ret / (Pi * sqrt(1 - e*e))
+  }
+
+  def eigenvaluesApprox(order: Int, range: Array[R], kpm: KPM): Array[R] = {
+    // val mu = time("Calculating %d moments (slow)".format(order))(kpm.momentsExact())
+    val r = kpm.randomVector()
+    val kernel = jacksonKernel(order)
+    val (mu, _, _) = kpm.momentsStochastic(order, r)
+    range.map(densityOfStates(mu, kernel, _))
+  }
+  
+  def eigenvaluesExact(H: PackedSparse[S]): Array[Double] = {
+    val (v, w) = H.toDense.map(_.toComplexd).eig
+    v.map(_.re).toArray.sorted
+  }
+  
+    // \int dx x^{moment} y(x) 
   def integrate(xs: Array[R], ys: Array[R], moment: Int): Array[R] = {
     require(xs.size >= 2 && xs.size == ys.size)
     require((1 until xs.size).forall(i => xs(i-1) < xs(i)))
@@ -81,20 +111,30 @@ object KPM {
     ret
   }
   
-  
+
   def range(npts: Int): Array[R] = {
     Array.tabulate[R](npts) { i =>
       2.0 * (i+0.5) / npts - 1.0
     }
   }
   
-  def eigenvaluesApprox(order: Int, kpm: KPM): Array[R] = {
-//    val mu = time("Calculating %d moments (slow)".format(order))(momentsExact())
-    val r = kpm.randomVector()
-    val kernel = kpm.jacksonKernel(order)
-    val (mu, _, _) = kpm.momentsStochastic(order, r)
-    range(5*order).map(kpm.densityOfStates(mu, kernel, _))
+  def mkPlot(name: String): Plot = {
+    val plot = new Plot(name)
+    scikit.util.Utilities.frame(plot.getComponent(), plot.getTitle())
+    plot
   }
+  
+  def plotHistogram(plot: Plot, a: Array[R]) {
+    val hist = new scikit.dataset.Histogram(0.01)
+    a.foreach { hist.accum(_) }
+    plot.registerBars("Density", hist, java.awt.Color.BLACK)
+  }
+  
+  def plotLines(plot: Plot, data: (Array[R], Array[R]), name: String = "data", color: java.awt.Color = java.awt.Color.BLACK) {
+    val pts = new scikit.dataset.PointSet(data._1.map(_.toDouble), data._2.map(_.toDouble))
+    plot.registerLines(name, pts, color)
+  }
+
 }
 
 // Kernel polynomial method
@@ -102,43 +142,6 @@ object KPM {
 class KPM(val H: PackedSparse[S], val nrand: Int, val seed: Int = 0) {
   val rand = new util.Random(seed)
   val n = H.numRows
-  
-  def jacksonKernel(order: Int): Array[R] = {
-    import math._
-    val Mp = order+1d
-    Array.tabulate(order) { m => 
-      (1/Mp)*((Mp-m)*cos(Pi*m/Mp) + sin(Pi*m/Mp)/tan(Pi/Mp))
-    }
-  }
-  
-  // Coefficients c_m of linear combination of moments for weight calculation
-  //   F = \sum mu_m c_m = \int rho(e) fn(e)
-  def expansionCoefficients(order: Int, de: R, fn: R => R): Array[R] = {
-    import math._
-    val kernel = jacksonKernel(order)
-    val ret = Array.fill[R](order)(0)
-    for (e <- -1.0+de to 1.0-de by de) {
-      val t = KPM.chebyshevArray(e, order)
-      val f = fn(e) / (Pi * sqrt(1 - e*e))
-      for (m <- 0 until order) {
-        ret(m) += (if (m == 0) 1 else 2) * kernel(m) * t(m) * f * de
-      }
-    }
-    // for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
-    ret
-  }
-  
-  // converts moments into a density of states
-  def densityOfStates(mu: Array[R], kernel: Array[R], e: R): R = {
-    import math._
-    val order = mu.size
-    val t = KPM.chebyshevArray(e, order)
-    var ret = 0d
-    for (m <- 0 until order) {
-      ret += (if (m == 0) 1 else 2) * kernel(m) * mu(m) * t(m)
-    }
-    ret / (Pi * sqrt(1 - e*e))
-  }
   
   def momentsExact(order: Int): Array[R] = {
     val ret = Array.fill[R](order)(0)
