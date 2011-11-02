@@ -146,10 +146,15 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
     }
   }
   
+  // Returns the list of all fourier vectors
+  def fourierVectors: Array[Array[Double]] = {
+    Array.tabulate(nrecip/2) { fourierVector(_) }
+  }
+  
   // for each indexed complex number in fourier array, return corresponding vector k
   // where component k(r) = n (2 pi / L_r) for integer n in range [-N/2, +N/2)
   def fourierVector(i: Int): Array[Double] = {
-    require(0 <= i && i < nrecip)
+    require(0 <= i && i < nrecip/2)
     val k = new Array[Double](rank)
     var ip = i
     for (r <- rank-1 to 0 by -1) {
@@ -187,7 +192,6 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
     require(a.size == n && bp.size == nrecip && dst.size == n)
     val ap = allocFourierArray()
     forwardTransform(a, ap)
-    // conjugateFourierArray(bp, bp) // affects sign: c(j) = \sum_i a(i) b(i-j)
     multiplyFourierArrays(ap, bp, ap)
     backwardTransform(ap, dst)
   }
