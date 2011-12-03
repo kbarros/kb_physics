@@ -110,7 +110,7 @@ object Quantum extends App {
     val kpm = new KPM(H, nrand=200)
     
     val c = KPM.expansionCoefficients(order, de=1e-4, e => e*e)
-    kpm.gradientExact(c, dH1)
+    kpm.gradientExactDense(c, dH1)
     val r = kpm.randomGaussianVector()
     kpm.functionAndGradient(r, c, dH2)
     

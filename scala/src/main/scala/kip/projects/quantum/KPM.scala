@@ -69,7 +69,7 @@ object KPM {
     // val mu = time("Calculating %d moments (slow)".format(order))(kpm.momentsExact())
     val r = kpm.randomVector()
     val kernel = jacksonKernel(order)
-    val (mu, _, _) = kpm.momentsStochastic(order, r)
+    val mu = kpm.momentsStochastic(order, r)
     range.map(densityOfStates(mu, kernel, _))
   }
   
@@ -137,16 +137,32 @@ object KPM {
 
 }
 
-// Kernel polynomial method
 
-class KPM(val H: PackedSparse[S], val nrand: Int, val seed: Int = 0) {
+abstract class GenKPM(val H: PackedSparse[S], val nrand: Int, val seed: Int) {
   val rand = new util.Random(seed)
   val n = H.numRows
+
+  def momentsStochastic(order: Int, r: Dense[S]): Array[R]
+  def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R
   
   def momentsExact(order: Int): Array[R] = {
     val ret = Array.fill[R](order)(0)
+    val r = dense(n, nrand)
+    for (i <- 0 until n by nrand) {
+      r.transform(_ => 0)
+      for (j <- 0 until nrand; if i+j < n)
+        r(i+j, j) = 1
+      ret += momentsStochastic(order, r)
+    }
+    ret.transform(_ * nrand)     // undo division in momentsStochastic
+    ret(0) = n                   // first two moments are handled specially
+    ret(1) = H.trace.re
+    ret
+  }
+  
+  def momentsExactDense(order: Int): Array[R] = {
+    val ret = Array.fill[R](order)(0)
     
-    // TODO: test with sparse
     val Hd = H // H.toDense
     
     val t0 = eye(n).toDense
@@ -171,51 +187,7 @@ class KPM(val H: PackedSparse[S], val nrand: Int, val seed: Int = 0) {
     ret
   }
   
-  // Vector with randomly values, uniform among (1, i, -1, -i)
-  def randomVector(): Dense[S] = {
-    val r  = dense(n, nrand)
-    r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
-  }
-  
-  def randomGaussianVector(): Dense[S] = {
-    val r  = dense(n, nrand)
-    r.fill((rand.nextGaussian() + I*rand.nextGaussian) / math.sqrt(2))
-    // normalizing random vectors may slightly improve accuracy
-//    for (j <- 0 until r.numCols) {
-//      val c = r(::, j).norm2.re
-//      for (i <- 0 until r.numRows) {
-//        r(i, j) *= math.sqrt(n / c) 
-//      }
-//    }
-//    println(r(::,0).norm2.re)
-    r
-  }
-  
-  // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
-  def momentsStochastic(order: Int, r: Dense[S]): (Array[R], Dense[S], Dense[S]) = {
-    val mu = Array.fill[R](order)(0)
-    mu(0) = n                   // Tr[T_0[H]] = Tr[1]
-    mu(1) = H.trace.re          // Tr[T_1[H]] = Tr[H]
-    
-    val a0 = dense(n, nrand)
-    val a1 = dense(n, nrand)
-    val a2 = dense(n, nrand)
-    
-    a0 := r                      // T_0[H] |r> = 1 |r>
-    a1 :=* (H, r)                // T_1[H] |r> = H |r>
-    
-    for (m <- 2 to order-1) {
-      a2 := a0; a2.gemm(2, H, a1, -1)  // alpha_m = T_m[H] r = 2 H a1 - a0
-
-      mu(m) = (r dagDot a2).re / nrand
-      a0 := a1
-      a1 := a2
-    }
-    
-    (mu, a0, a1)
-  }
-  
-  def gradientExact(c: Array[R], grad: PackedSparse[S]) {
+  def gradientExactDense(c: Array[R], grad: PackedSparse[S]) {
     val order = c.size
     grad.clear()
     val Ht = H.tran
@@ -243,13 +215,65 @@ class KPM(val H: PackedSparse[S], val nrand: Int, val seed: Int = 0) {
       u1 := u2
     }
   }
+
+  // Vector with randomly values, uniform among (1, i, -1, -i)
+  def randomVector(): Dense[S] = {
+    val r  = dense(n, nrand)
+    r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
+  }
   
-  def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
+  def randomGaussianVector(): Dense[S] = {
+    val r  = dense(n, nrand)
+    r.fill((rand.nextGaussian() + I*rand.nextGaussian) / math.sqrt(2))
+    // normalizing random vectors may slightly improve accuracy
+//    for (j <- 0 until r.numCols) {
+//      val c = r(::, j).norm2.re
+//      for (i <- 0 until r.numRows) {
+//        r(i, j) *= math.sqrt(n / c) 
+//      }
+//    }
+//    println(r(::,0).norm2.re)
+    r
+  }
+}
+
+
+// Kernel polynomial method
+
+class KPM(H: PackedSparse[S], nrand: Int, seed: Int = 0) extends GenKPM(H, nrand, seed) {
+  
+  override def momentsStochastic(order: Int, r: Dense[S]): Array[R] = momentsStochasticAux(order, r)._1
+  
+  // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
+  def momentsStochasticAux(order: Int, r: Dense[S]): (Array[R], Dense[S], Dense[S]) = {
+    val mu = Array.fill[R](order)(0)
+    mu(0) = n                   // Tr[T_0[H]] = Tr[1]
+    mu(1) = H.trace.re          // Tr[T_1[H]] = Tr[H]
+    
+    val a0 = dense(n, nrand)
+    val a1 = dense(n, nrand)
+    val a2 = dense(n, nrand)
+    
+    a0 := r                      // T_0[H] |r> = 1 |r>
+    a1 :=* (H, r)                // T_1[H] |r> = H |r>
+    
+    for (m <- 2 to order-1) {
+      a2 := a0; a2.gemm(2, H, a1, -1)  // alpha_m = T_m[H] r = 2 H a1 - a0
+
+      mu(m) = (r dagDot a2).re / nrand
+      a0 := a1
+      a1 := a2
+    }
+    
+    (mu, a0, a1)
+  }
+  
+  override def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
     val order = c.size
     grad.clear()
     
     val a2 = dense(n, nrand)
-    val (mu, a0, a1) = momentsStochastic(order, r)
+    val (mu, a0, a1) = momentsStochasticAux(order, r)
     
     val b2 = dense(n, nrand)
     val b1 = dense(n, nrand)

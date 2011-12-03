@@ -51,8 +51,7 @@ object CuKPM extends App {
 }
 
 
-class CuKPM(val cworld: JCudaWorld, val H: PackedSparse[ComplexFlt], val nrand: Int) {
-  val n = H.numRows
+class CuKPM(val cworld: JCudaWorld, H: PackedSparse[ComplexFlt], nrand: Int, seed: Int = 0) extends GenKPM(H, nrand, seed) {
   val vecBytes = n*nrand*2*Sizeof.FLOAT
   
   // Initialize JCublas library
@@ -200,7 +199,7 @@ __global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatCom
   val two  = cuCmplx(2, 0)
 
   // final two vectors are stored in a0 and a1
-  def momentsStochastic(order: Int, r: Dense[S]): Array[R] = {
+  override def momentsStochastic(order: Int, r: Dense[S]): Array[R] = {
     require(r.numRows == n && r.numCols == nrand)
 
     val mu = Array.fill(order)(0f)
@@ -228,7 +227,7 @@ __global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatCom
     mu
   }
 
-  def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
+  override def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R = {
     val order = c.size
     grad.clear()
     cworld.clearDeviceArray(gradVal_d, gradBytes)
