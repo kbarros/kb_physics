@@ -121,7 +121,8 @@ class FiniteDislocSim(params: Parameters) {
   val alpha32k = fft.allocFourierArray()
   val F = Array.fill[Mat2](lp2)(dense(2,2))
   val E = Array.fill[Mat2](lp2)(dense(2,2))
-  
+  val theta    = new Array[Double](lp2)
+
   val detG = new Array[Double](lp2)
   val e1   = new Array[Double](lp2)
   val e2   = new Array[Double](lp2)
@@ -158,14 +159,14 @@ class FiniteDislocSim(params: Parameters) {
         d1k(2*i+0) = 0
         d1k(2*i+1) = 0
         d4k(2*i+0) = 0
-        d4k(2*i+0) = 0
+        d4k(2*i+1) = 0
       }
       else {
         val k2m = kx*kx - ky*ky
         d1k(2*i+0) = (k2m*d2k(2*i+0) - 2*kx*ky*d3k(2*i+0) + ky*alpha31k(2*i+1) - kx*alpha32k(2*i+1)) / k2
         d1k(2*i+1) = (k2m*d2k(2*i+1) - 2*kx*ky*d3k(2*i+1) - ky*alpha31k(2*i+0) + kx*alpha32k(2*i+0)) / k2
-        d4k(2*i+0) = (2*kx*ky*d2k(2*i+0) - k2m*d3k(2*i+0) - kx*alpha31k(2*0+1) - ky*alpha32k(2*i+1)) / k2
-        d4k(2*i+1) = (2*kx*ky*d2k(2*i+1) - k2m*d3k(2*i+1) + kx*alpha31k(2*0+0) + ky*alpha32k(2*i+0)) / k2
+        d4k(2*i+0) = (2*kx*ky*d2k(2*i+0) - k2m*d3k(2*i+0) - kx*alpha31k(2*i+1) - ky*alpha32k(2*i+1)) / k2
+        d4k(2*i+1) = (2*kx*ky*d2k(2*i+1) - k2m*d3k(2*i+1) + kx*alpha31k(2*i+0) + ky*alpha32k(2*i+0)) / k2
       }
     }
     
@@ -178,30 +179,31 @@ class FiniteDislocSim(params: Parameters) {
     for (i <- 0 until lp2) {
       import kip.math.Math.sqr
       detG(i) = sqr(1-d1(i)) - sqr(d2(i)) - sqr(d3(i)) + sqr(d4(i))
-      require(detG(i) > 1e-6, "Distortion is singular")
+      require(detG(i) >= 0, "Distortion is negative at %d, %g %g %g %g %g".format(i, detG(i), d1(i), d2(i), d3(i), d4(i)))
+      require(detG(i) > 1e-6, "Distortion is singular "+detG(i))
       
       F(i)(0, 0) = (1 - d1(i) + d2(i)) / detG(i)
       F(i)(1, 0) = (d3(i) - d4(i)) / detG(i)
       F(i)(0, 1) = (d3(i) + d4(i)) / detG(i)
       F(i)(1, 1) = (1 - d1(i) - d2(i)) / detG(i)
-      
-      E(i) = (F(i).tran*F(i) - Id) / 2
+      val FT = F(i).tran
+
+      E(i) = (FT*F(i) - Id) / 2
       
       e1(i) = c1 * (E(i) * W1.tran).trace
       e2(i) = c2 * (E(i) * W2.tran).trace
       e3(i) = c3 * (E(i) * W3.tran).trace
       
+      val Q = polarDecomp(F(i))
+      theta(i) = -math.atan2(Q(1,0), Q(1,1))
+      
       energyDensity(i) = (A1*sqr(e1(i)) + A2*sqr(e2(i)) + A3*sqr(e3(i))) * detG(i) / 2
-      energy += energyDensity(i)
+      energy += energyDensity(i) * sqr(dx)
       
       // unconstrained derivatives
-      val FT = F(i).tran
-      val m1 = ((FT*F(i)*W1*c1 - Id*e1(i)) * FT) * (2*A1*e1(i)*detG(i))
-      val m2 = ((FT*F(i)*W2*c2 - Id*e2(i)) * FT) * (2*A2*e2(i)*detG(i))
-      val m3 = ((FT*F(i)*W3*c3 - Id*e3(i)) * FT) * (2*A3*e3(i)*detG(i))
-      val test4a = (-m1(1,0) + m1(0,1))/2
-      val test4b = (m1*W4.tran).trace
-      require(test4a == test4b)
+      val m1 = (FT*F(i)*W1*c1 - Id*e1(i)) * FT * (2*A1*e1(i)*detG(i))
+      val m2 = (FT*F(i)*W2*c2 - Id*e2(i)) * FT * (2*A2*e2(i)*detG(i))
+      val m3 = (FT*F(i)*W3*c3 - Id*e3(i)) * FT * (2*A3*e3(i)*detG(i))
       du_dd1(i) = ((m1+m2+m3)*W1.tran).trace
       du_dd2(i) = ((m1+m2+m3)*W2.tran).trace
       du_dd3(i) = ((m1+m2+m3)*W3.tran).trace
@@ -231,13 +233,19 @@ class FiniteDislocSim(params: Parameters) {
       d3(i) = 0
     }
     
-    // simple dipole
-    val x = lp/2
-    val y = lp/2
-    alpha31(lp*y + x) = 1.0 / (dx*dx)
-    alpha31(lp*(y+3) + x) = -1.0 / (dx*dx)
+//    // simple dipole
+//    val x = lp/2
+//    val y = lp/2
+//    alpha31(lp*y + x) = 1.0 / (dx*dx)
+//    alpha31(lp*(y+3) + x) = -1.0 / (dx*dx)
     
-    
+    // dislocation wall
+    val x1 = 3*lp/4-10
+    val x2 = 1*lp/4+10
+    for (y <- lp/5 until 4*lp/5 by 8) {
+      alpha32(lp*(y+4) + x1) = +1.0 / (dx*dx)
+      alpha32(lp*y + x2) = -1.0 / (dx*dx)
+    }
   }
   
   def simulate() {
@@ -275,12 +283,14 @@ class FiniteDislocations extends Simulation {
   def animate() {
     sim.readParams(params)
     
-    grid1.setScale(-0.2, 0.2)
-    grid2.setScale(-0.2, 0.2)
+//    grid1.setScale(-0.2, 0.2)
+//    grid2.setScale(-0.2, 0.2)
     
     val lp = sim.lp
-    grid1.registerData(lp, lp, sim.d1)
-    grid2.registerData(lp, lp, sim.e1)
+    grid1.registerData(lp, lp, sim.theta)
+    grid2.registerData(lp, lp, sim.d4)
+    
+    println(sim.F(10))
     
     params.set("Time", format(sim.t))
     params.set("Energy", format(sim.energy))
