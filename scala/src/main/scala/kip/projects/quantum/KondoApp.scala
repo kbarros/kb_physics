@@ -7,9 +7,10 @@ import kip.enrich._
 import ctor._
 
 case class KondoConf(w: Int, h: Int, t: Double, J_H: Double, mu: Double,
-                     order: Int, de: Double, dt_per_rand: Double, nrand: Int, dumpPeriod: Int,
-                     initConf: String)
-case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[Double], moments: Array[Float], spin: Array[Float])
+                     order: Int, order_exact: Int, de: Double, dt_per_rand: Double,
+                     nrand: Int, dumpPeriod: Int, initConf: String)
+case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[Double],
+                     moments: Array[Float], spin: Array[Float])
 
 
 object KondoApp extends App {
@@ -53,14 +54,17 @@ object KondoApp extends App {
   
   val fn_action:  (R => R) = e => if (e < mup) (e - mup) else 0
   val fn_filling: (R => R) = e => if (e < mup) (1.0 / q.matrix.numRows) else 0
-  val c = KPM.expansionCoefficients(order, de, fn_action)
+  
+  val c_action   = KPM.expansionCoefficients(order, de, fn_action)
+  val c2_action  = KPM.expansionCoefficients(order_exact, de, fn_action)
+  val c2_filling = KPM.expansionCoefficients(order_exact, de, fn_filling)
   
   println("N=%d matrix, %d moments".format(q.matrix.numRows, order))
   
   for (iter <- 0 until 1000) {
     Util.time("Iteration "+iter) (for (iter2 <- 0 until dumpPeriod) {
       val r = kpm.randomVector()
-      val f0 = kpm.functionAndGradient(r, c, q.delMatrix)
+      val f0 = kpm.functionAndGradient(r, c_action, q.delMatrix)
       q.fieldDerivative(q.delMatrix, q.delField)
       for (i <- q.field.indices) {
         q.field(i) -= dt * q.delField(i)
@@ -79,10 +83,9 @@ object KondoApp extends App {
         (eig, Array[Float](), action, filling)
       }
       else Util.time("Exact moments") {
-        val order2 = 1024
-        val moments = kpm.momentsExact(order2)
-        val action  = moments dot KPM.expansionCoefficients(order2, de, fn_action)
-        val filling = moments dot KPM.expansionCoefficients(order2, de, fn_filling)
+        val moments = kpm.momentsExact(order_exact)
+        val action  = moments dot c2_action
+        val filling = moments dot c2_filling
         (Array[Double](), moments, action, filling)
       }
     }
