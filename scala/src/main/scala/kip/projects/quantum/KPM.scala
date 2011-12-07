@@ -219,7 +219,8 @@ abstract class GenKPM(val H: PackedSparse[S], val nrand: Int, val seed: Int) {
   // Vector with randomly values, uniform among (1, i, -1, -i)
   def randomVector(): Dense[S] = {
     val r  = dense(n, nrand)
-    r.fill(Seq[S#A](1, I, -1, -I).apply(rand.nextInt(4)))
+    val a = Array[S#A](1, I, -1, -I)
+    r.fill(a(rand.nextInt(4)))
   }
   
   def randomGaussianVector(): Dense[S] = {
