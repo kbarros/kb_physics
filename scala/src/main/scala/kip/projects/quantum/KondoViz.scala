@@ -5,6 +5,8 @@ import java.io.File
 import scikit.graphics.dim2.Grid
 import kip.math.Vec3
 import kip.enrich._
+import kip.math.fft.FFTComplex
+import kip.math.fft.FFTReal
 
 object KondoViz extends App {
   val dir = args(0)
@@ -13,6 +15,25 @@ object KondoViz extends App {
   val h = conf.h
   val dumpdir = new java.io.File(dir+"/dump")
   require(dumpdir.isDirectory(), "Cannot load directory %s".format(dumpdir))
+  
+  def splitFieldComponents(field: Array[R]): Seq[Array[R]] = {
+    val x = new Array[R](w*h)
+    val y = new Array[R](w*h)
+    val z = new Array[R](w*h)
+    for (i <- 0 until w*h) {
+      x(i) = field(3*i+0)
+      y(i) = field(3*i+1)
+      z(i) = field(3*i+2)
+    }
+    Seq(x, y, z)
+  }
+  
+  def fftForward(a: Array[R]): Array[Double] = {
+    val fft = new FFTReal(Array(h, w))
+    val ap = fft.allocFourierArray()
+    fft.forwardTransform(a.map(_.toDouble), ap)
+    fft.uncompressFourierArray(ap)
+  }
   
   def readSpin(x: Int, y: Int, field: Array[R]): Vec3 = {
     val sx = field(0 + x*3 + y*3*w)
@@ -28,7 +49,9 @@ object KondoViz extends App {
   def drawSpins(field: Array[R]) {
     val arrows = for (y <- 0 until h;
                       x <- 0 until w) yield {
-      val s = readSpin(x, y, field) * 0.8
+//                      if x % 2 == 0 && y % 2 == 1) yield {
+      //val s = readSpin(x, y, field) * 0.8
+      val s = readSpin(x, y, field) * 1.6
       val origin = Vec3(x, y, 0)
       val delta  = Vec3(s.x, s.y, s.z)
       new RetainedScene.Arrow(origin, delta, width=0.1, color1=java.awt.Color.RED, color2=java.awt.Color.BLUE)
@@ -39,7 +62,7 @@ object KondoViz extends App {
   }
 
   val grid = new Grid("Order parameter")
-//  grid.setScale(-1, 1)
+  grid.setScale(-0.77, 0.77)
   scikit.util.Utilities.frame(grid.getComponent(), grid.getTitle())
   val gridData = new Array[Double]((2*w)*(2*h))
   def drawGrid(field: Array[R]) {
@@ -60,23 +83,36 @@ object KondoViz extends App {
       gridData((2*y+1)*(2*w) + 2*x+1) = s1 dot (s3 cross s4)
     }
     grid.registerData(2*w, 2*h, gridData)
-    
-//    for (y <- 0 until 3;
-//         x <- 0 until 3) {
-//      val s = readSpin(x, y, field).normalize
-//      println("%d %d %s %s %s".format(x, y, s.x, s.y, s.z))
-//    }
-//    println()
   }
   
-  val plot = KPM.mkPlot("Integrated rho")
-  def drawDensity(moments: Array[R]) {
-    val order = moments.size
-    val range = KPM.range(5*order)
-    val kernel = KPM.jacksonKernel(order)
-    val rho = range.map(e => KPM.densityOfStates(moments, kernel, e))
-    KPM.plotLines(plot, (range, KPM.integrate(range, rho, moment=1)), "Approx", java.awt.Color.BLACK)
+  val gridFft = new Grid("FFT")
+  scikit.util.Utilities.frame(gridFft.getComponent(), gridFft.getTitle())
+  val gridFftData = new Array[Double](w*h)
+  def drawGridFft(field: Array[R]) {
+    val Seq(sx, sy, sz) = splitFieldComponents(field)
+    val fx = fftForward(sx)
+    val fy = fftForward(sy)
+    val fz = fftForward(sz)
+    gridFftData.transform(_ => 0)
+    for (i <- 0 until h*w) {
+      import kip.math.Math.sqr
+      for (f <- Seq(fx, fy, fz)) {
+        gridFftData(i) += sqr(f(2*i+0)) + sqr(f(2*i+1))
+      }
+    }
+    gridFft.registerData(w, h, gridFftData)
   }
+  
+//  val plot = KPM.mkPlot("Integrated rho")
+//  def drawDensity(moments: Array[R]) {
+//    val order = moments.size
+//    val range = KPM.range(5*order)
+//    val kernel = KPM.jacksonKernel(order)
+//    val rho = range.map(e => KPM.densityOfStates(moments, kernel, e))
+//    KPM.plotLines(plot, (range, KPM.integrate(range, rho, moment=1)), "Approx", java.awt.Color.BLACK)
+//  }
+  
+  //scala.tools.nsc.interpreter.ILoop.break(Nil)
   
   var i = 0
   for (f <- dumpdir.listFiles()) {
@@ -85,11 +121,12 @@ object KondoViz extends App {
     println("t=%g, action=%g".format(snap.time, snap.action))
     drawSpins(snap.spin)
     drawGrid(snap.spin)
+    drawGridFft(snap.spin)
 //    drawDensity(snap.moments)
     
-//    Thread.sleep(100)
-//    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/%03d.png".format(i)))
-//    javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
+//    Thread.sleep(500)
+    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/%03d.png".format(i)))
+    //javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
     i += 1
   }
 }

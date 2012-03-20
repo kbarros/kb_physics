@@ -124,6 +124,31 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
     }
   }
   
+  // TODO: generalize beyond rank-2
+  // TODO: test with FFTComplex
+  def uncompressFourierArray(f: Array[Double]): Array[Double] = {
+    val ret = new Array[Double](2*dim.product)
+    require(rank == 2)
+    val ly = dim(0)
+    val lx = dim(1) 
+    for (y <- 0 until ly; x <- 0 until lx) {
+      val i = lx*y + x
+      if (x < lx/2 + 1) {
+        val j = (lx/2+1)*y + x
+        ret(2*i+0) = f(2*j+0)
+        ret(2*i+1) = f(2*j+1)
+      }
+      else {
+        val yp = if (y == 0) 0 else ly - y
+        val xp = lx - x
+        val j = (lx/2+1)*yp + xp
+        ret(2*i+0) = + f(2*j+0)
+        ret(2*i+1) = - f(2*j+1) // complex conjugate
+      }
+    }
+    ret
+  }
+
   def multiplyFourierArrays(src1: Array[Double], src2: Array[Double], dst: Array[Double]) {
     require(src1.size == nrecip)
     require(src2.size == nrecip)

@@ -5,20 +5,20 @@ import ctor._
 
 
 object Quantum extends App {
-  testIntegratedDensity()
+//  testIntegratedDensity()
 //  testDerivative2()
-//  testEigenvalues()
+  testEigenvalues()
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
-    val q = new Quantum(w=30, h=30, t=1, J_H=0.2, e_min= -10, e_max=10)
+    val q = new Quantum(w=40, h=40, t=1, J_H=3, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
     q.setFieldAllOut(q.field)
     q.fillMatrix(q.matrix)
     var eig = KPM.eigenvaluesExact(q.matrix)
-    val i_cut = n * 3 / 4
+    val i_cut = n * 1 / 4
     val e_cut1 = eig(i_cut-1)
     val e_cut2 = (eig(i_cut-1) + eig(i_cut)) / 2.0
     println("Gap between: [%g, %g]".format(eig(i_cut-1), eig(i_cut)))
