@@ -1,6 +1,0 @@
-(
-:use-sbt t
-:project-package "kip"
-; :debug-class "kip.graphics.Plot"
-; :debug-args ("")
-)
