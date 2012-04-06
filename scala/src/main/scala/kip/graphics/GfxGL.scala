@@ -11,9 +11,9 @@ import kip.math.{Vec3, Quaternion}
 
 
 case class Bounds3d(lo: Vec3, hi: Vec3) {
-  def dx = hi.x - lo.x
-  def dy = hi.y - lo.y
-  def dz = hi.z - lo.z
+//  def dx = hi.x - lo.x
+//  def dy = hi.y - lo.y
+//  def dz = hi.z - lo.z
   def center = (lo+hi) / 2
 }
 
@@ -96,6 +96,13 @@ class GfxGL(glDrawable: GLAutoDrawable) {
       gl.glDisable(GL.GL_MULTISAMPLE)
   }
   
+  def setTriangleSmoothing(b: Boolean) {
+    if (b)
+      gl.glShadeModel(GL.GL_SMOOTH)
+    else
+      gl.glShadeModel(GL.GL_FLAT)
+  }
+  
   def setColor(color: Color) {
     gl.glColor4fv(color.getComponents(null), 0)
   }
@@ -145,9 +152,23 @@ class GfxGL(glDrawable: GLAutoDrawable) {
         gl.glVertex3d(q.x, q.y, q.z)
       }
     }
-    gl.glEnd();
+    gl.glEnd()
   }
 
+  def drawTriangleStrip(ps: IndexedSeq[Vec3], colors: IndexedSeq[Color]) {
+    require(colors.size == ps.size-2)
+    gl.glDisable(GL.GL_LIGHTING)
+    gl.glBegin(GL.GL_TRIANGLE_STRIP)
+    gl.glNormal3d(0, 0, 1)
+    gl.glVertex3d(ps(0).x, ps(0).y, ps(0).z)
+    gl.glVertex3d(ps(1).x, ps(1).y, ps(1).z)
+    for (i <- 2 until ps.size) {
+      setColor(colors(i-2))
+      gl.glVertex3d(ps(i).x, ps(i).y, ps(i).z)
+    }
+    gl.glEnd()
+  }
+  
   def drawCuboid(bds: Bounds3d) {
     gl.glDisable(GL.GL_LIGHTING)
     gl.glBegin(GL.GL_LINES)

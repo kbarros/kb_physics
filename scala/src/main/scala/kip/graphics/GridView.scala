@@ -69,7 +69,7 @@ class GridView {
       val buffer = BufferUtil.newByteBuffer(4*data.a.size);
       buffer.clear()
       for (i <- 0 until data.a.size) {
-        val c = ColorGradient.interpolate(data.a(i))
+        val c = YellowPurpleGradient.interpolate(data.a(i))
         buffer.put(c.getRed().toByte)
         buffer.put(c.getGreen().toByte)
         buffer.put(c.getBlue().toByte)

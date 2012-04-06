@@ -5,6 +5,7 @@ import java.awt.{Color, Frame, BorderLayout}
 import javax.swing.JPanel
 import java.awt.event._
 import kip.math.{Vec3, Quaternion}
+import scala.collection.mutable.ArrayBuffer
 
 
 object RetainedScene {
@@ -52,10 +53,6 @@ object RetainedScene {
       gfx.drawTriangles(x1 + (+a1+a2)*w1, x1 + (-a1+a2)*w1, x2)
       gfx.drawTriangles(x1 + (-a1+a2)*w1, x1 + (-a1-a2)*w1, x2)
       gfx.drawTriangles(x1 + (-a1-a2)*w1, x1 + (+a1-a2)*w1, x2)
-
-      //      gfx.drawQuads(x0 + (+a1+a2)*w0, x0 + (-a1+a2)*w0, x1 + (-a1+a2)*w1, x1 + (+a1+a2)*w1)
-//      gfx.drawQuads(x0 + (-a1+a2)*w0, x0 + (-a1-a2)*w0, x1 + (-a1-a2)*w1, x1 + (-a1+a2)*w1)
-//      gfx.drawQuads(x0 + (-a1-a2)*w0, x0 + (+a1-a2)*w0, x1 + (+a1-a2)*w1, x1 + (-a1-a2)*w1)
     }
   }
   
@@ -63,6 +60,14 @@ object RetainedScene {
     def draw(gfx: GfxGL) {
       gfx.setColor(color)
       gfx.drawCuboid(bds)
+    }
+  }
+  
+  class TriangleStrip(ps: Array[Vec3], colors: Array[Color]) extends Drawable {
+    require(ps.size == colors.size+2)
+    def draw(gfx: GfxGL) {
+      gfx.setTriangleSmoothing(false)
+      gfx.drawTriangleStrip(ps, colors)
     }
   }
 }
@@ -78,7 +83,7 @@ class RetainedScene(var bds: Bounds3d, sizew: Int = 600, sizeh: Int = 600) {
   
   val scene = new Scene() {
     def drawContent(gfx: GfxGL) {
-      gfx.perspective3d(bds, rotation, translation*(bds.hi-bds.lo).norm)
+      gfx.perspective3d(bds, rotation, translation*((bds.hi-bds.lo).norm))
       
       // gfx.setMultisampling(true)
       for (d <- drawables) {
