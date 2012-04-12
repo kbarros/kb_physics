@@ -28,8 +28,8 @@ scala -J-Xmx1g -usejavacp -Djava.class.path="${CLASSPATH}" -Djava.library.path="
   // ------------------------------
   // Project definition
   //
-  lazy val smatrix = RootProject(file("../../smatrix"))
-  lazy val scikit = RootProject(file("../../scikit"))
+  lazy val smatrix = RootProject(file("../smatrix"))
+  lazy val scikit = RootProject(file("../scikit"))
 
   lazy val project = Project (
     "project",

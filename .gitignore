@@ -1,44 +1,11 @@
-# Generic
-*~
-.#*
-._*
-_region_*
-*##
-.DS_Store
-
-# Compiled files
-*.o
-*.pyc
-
-# Latex
-acs-*.bib
-*.aux
-*.bbl
-*.blg
-*.dvi
-*.fmt
-*.log
-*.end
-
-# SBT dirs
+# SBT directories
 target/
+project/boot/
 lib_managed/
-scala/project/boot/
 
-# Eclipse
-.scala_dependencies
-.project
-.classpath
-.target
+# Eclipse project files
 .cache
+.classpath
 .history
+.project
 .settings
-workspace/*/bin/*
-workspace/.metadata/
-
-# Other project files
-projects/dielectric/u6b/
-projects/dielectric/sphere*
-projects/dielectric/cylinder*
-projects/dielectric/writing/short/0softmatter.bib
-projects/lkpm/data/*
