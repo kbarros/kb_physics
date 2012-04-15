@@ -96,7 +96,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
       gl.glDisable(GL.GL_MULTISAMPLE)
   }
   
-  def setTriangleSmoothing(b: Boolean) {
+  def setSmoothShading(b: Boolean) {
     if (b)
       gl.glShadeModel(GL.GL_SMOOTH)
     else
@@ -130,7 +130,19 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     }
     gl.glEnd();
   }
-  
+      
+  def drawLineStrip(ps: IndexedSeq[Vec3], colors: IndexedSeq[Color]) {
+    require(colors.size == ps.size-1)
+    gl.glDisable(GL.GL_LIGHTING)
+    gl.glBegin(GL.GL_LINE_STRIP)
+    gl.glVertex3d(ps(0).x, ps(0).y, ps(0).z)
+    for (i <- 0 until colors.size) {
+      setColor(colors(i))
+      gl.glVertex3d(ps(i+1).x, ps(i+1).y, ps(i+1).z)
+    }
+    gl.glEnd()
+  }
+
   def drawTriangles(ps: Vec3*) {
     gl.glBegin(GL.GL_TRIANGLES)
     for (qs <- ps.grouped(3)) {

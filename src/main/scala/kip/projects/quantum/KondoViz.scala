@@ -43,11 +43,14 @@ object KondoViz extends App {
   val bds = Bounds3d(lat0, latN)
   val viz = new RetainedScene(bds)
   
+//  val so3 = new KondoSO3()
+  
   
   def readSpin(x: Int, y: Int, field: Array[R]): Vec3 = {
-    val sx = field(0 + x*3 + y*3*w)
-    val sy = field(1 + x*3 + y*3*w)
-    val sz = field(2 + x*3 + y*3*w)
+    require(x < w && y < h)
+    val sx = field(0 + 3*(x + w*y))
+    val sy = field(1 + 3*(x + w*y))
+    val sz = field(2 + 3*(x + w*y))
     Vec3(sx, sy, sz)
   }
 
@@ -80,7 +83,6 @@ object KondoViz extends App {
     ret.toArray
   }
 
-  
   def drawSpins(field: Array[R]) {
     val sd = spinDir(field)
     
@@ -95,7 +97,7 @@ object KondoViz extends App {
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
 
-      if (spinSubLattice(i) == 0)
+      if (spinSubLattice(i) == 1)
         new RetainedScene.Arrow(pos, delta, width, color1=black, color2=red)
       else
         new RetainedScene.Arrow(pos, delta, width*0, color1=gray, color2=gray)
@@ -209,7 +211,9 @@ object KondoViz extends App {
     drawSpins(snap.spin)
     drawPlaquettes(snap.spin)
     viz.display()
-    
+
+//    so3.drawPath(so3.loop((30,30), 4).toArray, snap.spin)
+
 //    drawGrid(snap.spin)
     drawGridFft(snap.spin)
 //    drawDensity(snap.moments)

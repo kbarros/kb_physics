@@ -66,13 +66,21 @@ object RetainedScene {
   class TriangleStrip(ps: Array[Vec3], colors: Array[Color]) extends Drawable {
     require(ps.size == colors.size+2)
     def draw(gfx: GfxGL) {
-      gfx.setTriangleSmoothing(false)
+      gfx.setSmoothShading(false)
       gfx.drawTriangleStrip(ps, colors)
+    }
+  }
+  
+  class LineStrip(ps: Array[Vec3], colors: Array[Color]) extends Drawable {
+    require(ps.size == colors.size+1)
+    def draw(gfx: GfxGL) {
+      gfx.setSmoothShading(false)
+      gfx.drawLineStrip(ps, colors)
     }
   }
 }
 
-class RetainedScene(var bds: Bounds3d, sizew: Int = 600, sizeh: Int = 600) {
+class RetainedScene(var bds: Bounds3d, sizew: Int = 600, sizeh: Int = 600, title: String = "Retained Scene") {
   var drawables = Vector[RetainedScene.Drawable]()
   var rasterString = ""
   var arrowHeadSize = 1.0
@@ -100,7 +108,7 @@ class RetainedScene(var bds: Bounds3d, sizew: Int = 600, sizeh: Int = 600) {
   val frame = buildFrame()
   
   def buildFrame(): Frame = {
-    val frame = new Frame("Retained Scene")
+    val frame = new Frame(title)
     frame.addWindowListener(new WindowAdapter() {
       override def windowClosing(e: WindowEvent) {
         System.exit(0)
