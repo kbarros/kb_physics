@@ -23,7 +23,7 @@ object CuKPM extends App {
   val cworld = new JCudaWorld(deviceIndex=1)
   cworld.printDeviceProperties()
   
-  val q = new Quantum(w=40, h=40, t=1, J_H=2, e_min= -10, e_max= 10)
+  val q = new Quantum(w=40, h=40, t=1, J_H=2, B_n=0, e_min= -10, e_max= 10)
   val H = q.matrix
   require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
   println("N = "+H.numRows)

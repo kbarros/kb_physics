@@ -5,13 +5,15 @@ import ctor._
 
 
 object Quantum extends App {
-//  testIntegratedDensity()
+  import kip.util.Util.{time}
+  
+  testIntegratedDensity()
 //  testDerivative2()
-  testEigenvalues()
+//  time("eigenvalues")(testEigenvalues())
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
-    val q = new Quantum(w=40, h=40, t=1, J_H=3, e_min= -10, e_max=10)
+    val q = new Quantum(w=20, h=20, t=1, J_H=3, B_n= 1, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
@@ -42,7 +44,7 @@ object Quantum extends App {
   }
   
   def testSpeed {
-    val q = new Quantum(w=10, h=10, t=1, J_H=2, e_min= -10, e_max= 10)
+    val q = new Quantum(w=10, h=10, t=1, J_H=2, B_n=0, e_min= -10, e_max= 10)
     val H = q.matrix
     val kpm = new KPM(H, nrand=1)
     val order = 100
@@ -58,7 +60,10 @@ object Quantum extends App {
 
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new Quantum(w=8, h=8, t=1, J_H=0.0, e_min= -10, e_max= 10)
+    val q = new Quantum(w=20, h=20, t=1, J_H=3, B_n= 1, e_min= -10, e_max= 10)
+    q.setFieldAllOut(q.field)
+    q.fillMatrix(q.matrix)
+    
     val H = q.matrix
     require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
     println("N = "+H.numRows)
@@ -72,7 +77,7 @@ object Quantum extends App {
   }
   
   def testDerivative() {
-    val q = new Quantum(w=10, h=10, t=1, J_H=2, e_min= -10, e_max= 10)
+    val q = new Quantum(w=10, h=10, t=1, J_H=2, B_n=0 ,e_min= -10, e_max= 10)
     val H = q.matrix
     val dH = q.delMatrix
     val order = 100
@@ -102,7 +107,7 @@ object Quantum extends App {
   
   
   def testDerivative2() {
-    val q = new Quantum(w=10, h=10, t=1, J_H=0.1, e_min= -10, e_max= 10)
+    val q = new Quantum(w=10, h=10, t=1, J_H=0.1, B_n=0, e_min= -10, e_max= 10)
     val H = q.matrix
     val dH1 = q.delMatrix
     val dH2 = dH1.duplicate
@@ -129,7 +134,7 @@ object Quantum extends App {
 //  x, y = coordinates on triangular lattice
 //  n    = nearest neighbor index on lattice 
 //
-class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, val e_max: R) {
+class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_min: R, val e_max: R) {
   require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
   val vectorDim = 3
   
@@ -165,8 +170,14 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, val e_
   }
   val delField: Array[R] = Array.fill(vectorDim*w*h)(0)
   
-  val matrix = {
+  val hoppingMatrix: PackedSparse[S] = {
     val ret = sparse(2*h*w, 2*h*w)
+    fillHoppingMatrix(ret)
+    ret.toPacked
+  }
+
+  val matrix = {
+    val ret = sparse(2*h*w, 2*h*w): HashSparse[S]
     fillMatrix(ret)
     ret.toPacked
   }
@@ -232,73 +243,76 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, val e_
     }
   }
   
-  //   
-  //   o - o - o
-  //   | \ | \ |    y
-  //   o - o - o    ^
-  //   | / | / |    |
-  //   o - o - o    ----> x
-  //
-  def neighbors(x: Int, y: Int): (Array[Int], Array[Int]) = {
-    val xdel = (y % 2) match {
+  trait Lattice {
+    def neighbors(x: Int, y: Int, d: Int): (Int, Int)
+    def displacement(x: Int, y: Int, d: Int): (Double, Double)
+    def position(x: Int, y: Int): (Double, Double)
+  }
+  
+  object Lattice extends Lattice {
+    //
+    //  o - o - o
+    //   \ / \ / \    y
+    //    o - o - o    ^
+    //     \ / \ / \    \
+    //      o - o - o    ----> x
+    //
+    
+    def position(x: Int, y: Int): (Double, Double) = {
+      val a = 0.5*math.sqrt(3.0)
+      (x-0.5*y, a*y)
+    }
 
+    def neighbors(x: Int, y: Int, d: Int): (Int, Int) = {
       //      2   1
       //      | /
       //  3 - o - 0
-      //      | \
-      //      4   5
-      case 0 => Seq(1, 1, 0, -1, 0, 1)
-
-      //  2   1
-      //    \ |
-      //  3 - o - 0
       //    / |
       //  4   5
-      case 1 => Seq(1, 0, -1, -1, -1, 0)
+      val xdel = Seq(1, 1, 0, -1, -1, 0)
+      val ydel = Seq(0, 1, 1, 0, -1, -1)
+      ((x+xdel(d)+w)%w, (y+ydel(d)+h)%h)
     }
-    val ydel = Seq(0, 1, 1, 0, -1, -1)
     
-    val xs = Array.tabulate(6) { d => (x+xdel(d)+w)%w }
-    val ys = Array.tabulate(6) { d => (y+ydel(d)+h)%h } 
-    (xs, ys)
+    def displacement(x: Int, y: Int, d: Int): (Double, Double) = {
+      val a = 0.5*math.sqrt(3.0)
+      val xdisp = Seq(1, 0.5, -0.5, -1, -0.5, 0.5)
+      val ydisp = Seq(0, a, a, 0, -a, -a)
+      (xdisp(d), ydisp(d))
+    }
   }
-
+  
+  def fillHoppingMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
+    m.clear()
     
-  //   
-  //   o - o - o
-  //   | / | / |    y
-  //   o - o - o    ^
-  //   | / | / |    |
-  //   o - o - o    ----> x
-  //
-  def neighbors2(x: Int, y: Int): (Array[Int], Array[Int]) = {
-    //      2   1
-    //      | /
-    //  3 - o - 0
-    //    / |
-    //  4   5
-    val xdel = Seq(1, 1, 0, -1, -1, 0)
-    val ydel = Seq(0, 1, 1, 0, -1, -1)
-    val xs = Array.tabulate(6) { d => (x+xdel(d)+w)%w }
-    val ys = Array.tabulate(6) { d => (y+ydel(d)+h)%h } 
-    (xs, ys)
+    val B = 8*math.Pi*B_n / (math.sqrt(3)*w)
+    require(w == h) // necessary for B quantization
+    
+    for (y <- 0 until h;
+         x <- 0 until w;
+         (px, py) = Lattice.position(x, y);
+         d <- 0 until 6;
+         (nx, ny) = Lattice.neighbors(x, y, d);
+         (dx, dy) = Lattice.displacement(x, y, d);
+         sp <- 0 until 2) {
+      val i = matrixIndex(sp, x, y)
+      val j = matrixIndex(sp, nx, ny)
+      
+      val theta = (B/2) * (px*dy - py*dx)
+      m(i, j) = (theta*I).exp * (-t)
+    }
   }
   
   def fillMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
     m.clear()
     
+    for ((i, j) <- hoppingMatrix.definedIndices) {
+      m(i, j) += hoppingMatrix(i, j)
+    }
+    
     // loop over all lattice sites
     for (y <- 0 until h;
          x <- 0 until w) {
-      
-      // neighbor hopping
-      val (xn, yn) = neighbors2(x, y)
-      for (n <- 0 until 6;
-           sp <- 0 until 2) {
-        val i = matrixIndex(sp, x, y)
-        val j = matrixIndex(sp, xn(n), yn(n))
-        m(i, j) = -t
-      }
       
       // hund coupling 
       for (sp1 <- 0 until 2;
@@ -317,6 +331,10 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, val e_
     // scale matrix appropriately so that eigenvalues lie beween -1 and +1
     for (i <- 0 until m.numRows) { m(i,i) -= e_avg }
     m /= e_scale
+
+//    // Make sure hamiltonian is hermitian
+//    val H = m.toDense
+//    require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
   }
 
   def scaleEnergy(x: R): R = {

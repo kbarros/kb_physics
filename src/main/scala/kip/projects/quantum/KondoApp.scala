@@ -6,7 +6,7 @@ import kip.util.Util
 import kip.enrich._
 import ctor._
 
-case class KondoConf(w: Int, h: Int, t: Double, J_H: Double, mu: Double,
+case class KondoConf(w: Int, h: Int, t: Double, J_H: Double, B_n: Int, mu: Double,
                      order: Int, order_exact: Int, de: Double, dt_per_rand: Double,
                      nrand: Int, dumpPeriod: Int, initConf: String)
 case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[Double],
@@ -34,7 +34,7 @@ object KondoApp extends App {
   val dumpdir = new java.io.File(dir+"/dump")
   Util.createEmptyDir(dumpdir)
   
-  val q = new Quantum(w=w, h=h, t=t, J_H=J_H, e_min= -10, e_max= 10)
+  val q = new Quantum(w=w, h=h, t=t, J_H=J_H, B_n=B_n, e_min= -10, e_max= 10)
 
   val kpm = try {
     import kip.projects.cuda._
