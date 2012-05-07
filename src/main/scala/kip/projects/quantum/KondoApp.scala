@@ -74,7 +74,9 @@ object KondoApp extends App {
       }
       q.normalizeField(q.field, validate=true)
       q.fillMatrix(q.matrix)
-      require(math.sqrt((q.matrix - q.matrix.dag).norm2.abs) < 1e-14, "Found non-hermitian hamiltonian!")
+      
+      val hermitDev = math.sqrt((q.matrix - q.matrix.dag).norm2.abs)
+      require(hermitDev < 1e-6, "Found non-hermitian hamiltonian! Deviation: "+hermitDev)
     })
 
     // exact moments
