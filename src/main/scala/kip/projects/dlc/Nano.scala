@@ -8,11 +8,10 @@ import kip.math.Vec3
 
 object Nano {
   // atom types 
-  val typPatch = 1
-  val typCore = 2
-  val typSphereCation = 3
-  val typCation = 4
-  val typAnion = 5
+  val typPatch = Seq(1)
+  val typCore = Seq(2)
+  val typCation = Seq(3, 4) // include "sphere" and "salt" cations
+  val typAnion = Seq(5)
   
   def averageTemperature(snaps: Seq[Snapshot]) = {
     snaps.foreach(s => if (s.thermo.temperature.isNaN) println("NaN temp at "+s.time))
@@ -30,9 +29,11 @@ object Nano {
     }
   }
   
-  def bondAngleHistogram(snaps: Seq[Snapshot], dtheta: Double, ids1: Seq[Int], ids2: Seq[Int], rcutoff: Double) = {
+  def bondAngleHistogram(snaps: Seq[Snapshot], dtheta: Double, typs1: Seq[Int], typs2: Seq[Int], rcutoff: Double) = {
     val g = RangeArray.fill(xmin=0, xmax=math.Pi, dx=dtheta)(0d)
     for ((s,iter) <- snaps.zipWithIndex) {
+      val ids1 = (0 until s.natoms) filter (i => typs1.contains(s.typ(i)))
+      val ids2 = (0 until s.natoms) filter (i => typs2.contains(s.typ(i)))
       for (i <- ids1) {
         val bonded = ids2.filter { j => (i != j) && (s.distance2(i, j) < rcutoff*rcutoff) }
         for ((j1, j2) <- sizeTwoSubsets(bonded)) {
@@ -44,6 +45,7 @@ object Nano {
     }
 
     // normalize
+    val ids1 = (0 until snaps(0).natoms) filter (i => typs1.contains(snaps(0).typ(i)))
     for (j <- g.elemCenters) {
       g(j) /= dtheta * snaps.size * ids1.size * (2*math.Pi*math.sin(j))
     }
@@ -51,12 +53,14 @@ object Nano {
     g
   }
   
-  def pairCorrelation(snaps: Seq[Snapshot], dr: Double, rmax: Double, ids1: Seq[Int], ids2: Seq[Int]): RangeArray[Double] = {
+  def pairCorrelation(snaps: Seq[Snapshot], dr: Double, rmax: Double, typs1: Seq[Int], typs2: Seq[Int]): RangeArray[Double] = {
     val volume = snaps(0).volume
     val g = RangeArray.fill(xmin=0, xmax=rmax, dx=dr)(0d)
-    
+
     // sum over all snapshots, and all pairs of particles. distances are binned into g
     for ((s,iter) <- snaps.zipWithIndex) {
+      val ids1 = (0 until s.natoms) filter (i => typs1.contains(s.typ(i)))
+      val ids2 = (0 until s.natoms) filter (i => typs2.contains(s.typ(i)))
       // if (iter % 100 == 0)
       //  println("Processing snapshot "+iter)
       for (i1 <- ids1; i2 <- ids2; if i1 != i2) {
@@ -83,6 +87,8 @@ object Nano {
     }
 
     // normalize pair-correlation so that it becomes unity at homogeneous density
+    val ids1 = (0 until snaps(0).natoms) filter (i => typs1.contains(snaps(0).typ(i)))
+    val ids2 = (0 until snaps(0).natoms) filter (i => typs2.contains(snaps(0).typ(i)))
     val uniquePairs = (ids1.size * ids2.size) - (ids1.toSet & ids2.toSet).size
     for (r <- g.elemCenters) {
       val volume_fraction = 4*math.Pi*r*r*dr / volume
@@ -92,7 +98,7 @@ object Nano {
     g
   }
   
-  def pairCorrelationWithError(snaps: Seq[Snapshot], dr: Double, rmax: Double, ids1: Seq[Int], ids2: Seq[Int]): RangeArray[BlockAnalysis] = {
+  def pairCorrelationWithError(snaps: Seq[Snapshot], dr: Double, rmax: Double, typs1: Seq[Int], typs2: Seq[Int]): RangeArray[BlockAnalysis] = {
     // partition snapshots into 199 equal sized groups
     val groupSize = math.max(snaps.size / 200, 1)
     
@@ -100,30 +106,20 @@ object Nano {
     val snapsGrouped = snaps.grouped(groupSize).toArray.dropRight(1)
     
     // list of approximations to function g(r)
-    val gs = snapsGrouped.map(pairCorrelation(_, dr, rmax, ids1, ids2))
-    
+    val gs = snapsGrouped.map(pairCorrelation(_, dr, rmax, typs1, typs2))
+
     // pair correlation estimate, g_mean +- g_err
     RangeArray.transpose(gs).map (new kip.util.BlockAnalysis(_))
   }
   
   
-  def writeCorrelationFunctions(snaps1: Seq[Snapshot], snaps2: Seq[Snapshot], dr: Double, rmax: Double) {
-    // sphere-sphere correlation
-    val b1 = {
-      val s0 = snaps1(0)
-      val idsCore = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
-      time("Sphere-sphere")(pairCorrelationWithError(snaps1, dr, rmax, idsCore, idsCore))
-    }
-    
-    // sphere-ion correlation
-    val (b2, b3, b4) = {
+  def writeCorrelationFunctions(snaps2: Seq[Snapshot], dr: Double, rmax: Double) {
+    val (b1, b2, b3, b4) = {
       val s0 = snaps2(0)
-      val idsCore   = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
-      val idsCation = (0 until s0.natoms) filter (i => s0.typ(i) == typCation || s0.typ(i) == typSphereCation)
-      val idsAnion  = (0 until s0.natoms) filter (i => s0.typ(i) == typAnion)
-      (time("Sphere-cation")(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsCation)),
-       time("Sphere-anion")(pairCorrelationWithError(snaps2, dr, rmax, idsCore, idsAnion)),
-       time("Cation-cation")(pairCorrelationWithError(snaps2, dr, rmax, idsCation, idsCation)))
+      (time("Sphere-sphere")(pairCorrelationWithError(snaps2, dr, rmax, typCore,   typCore)),
+      time("Sphere-cation") (pairCorrelationWithError(snaps2, dr, rmax, typCore,   typCation)),
+      time("Sphere-anion")  (pairCorrelationWithError(snaps2, dr, rmax, typCore,   typAnion)),
+      time("Cation-cation") (pairCorrelationWithError(snaps2, dr, rmax, typCation, typCation)))
     }
     
     if (b1.exists(b => b.error > 0 && !b.isDecorrelated))
@@ -152,8 +148,7 @@ object Nano {
   
   def writeAngleHistogram(snaps: Seq[Snapshot], dtheta: Double) {
     val s0 = snaps(0)
-    val idsCore = (0 until s0.natoms) filter (i => s0.typ(i) == typCore)
-    val g = time("Angle histogram")(bondAngleHistogram(snaps, dtheta, idsCore, idsCore, rcutoff=8.5))
+    val g = time("Angle histogram")(bondAngleHistogram(snaps, dtheta, typCore, typCore, rcutoff=8.5))
     val formatted = formatDataInColumns(
       ("radii", g.elemCenters),
       ("g(theta)", g.elems)
@@ -183,14 +178,14 @@ object Nano {
     def terminate(snaps: Seq[Snapshot]): Boolean = {
       snaps.lastOption.map(_.time > tmax).getOrElse(false)
     }
-    val snaps1 = time("Reading dump1.gz")(LammpsParser.readLammpsDump("dump1-0.gz", process, terminate, readEvery))
+    // val snaps1 = time("Reading dump1.gz")(LammpsParser.readLammpsDump("dump1-0.gz", process, terminate, readEvery))
     val snaps2 = time("Reading dump2.gz")(LammpsParser.readLammpsDump("dump2-0.gz", process, terminate, readEvery))
-    time("Weaving thermo")(LammpsParser.weaveThermoData(snaps1, LammpsParser.readLammpsThermo("log.lammps")))
-    println("Processing "+snaps1.size+" of "+(snaps1.size*readEvery)+" snapshots")
-    println("Average temperature = "+averageTemperature(snaps1))
+    time("Weaving thermo")(LammpsParser.weaveThermoData(snaps2, LammpsParser.readLammpsThermo("log.lammps")))
+    println("Processing "+snaps2.size+" of "+(snaps2.size*readEvery)+" snapshots")
+    println("Average temperature = "+averageTemperature(snaps2))
     
-    writeCorrelationFunctions(snaps1, snaps2, dr, rmax)
-    writeAngleHistogram(snaps1, dtheta=dtheta)
+    writeCorrelationFunctions(snaps2, dr, rmax)
+    writeAngleHistogram(snaps2, dtheta=dtheta)
   }
   
   def main(args: Array[String]) {
