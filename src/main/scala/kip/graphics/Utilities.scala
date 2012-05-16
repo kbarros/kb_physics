@@ -1,10 +1,12 @@
 package kip.graphics
 
 import javax.swing._
-import java.awt.image.BufferedImage;
-import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
 import javax.media.opengl.{GL, GLCanvas}
 import java.io.File
+import java.awt.Canvas
+import java.awt.Frame
 
 
 object Utilities {
@@ -34,4 +36,17 @@ object Utilities {
   // See git history for definition.
   // 6/24/2011
   // def copyFrame(canvas: GLCanvas): BufferedImage = { ... }
+  
+
+  def frame(c: Canvas, w: Int, h: Int, title: String) {
+    val frame = new Frame(title)
+    frame.add(c)
+    frame.setSize(w, h)
+    frame.setVisible(true)
+  }
+  
+  def swingInvokeLater(f: () => Unit) {
+    SwingUtilities.invokeLater(new Runnable { def run() = f() })
+  }
 }
+

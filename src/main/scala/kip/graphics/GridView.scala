@@ -3,38 +3,33 @@ package kip.graphics
 import java.awt.Frame
 import java.awt.event.{WindowAdapter, WindowEvent}
 import javax.media.opengl.{GL, GLAutoDrawable, GLCanvas, GLEventListener}
-import com.sun.opengl.util.BufferUtil;
+import com.sun.opengl.util.BufferUtil
 import java.nio.ByteBuffer;
+import javax.swing.SwingUtilities
 
 
 object GridView {
-  case class Data(w: Int, h: Int, a: Array[Double]) {
-    assert(w*h == a.size)
+  class Data(val w: Int, val h: Int, val color: Int => java.awt.Color)
+  class ArrayData(w: Int, h: Int, a: Array[Double], cg: ColorGradient) extends Data(w, h, i => cg.interpolate(a(i))) {
+    require(w*h == a.size)
   }
   
   def main(args: Array[String]) {
     val gridView = new GridView()
-    gridView.data = {
+    val data = {
       val w = 256
       val data = Array.tabulate(w, w) { (i, j) => (i ^ j) / w.toDouble }
-      GridView.Data(w, w, data.flatten)
+      new GridView.ArrayData(w, w, data.flatten, BlueRedGradient)
     }
+    gridView.display(data)
     
-    val frame = new Frame("GridView Test")
-    frame.add(gridView.canvas)
-    frame.setSize(300, 300)
-    frame.setVisible(true)
-    frame.addWindowListener(new WindowAdapter() {
-      override def windowClosing(e: WindowEvent) {
-	System.exit(0);
-      }
-    })
+    Utilities.frame(gridView.canvas, w=300, h=300, title="GridView Test")
   }
 }
 
 
 class GridView {
-  var data: GridView.Data = GridView.Data(1, 1, Array(0d))
+  var data: GridView.Data = new GridView.Data(1, 1, _ => java.awt.Color.BLACK)
   
   val listener: GLEventListener = new GLEventListener {
     def init(drawable: GLAutoDrawable) {
@@ -66,10 +61,10 @@ class GridView {
       gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
       
       // load texture
-      val buffer = BufferUtil.newByteBuffer(4*data.a.size);
+      val buffer = BufferUtil.newByteBuffer(4*data.w*data.h);
       buffer.clear()
-      for (i <- 0 until data.a.size) {
-        val c = YellowPurpleGradient.interpolate(data.a(i))
+      for (i <- 0 until data.w*data.h) {
+        val c = data.color(i)
         buffer.put(c.getRed().toByte)
         buffer.put(c.getGreen().toByte)
         buffer.put(c.getBlue().toByte)
@@ -112,12 +107,20 @@ class GridView {
     def displayChanged(drawable: GLAutoDrawable, modeChanged: Boolean, deviceChanged: Boolean) {
     }
   }
-
+  
   val canvas: GLCanvas = {
     val canvas = new GLCanvas()
     canvas.addGLEventListener(listener)
     canvas
   }
   
+  def display(d: GridView.Data) {
+    data = d
+    Utilities.swingInvokeLater(canvas.display)
+  }
+  
+  def clear() {
+    display(new GridView.Data(1, 1, _ => java.awt.Color.BLACK))
+  }
 }
 
