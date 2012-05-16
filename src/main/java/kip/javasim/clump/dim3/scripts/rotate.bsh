@@ -1,0 +1,36 @@
+import javax.swing.Timer;
+import scikit.graphics.*;
+import javax.imageio.ImageIO;
+static import scikit.util.Utilities.*;
+
+a = load3d();
+grid = grid3d(a);
+
+grid.setColors(new GrayScale());
+grid.setScale(0, 6);
+
+grid._viewBdsScale = 0.4;
+grid._viewBdsTranslate.x = -0.02;
+grid._viewBdsTranslate.y = +0.11;
+grid._viewBdsTranslate.z = +0.04;
+
+// grid.includeBoundary(false);
+
+outdir = "/Users/kbarros/Desktop/output/";
+// outdir = selectDir();
+
+i = 0;
+ActionListener taskPerformer = new ActionListener() {
+    public void actionPerformed(ActionEvent evt) {
+        grid.rotate(0, 0.01, 0);
+        grid._canvas.repaint();
+        imgName = outdir+formati4(i)+".png";
+        save(grid.getImage(), imgName);
+        // ImageIO.write(grid.getImage(), "png", new File(imgName));
+        i++;
+    }
+};
+
+delay = 10; //milliseconds
+t = new Timer(delay, taskPerformer);
+t.start();

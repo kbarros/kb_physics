@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="MacRoman"?>
+<jardesc>
+<jar path="/Users/kbarros/Desktop/polymer.jar"/>
+<options buildIfNeeded="true" compress="true" descriptionLocation="/JavaSims/src/kip/md/apps/polymer/PolymerApp.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+<storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+<selectedProjects/>
+<manifest generateManifest="true" mainClassHandleIdentifier="=JavaSims/src&lt;kip.md.apps.polymer{PolymerApp.java[PolymerApp" manifestLocation="" manifestVersion="1.0" reuseManifest="false" saveManifest="false" usesManifest="true">
+<sealing sealJar="false">
+<packagesToSeal/>
+<packagesToUnSeal/>
+</sealing>
+</manifest>
+<selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.jobs"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;kip.util"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.graphics.dim2"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.dataset"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.graphics.dim3"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.numerics.fft"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.plot"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;kip.fun"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.params"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.util"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.graphics"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;scikit.numerics.ode"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;kip.md"/>
+<javaElement handleIdentifier="=JavaSims/src&lt;kip.md.apps.polymer"/>
+</selectedElements>
+</jardesc>
