@@ -11,7 +11,7 @@ import javax.swing.SwingUtilities
 object GridView {
   class Data(val w: Int, val h: Int, val color: Int => java.awt.Color)
   class ArrayData(w: Int, h: Int, a: Array[Double], cg: ColorGradient) extends Data(w, h, i => cg.interpolate(a(i))) {
-    // if (w*h != a.size) println("Warning: array.size (%d) != w*h (%dx%d)".format(a.size, w, h))
+    if (w*h != a.size) println("Warning: array.size (%d) != w*h (%dx%d)".format(a.size, w, h))
   }
   
   def main(args: Array[String]) {
