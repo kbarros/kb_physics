@@ -11,15 +11,15 @@ import javax.swing.SwingUtilities
 object GridView {
   class Data(val w: Int, val h: Int, val color: Int => java.awt.Color)
   class ArrayData(w: Int, h: Int, a: Array[Double], cg: ColorGradient) extends Data(w, h, i => cg.interpolate(a(i))) {
-    require(w*h == a.size)
+    // if (w*h != a.size) println("Warning: array.size (%d) != w*h (%dx%d)".format(a.size, w, h))
   }
   
   def main(args: Array[String]) {
     val gridView = new GridView()
     val data = {
       val w = 256
-      val data = Array.tabulate(w, w) { (i, j) => (i ^ j) / w.toDouble }
-      new GridView.ArrayData(w, w, data.flatten, BlueRedGradient)
+      val data = Array.tabulate(w, w) { (i, j) => (i ^ j).toDouble }
+      new GridView.ArrayData(w, w, data.flatten, ColorGradient.blueRed(lo=0, hi=256))
     }
     gridView.display(data)
     
@@ -43,7 +43,7 @@ class GridView {
       
       gl.glClearColor(1f, 1f, 1f, 0f)
       gl.glClear(GL.GL_COLOR_BUFFER_BIT);
-
+      
       gl.glMatrixMode(GL.GL_PROJECTION)
       gl.glLoadIdentity()
       gl.glOrtho(0, 1, 0, 1, -1, 1)
@@ -53,10 +53,10 @@ class GridView {
       // allocate and bind texture
       gl.glEnable(GL.GL_TEXTURE_2D)
       val textures = new Array[Int](1)
-      gl.glGenTextures(textures.size, textures, 0);
+      gl.glGenTextures(textures.size, textures, 0)
       gl.glBindTexture(GL.GL_TEXTURE_2D, textures(0))
-      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
-      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST /* GL.GL_LINEAR */)
+      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST /* GL.GL_LINEAR */)
       gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
       gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
       

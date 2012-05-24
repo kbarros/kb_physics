@@ -97,7 +97,7 @@ object KondoViz extends App {
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
 
-      if (spinSubLattice(i) == 1)
+      if (spinSubLattice(i) == 0)
         new RetainedScene.Arrow(pos, delta, width, color1=black, color2=red)
       else
         new RetainedScene.Arrow(pos, delta, width*0, color1=gray, color2=gray)
@@ -135,7 +135,8 @@ object KondoViz extends App {
         vals += s1 dot (s2 cross s4)
       }
       
-      val colors = vals.map(a => BlueRedGradient.interpolate(a, -0.9, +0.9))
+      val cg = ColorGradient.blueRed(-0.9, +0.9)
+      val colors = vals.map(cg.interpolate(_))
       new RetainedScene.TriangleStrip(pts.toArray, colors.toArray)
     }
     
@@ -208,7 +209,7 @@ object KondoViz extends App {
     println("t=%g, action=%g".format(snap.time, snap.action))
 
     viz.drawables = Vector(new RetainedScene.Cuboid(bds))
-    drawSpins(snap.spin)
+//    drawSpins(snap.spin)
     drawPlaquettes(snap.spin)
     viz.display()
 
@@ -219,7 +220,7 @@ object KondoViz extends App {
 //    drawDensity(snap.moments)
     
 //    Thread.sleep(500)
-//    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/%03d.png".format(i)))
+    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/%03d.png".format(i)))
     //javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
     i += 1
   }
