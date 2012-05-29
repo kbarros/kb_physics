@@ -1,6 +1,5 @@
 import sbt._
 import Keys._
-import java.io.PrintWriter
 
 // Key reference: http://harrah.github.com/xsbt/latest/sxr/Keys.scala.html
 
@@ -19,7 +18,7 @@ LIBRARY_PATH="%s"
 scala -J-Xmx1g -usejavacp -Djava.class.path="${CLASSPATH}" -Djava.library.path="${LIBRARY_PATH}" "$@"
 """.format(cpString, libString)
     val targetFile = (target / "sbt-launcher").asFile
-    val writer = new PrintWriter(targetFile)
+    val writer = new java.io.PrintWriter(targetFile)
     writer.println(launchString)
     writer.close()
     targetFile.setExecutable(true)

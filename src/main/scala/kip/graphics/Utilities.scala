@@ -3,7 +3,8 @@ package kip.graphics
 import javax.swing._
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
-import javax.media.opengl.{GL, GLCanvas}
+import javax.media.opengl.GL
+
 import java.io.File
 import java.awt.Canvas
 import java.awt.Frame

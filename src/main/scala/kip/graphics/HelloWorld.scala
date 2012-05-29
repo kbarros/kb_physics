@@ -2,7 +2,9 @@ package kip.graphics
 
 import java.awt.Frame
 import java.awt.event.{WindowAdapter, WindowEvent}
-import javax.media.opengl.{GL, GLAutoDrawable, GLCanvas, GLEventListener}
+import javax.media.opengl.{GL, GL2, GLAutoDrawable, GLEventListener}
+import javax.media.opengl.fixedfunc.{GLMatrixFunc}
+import javax.media.opengl.awt.GLCanvas
 
 
 object HelloWorld {
@@ -29,18 +31,18 @@ class HelloWorld extends GLEventListener {
   }
 
   def display(drawable: GLAutoDrawable) {
-    val gl = drawable.getGL()
+    val gl = drawable.getGL().getGL2()
     gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f)
     gl.glClear(GL.GL_COLOR_BUFFER_BIT);
     gl.glColor3f(1.0f, 1.0f, 1.0f)
 
-    gl.glMatrixMode(GL.GL_PROJECTION)
+    gl.glMatrixMode(GLMatrixFunc.GL_PROJECTION)
     gl.glLoadIdentity()
     gl.glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0)
-    gl.glMatrixMode(GL.GL_MODELVIEW)
+    gl.glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
     gl.glLoadIdentity()
     
-    gl.glBegin(GL.GL_POLYGON)
+    gl.glBegin(GL2.GL_POLYGON)
     gl.glVertex2f(-0.5f, -0.5f)
     gl.glVertex2f(-0.5f, 0.5f)
     gl.glVertex2f(0.5f, 0.5f)
@@ -49,7 +51,7 @@ class HelloWorld extends GLEventListener {
     gl.glFlush()
   }
 
-  def displayChanged(drawable: GLAutoDrawable, modeChanged: Boolean, deviceChanged: Boolean) {
+  def dispose(drawable: GLAutoDrawable) {
   }
 }
 

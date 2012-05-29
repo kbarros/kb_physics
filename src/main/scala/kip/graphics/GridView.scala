@@ -2,8 +2,9 @@ package kip.graphics
 
 import java.awt.Frame
 import java.awt.event.{WindowAdapter, WindowEvent}
-import javax.media.opengl.{GL, GLAutoDrawable, GLCanvas, GLEventListener}
-import com.sun.opengl.util.BufferUtil
+import javax.media.opengl.{GL, GL2, GLAutoDrawable, GLEventListener}
+import javax.media.opengl.fixedfunc.{GLMatrixFunc}
+import javax.media.opengl.awt.GLCanvas
 import java.nio.ByteBuffer;
 import javax.swing.SwingUtilities
 
@@ -39,15 +40,15 @@ class GridView {
     }
 
     def display(drawable: GLAutoDrawable) {
-      val gl = drawable.getGL()
+      val gl = drawable.getGL().getGL2()
       
       gl.glClearColor(1f, 1f, 1f, 0f)
       gl.glClear(GL.GL_COLOR_BUFFER_BIT);
       
-      gl.glMatrixMode(GL.GL_PROJECTION)
+      gl.glMatrixMode(GLMatrixFunc.GL_PROJECTION)
       gl.glLoadIdentity()
       gl.glOrtho(0, 1, 0, 1, -1, 1)
-      gl.glMatrixMode(GL.GL_MODELVIEW)
+      gl.glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
       gl.glLoadIdentity()
       
       // allocate and bind texture
@@ -61,7 +62,7 @@ class GridView {
       gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
       
       // load texture
-      val buffer = BufferUtil.newByteBuffer(4*data.w*data.h);
+      val buffer = com.jogamp.common.nio.Buffers.newDirectByteBuffer(4*data.w*data.h)
       buffer.clear()
       for (i <- 0 until data.w*data.h) {
         val c = data.color(i)
@@ -79,7 +80,7 @@ class GridView {
       val lo = 0.02f
       val hi = 0.98f
       gl.glColor3f(1, 1, 1)
-      gl.glBegin(GL.GL_POLYGON)
+      gl.glBegin(GL2.GL_POLYGON)
       gl.glTexCoord2d(0, 0)
       gl.glVertex2f(lo, lo)
       gl.glTexCoord2d(0, 1)
@@ -104,7 +105,7 @@ class GridView {
       gl.glFlush()
     }
     
-    def displayChanged(drawable: GLAutoDrawable, modeChanged: Boolean, deviceChanged: Boolean) {
+    def dispose(drawable: GLAutoDrawable) {
     }
   }
   

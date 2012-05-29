@@ -2,12 +2,14 @@ package kip.graphics
 
 import scala.collection.mutable.LinkedList
 import java.awt.Color
-import javax.media.opengl.{GL, GLAutoDrawable}
+import javax.media.opengl.{GL, GL2ES1, GL2, GLAutoDrawable}
+import javax.media.opengl.fixedfunc.{GLLightingFunc, GLMatrixFunc}
 import javax.media.opengl.glu.GLU
-import com.sun.opengl.util.GLUT
+import com.jogamp.opengl.util.gl2.GLUT
 
 import kip.math.Math._
 import kip.math.{Vec3, Quaternion}
+
 
 
 case class Bounds3d(lo: Vec3, hi: Vec3) {
@@ -18,9 +20,15 @@ case class Bounds3d(lo: Vec3, hi: Vec3) {
 }
 
 class GfxGL(glDrawable: GLAutoDrawable) {
-  val gl   = glDrawable.getGL()
+  import GL._
+  import GLLightingFunc._
+  import GLMatrixFunc._
+  import GL2ES1._
+  import GL2._ // This should include previous imports, but doesn't.
+  
+  val gl   = glDrawable.getGL().getGL2()
   val glu  = new GLU()
-  val gluq = glu.gluNewQuadric();
+  val gluq = glu.gluNewQuadric()
   val glut = new GLUT()
   val pixWidth  = glDrawable.getWidth()
   val pixHeight = glDrawable.getHeight()
@@ -34,29 +42,29 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
   
   def ortho2d(bds: Bounds3d) {
-    gl.glDisable(GL.GL_DEPTH_TEST)
-    gl.glDisable(GL.GL_COLOR_MATERIAL)
-    gl.glDisable(GL.GL_LIGHTING)
+    gl.glDisable(GL_DEPTH_TEST)
+    gl.glDisable(GL_COLOR_MATERIAL)
+    gl.glDisable(GL_LIGHTING)
     
     // set the projection & modelview matrices
-    gl.glMatrixMode(GL.GL_PROJECTION)
+    gl.glMatrixMode(GL_PROJECTION)
     gl.glLoadIdentity()
     glu.gluOrtho2D(bds.lo.x, bds.hi.x, bds.lo.y, bds.hi.y)
-    gl.glMatrixMode(GL.GL_MODELVIEW)
+    gl.glMatrixMode(GL_MODELVIEW)
     gl.glLoadIdentity()
   }
 
   def perspective3d(bds: Bounds3d, rotation: Quaternion, translation: Vec3) {
-    gl.glEnable(GL.GL_DEPTH_TEST)
-    gl.glEnable(GL.GL_COLOR_MATERIAL)
-    gl.glEnable(GL.GL_LIGHTING)
-    gl.glLightModeli(GL.GL_LIGHT_MODEL_TWO_SIDE, GL.GL_TRUE)
+    gl.glEnable(GL_DEPTH_TEST)
+    gl.glEnable(GL_COLOR_MATERIAL)
+    gl.glEnable(GL_LIGHTING)
+    gl.glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE)
     
     // get the corner to corner distance of the view bounds cuboid
     val len = (bds.hi - bds.lo).norm
     
     // set the projection matrix
-    gl.glMatrixMode(GL.GL_PROJECTION)
+    gl.glMatrixMode(GL_PROJECTION)
     gl.glLoadIdentity()
     val fovY = 35
     val aspect = pixWidth / pixHeight.toDouble
@@ -65,7 +73,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     glu.gluPerspective(fovY, aspect, zNear, zFar)
     
     // set the modelview matrix
-    gl.glMatrixMode(GL.GL_MODELVIEW)
+    gl.glMatrixMode(GL_MODELVIEW)
     gl.glLoadIdentity()
     initializeLights()
     // each sequential operation multiplies the modelview transformation matrix
@@ -84,23 +92,23 @@ class GfxGL(glDrawable: GLAutoDrawable) {
 
   def setLineSmoothing(b: Boolean) {
     if (b)
-      gl.glEnable(GL.GL_LINE_SMOOTH)
+      gl.glEnable(GL_LINE_SMOOTH)
     else
-      gl.glDisable(GL.GL_LINE_SMOOTH)
+      gl.glDisable(GL_LINE_SMOOTH)
   }
   
   def setMultisampling(b: Boolean) {
     if (b)
-      gl.glEnable(GL.GL_MULTISAMPLE)
+      gl.glEnable(GL_MULTISAMPLE)
     else
-      gl.glDisable(GL.GL_MULTISAMPLE)
+      gl.glDisable(GL_MULTISAMPLE)
   }
   
   def setSmoothShading(b: Boolean) {
     if (b)
-      gl.glShadeModel(GL.GL_SMOOTH)
+      gl.glShadeModel(GL_SMOOTH)
     else
-      gl.glShadeModel(GL.GL_FLAT)
+      gl.glShadeModel(GL_FLAT)
   }
   
   def setColor(color: Color) {
@@ -108,7 +116,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
   
   def drawPoints(ps: Vec3*) {
-    gl.glBegin(GL.GL_POINTS)
+    gl.glBegin(GL_POINTS)
     for (p <- ps) {
       gl.glVertex3d(p.x, p.y, p.z)
     }
@@ -116,7 +124,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
   
   def drawLines(ps: Vec3*) {
-    gl.glBegin(GL.GL_LINES)
+    gl.glBegin(GL_LINES)
     for (p <- ps) {
       gl.glVertex3d(p.x, p.y, p.z)
     }
@@ -124,7 +132,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
   
   def drawLineStrip(ps: Vec3*) {
-    gl.glBegin(GL.GL_LINE_STRIP)
+    gl.glBegin(GL_LINE_STRIP)
     for (p <- ps) {
       gl.glVertex3d(p.x, p.y, p.z)
     }
@@ -133,8 +141,8 @@ class GfxGL(glDrawable: GLAutoDrawable) {
       
   def drawLineStrip(ps: IndexedSeq[Vec3], colors: IndexedSeq[Color]) {
     require(colors.size == ps.size-1)
-    gl.glDisable(GL.GL_LIGHTING)
-    gl.glBegin(GL.GL_LINE_STRIP)
+    gl.glDisable(GL_LIGHTING)
+    gl.glBegin(GL_LINE_STRIP)
     gl.glVertex3d(ps(0).x, ps(0).y, ps(0).z)
     for (i <- 0 until colors.size) {
       setColor(colors(i))
@@ -144,7 +152,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
 
   def drawTriangles(ps: Vec3*) {
-    gl.glBegin(GL.GL_TRIANGLES)
+    gl.glBegin(GL_TRIANGLES)
     for (qs <- ps.grouped(3)) {
       val n = ((qs(1) - qs(0)) cross (qs(2) - qs(0))).normalize
       gl.glNormal3d(n.x, n.y, n.z)
@@ -156,7 +164,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
 
   def drawQuads(ps: Vec3*) {
-    gl.glBegin(GL.GL_QUADS)
+    gl.glBegin(GL_QUADS)
     for (qs <- ps.grouped(4)) {
       val n = ((qs(1) - qs(0)) cross (qs(2) - qs(0))).normalize
       gl.glNormal3d(n.x, n.y, n.z)
@@ -169,8 +177,8 @@ class GfxGL(glDrawable: GLAutoDrawable) {
 
   def drawTriangleStrip(ps: IndexedSeq[Vec3], colors: IndexedSeq[Color]) {
     require(colors.size == ps.size-2)
-    gl.glDisable(GL.GL_LIGHTING)
-    gl.glBegin(GL.GL_TRIANGLE_STRIP)
+    gl.glDisable(GL_LIGHTING)
+    gl.glBegin(GL_TRIANGLE_STRIP)
     gl.glNormal3d(0, 0, 1)
     gl.glVertex3d(ps(0).x, ps(0).y, ps(0).z)
     gl.glVertex3d(ps(1).x, ps(1).y, ps(1).z)
@@ -182,8 +190,8 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
   
   def drawCuboid(bds: Bounds3d) {
-    gl.glDisable(GL.GL_LIGHTING)
-    gl.glBegin(GL.GL_LINES)
+    gl.glDisable(GL_LIGHTING)
+    gl.glBegin(GL_LINES)
     val xs = Array(bds.lo.x, bds.hi.x)
     val ys = Array(bds.lo.y, bds.hi.y)
     val zs = Array(bds.lo.z, bds.hi.z)
@@ -199,7 +207,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
 	    gl.glVertex3d(xs(i),   ys(j),   zs(1-k))
     }
     gl.glEnd()
-    gl.glEnable(GL.GL_LIGHTING)
+    gl.glEnable(GL_LIGHTING)
   }
   
   
@@ -260,7 +268,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     gl.glPushMatrix()
     gl.glTranslated(center.x, center.y, center.z)
     
-    gl.glBegin(GL.GL_TRIANGLES)
+    gl.glBegin(GL_TRIANGLES)
     for (triangle <- sphereCache(subdivisions)) {
       def sphereVertex(v: Vec3) {
         gl.glNormal3d(v.x, v.y, v.z)
@@ -289,9 +297,9 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
   
   def initializeLights() {
-    gl.glEnable(GL.GL_LIGHT1)
-    gl.glLightfv(GL.GL_LIGHT1, GL.GL_AMBIENT,  Array(0.5f,0.5f,0.5f,0.2f), 0)
-    gl.glLightfv(GL.GL_LIGHT1, GL.GL_DIFFUSE,  Array(0.9f,0.9f,0.9f,0.9f), 0)
-    gl.glLightfv(GL.GL_LIGHT1, GL.GL_POSITION, Array(1,0.5f,1,0), 0)
+    gl.glEnable(GL_LIGHT1)
+    gl.glLightfv(GL_LIGHT1, GL_AMBIENT,  Array(0.5f,0.5f,0.5f,0.2f), 0)
+    gl.glLightfv(GL_LIGHT1, GL_DIFFUSE,  Array(0.9f,0.9f,0.9f,0.9f), 0)
+    gl.glLightfv(GL_LIGHT1, GL_POSITION, Array(1,0.5f,1,0), 0)
   }
 }

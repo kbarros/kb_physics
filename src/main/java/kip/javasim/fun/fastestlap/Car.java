@@ -1,18 +1,22 @@
 package kip.javasim.fun.fastestlap;
 
+import static java.lang.Math.PI;
+import static java.lang.Math.abs;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.sqrt;
+import static scikit.numerics.Math2.sqr;
+
 import javax.media.opengl.GL;
+import javax.media.opengl.GL2;
 import javax.media.opengl.glu.GLU;
 import javax.media.opengl.glu.GLUquadric;
 
 import kip.javasim.Vec3J;
 
-import com.sun.opengl.impl.GLUquadricImpl;
-import static java.lang.Math.*;
-import static scikit.numerics.Math2.*;
-
 public class Car {
 	final GLU glu = new GLU();
-	final GLUquadric gluQuad = new GLUquadricImpl();
+    private GLUquadric _gluQuad = null;
 	
 	final double body_length = 2; // meters
 	final double body_width = 0.4*body_length;
@@ -65,7 +69,14 @@ public class Car {
 		va = 0;
 	}
 
-	void drawRect(GL gl, double w, double h) {
+	GLUquadric gluQuad() {
+	  if (_gluQuad == null) {
+	    _gluQuad = glu.gluNewQuadric();
+	  }
+	  return _gluQuad;
+	}
+	
+	void drawRect(GL2 gl, double w, double h) {
 		gl.glBegin(GL.GL_TRIANGLES); {
 			gl.glVertex2d(-w/2, -h/2);
 			gl.glVertex2d(-w/2, h/2);
@@ -77,9 +88,9 @@ public class Car {
 		} gl.glEnd();
 	}
 	
-	void drawRearFoil(GL gl) {
-	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_DIFFUSE,  new float[]{0.6f, 0, 0.7f, 1}, 0);
-	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_SPECULAR, new float[]{0.3f, 0.3f, 0.3f, 1}, 0);
+	void drawRearFoil(GL2 gl) {
+	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_DIFFUSE,  new float[]{0.6f, 0, 0.7f, 1}, 0);
+	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_SPECULAR, new float[]{0.3f, 0.3f, 0.3f, 1}, 0);
 		gl.glPushMatrix();
 		gl.glTranslated(-foil_distance, 0, foil_height);
 		gl.glRotated(20, 0, 1, 0);
@@ -87,46 +98,46 @@ public class Car {
 		gl.glPopMatrix();
 	}
 	
-	void drawBody(GL gl) {
+	void drawBody(GL2 gl) {
 		// draw helmet
-	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_DIFFUSE,  new float[]{0,0.2f,0.8f,1}, 0);
-	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_SPECULAR, new float[]{0.3f,0.3f,0.1f,1}, 0);
+	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_DIFFUSE,  new float[]{0,0.2f,0.8f,1}, 0);
+	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_SPECULAR, new float[]{0.3f,0.3f,0.1f,1}, 0);
 		gl.glTranslated(0, 0, body_width*0.4);
-		glu.gluSphere(gluQuad, helmet_radius, 10, 10);
+		glu.gluSphere(gluQuad(), helmet_radius, 10, 10);
 		gl.glTranslated(0, 0, -body_width*0.4);
 		
 		// draw body tube
-	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_DIFFUSE,  new float[]{1,0,0,1}, 0);
-	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_SPECULAR, new float[]{0.3f,0.3f,0.3f,1}, 0);
+	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_DIFFUSE,  new float[]{1,0,0,1}, 0);
+	    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_SPECULAR, new float[]{0.3f,0.3f,0.3f,1}, 0);
 		gl.glPushMatrix();
 		gl.glRotated(90, 0, 1, 0);
 		gl.glTranslated(0, 0, -body_length*0.5);
-		glu.gluCylinder(gluQuad, body_width*0.5, body_width*0.3, body_length*1.2, 10, 1);
+		glu.gluCylinder(gluQuad(), body_width*0.5, body_width*0.3, body_length*1.2, 10, 1);
 		gl.glPopMatrix();
 	}
 	
-	void drawWheel(GL gl, boolean front, double xoff, double yoff) {
+	void drawWheel(GL2 gl, boolean front, double xoff, double yoff) {
 		gl.glPushMatrix(); {
 			gl.glTranslated(xoff, yoff, 0);
 			if (front) {
 				gl.glRotated(rad2deg(steer), 0, 0, 1);
 			}
 		    
-			gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_DIFFUSE,  new float[]{0.1f, 0, 0.2f, 1}, 0);
-		    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_SPECULAR, new float[]{0, 0, 0, 1}, 0);
+			gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_DIFFUSE,  new float[]{0.1f, 0, 0.2f, 1}, 0);
+		    gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_SPECULAR, new float[]{0, 0, 0, 1}, 0);
 			gl.glRotated(90, 1, 0, 0); 		// rotate so that wheel axel is in the z direction
 			gl.glTranslated(0, 0, -wheel_width/2);
-			glu.gluCylinder(gluQuad, wheel_radius, wheel_radius, wheel_width, 10, 1);
+			glu.gluCylinder(gluQuad(), wheel_radius, wheel_radius, wheel_width, 10, 1);
 
-			gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_DIFFUSE,  new float[]{0.9f, 0.9f, 0.9f, 1}, 0);
-			gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL.GL_AMBIENT, new float[]{0.6f, 0.6f, 0.6f, 1}, 0);
-			glu.gluDisk(gluQuad, 0.5*wheel_radius, wheel_radius, 10, 1);
+			gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_DIFFUSE,  new float[]{0.9f, 0.9f, 0.9f, 1}, 0);
+			gl.glMaterialfv(GL.GL_FRONT_AND_BACK, GL2.GL_AMBIENT, new float[]{0.6f, 0.6f, 0.6f, 1}, 0);
+			glu.gluDisk(gluQuad(), 0.5*wheel_radius, wheel_radius, 10, 1);
 			gl.glTranslated(0, 0, wheel_width);
-			glu.gluDisk(gluQuad, 0.5*wheel_radius, wheel_radius, 10, 1);
+			glu.gluDisk(gluQuad(), 0.5*wheel_radius, wheel_radius, 10, 1);
 		} gl.glPopMatrix();
 	}
 	
-	public void draw(GL gl) {
+	public void draw(GL2 gl) {
 		gl.glPushMatrix();
 		gl.glTranslated(pos.x, pos.y, 0);
 		gl.glRotated(rad2deg(a), 0, 0, 1);
@@ -224,7 +235,7 @@ public class Car {
 			double f_s = MASS*gravity*FRICTION_S/2; // magnitude of static friction force
 			double f_k = MASS*gravity*FRICTION_K/2; // magnitude of kinetic friction force
 			
-			System.out.println("" + i + " force " + forces[i].norm());
+//			System.out.println("" + i + " force " + forces[i].norm());
 
 			// resolve between static and kinetic traction
 			if (forces[i].norm() > f_s) {

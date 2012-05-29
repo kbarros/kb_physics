@@ -4,7 +4,9 @@ import java.awt.{Component, BorderLayout, Color}
 import java.awt.event.{WindowAdapter, WindowEvent, MouseEvent}
 import javax.swing.{JPanel, BorderFactory}
 import javax.swing.event.{MouseInputAdapter, MouseInputListener}
-import javax.media.opengl.{GL, GLAutoDrawable, GLCanvas, GLEventListener, GLJPanel, GLCapabilities}
+import javax.media.opengl.{GL, GLAutoDrawable, GLEventListener, GLCapabilities}
+import javax.media.opengl.fixedfunc.{GLLightingFunc}
+import javax.media.opengl.awt.GLCanvas
 import kip.math.{Vec3, Quaternion}
 
 
@@ -58,9 +60,9 @@ abstract class Scene {
   }
   
   def initialize(): (GLCanvas, JPanel) = {
-    val capabilities = new GLCapabilities();
-    capabilities.setSampleBuffers(true);
-    capabilities.setNumSamples(4);
+    val capabilities = new GLCapabilities(null)
+    capabilities.setSampleBuffers(true)
+    capabilities.setNumSamples(4)
     val canvas = new GLCanvas(capabilities)
 
     val mouse = new DragHandler {
@@ -93,23 +95,23 @@ abstract class Scene {
       }
 
       def display(drawable: GLAutoDrawable) {
-        val gl = drawable.getGL()
+        val gl = drawable.getGL().getGL2()
         gl.glClearColor(1.0f, 1.0f, 1.0f, 0.0f)
         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         gl.glEnable(GL.GL_BLEND)
         gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
         gl.glEnable(GL.GL_LINE_SMOOTH)
-        gl.glShadeModel(GL.GL_SMOOTH)
+        gl.glShadeModel(GLLightingFunc.GL_SMOOTH)
         drawContent(new GfxGL(drawable))
         gl.glFlush()
         
         if (_capturingNow) {
           _capturingNow = false
-          _captureImage = com.sun.opengl.util.Screenshot.readToBufferedImage(canvas.getWidth(), canvas.getHeight())
+          _captureImage = com.jogamp.opengl.util.awt.Screenshot.readToBufferedImage(canvas.getWidth(), canvas.getHeight())
         }
       }
       
-      def displayChanged(drawable: GLAutoDrawable, modeChanged: Boolean, deviceChanged: Boolean) {
+      def dispose(drawable: GLAutoDrawable) {
       }
     })
 

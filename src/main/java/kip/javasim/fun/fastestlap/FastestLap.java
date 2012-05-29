@@ -1,24 +1,27 @@
 package kip.javasim.fun.fastestlap;
 
-import javax.media.opengl.GL;
-import javax.media.opengl.GLEventListener;
-import javax.media.opengl.GLAutoDrawable;
-import javax.media.opengl.glu.GLU;
-import javax.media.opengl.GLCanvas;
-import com.sun.opengl.util.Animator;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionListener;
 import java.awt.Cursor;
 import java.awt.Frame;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Toolkit;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import com.sun.opengl.util.GLUT;
 import java.text.NumberFormat;
+
+import javax.media.opengl.GL;
+import javax.media.opengl.GL2;
+import javax.media.opengl.GLAutoDrawable;
+import javax.media.opengl.GLEventListener;
+import javax.media.opengl.awt.GLCanvas;
+import javax.media.opengl.glu.GLU;
+
+import com.jogamp.opengl.util.Animator;
+import com.jogamp.opengl.util.gl2.GLUT;
 
 class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener {
 	Car car = new Car(0,0,0);
@@ -30,7 +33,7 @@ class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener 
 	     glut.glutBitmapString(GLUT.BITMAP_TIMES_ROMAN_24, str); 
 	}
 	
-	void frameCenteredQuad(GL gl, double x, double y, double w2, double h2) {
+	void frameCenteredQuad(GL2 gl, double x, double y, double w2, double h2) {
 		gl.glBegin(GL.GL_LINE_STRIP); {
 			gl.glVertex2d(x-w2, y-h2);
 			gl.glVertex2d(x-w2, y+h2);
@@ -40,8 +43,8 @@ class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener 
 		} gl.glEnd();
 	}
 
-	void fillCenteredQuad(GL gl, double x, double y, double w2, double h2) {
-		gl.glBegin(GL.GL_QUADS); {
+	void fillCenteredQuad(GL2 gl, double x, double y, double w2, double h2) {
+		gl.glBegin(GL2.GL_QUADS); {
 			gl.glVertex2d(x-w2, y-h2);
 			gl.glVertex2d(x-w2, y+h2);
 			gl.glVertex2d(x+w2, y+h2);
@@ -49,8 +52,8 @@ class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener 
 		} gl.glEnd();
 	}
 
-	void fillQuad(GL gl, double x0, double y0, double x1, double y1) {
-		gl.glBegin(GL.GL_QUADS); {
+	void fillQuad(GL2 gl, double x0, double y0, double x1, double y1) {
+		gl.glBegin(GL2.GL_QUADS); {
 			gl.glVertex2d(x0, y0);
 			gl.glVertex2d(x0, y1);
 			gl.glVertex2d(x1, y1);
@@ -58,7 +61,7 @@ class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener 
 		} gl.glEnd();
 	}
 
-	void drawReadoutBars(GL gl) {
+	void drawReadoutBars(GL2 gl) {
 		double BOTTOM_OFF = 0.01;
 		double WIDTH = 0.8;
 		double HEIGHT = 0.03;
@@ -90,17 +93,17 @@ class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener 
 	    
 	}
 	
-	void drawOverlays(GL gl) {
-		gl.glDisable(GL.GL_LIGHTING);
+	void drawOverlays(GL2 gl) {
+		gl.glDisable(GL2.GL_LIGHTING);
 		gl.glDisable(GL.GL_DEPTH_TEST);
 		gl.glDisable(GL.GL_BLEND);
 
-		gl.glMatrixMode(GL.GL_PROJECTION);
+		gl.glMatrixMode(GL2.GL_PROJECTION);
 		gl.glPushMatrix();
 		gl.glLoadIdentity();
 
 		gl.glOrtho(-1, 1, -1, 1, -1, 1);
-		gl.glMatrixMode(GL.GL_MODELVIEW);
+		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glPushMatrix();
 		gl.glLoadIdentity();
 
@@ -110,18 +113,18 @@ class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener 
 
 		drawReadoutBars(gl);
 
-		gl.glMatrixMode(GL.GL_PROJECTION);
+		gl.glMatrixMode(GL2.GL_PROJECTION);
 		gl.glPopMatrix();
-		gl.glMatrixMode(GL.GL_MODELVIEW);
+		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glPopMatrix();
 
-		gl.glEnable(GL.GL_LIGHTING);
+		gl.glEnable(GL2.GL_LIGHTING);
 		gl.glEnable(GL.GL_DEPTH_TEST);
 		gl.glEnable(GL.GL_BLEND);
 	}
 	
 	public void display(GLAutoDrawable glDrawable) {
-		final GL gl = glDrawable.getGL();
+		final GL2 gl = glDrawable.getGL().getGL2();
 		gl.glClear(GL.GL_COLOR_BUFFER_BIT);
 		gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
 		gl.glLoadIdentity();
@@ -132,40 +135,39 @@ class JavaRenderer implements GLEventListener, KeyListener, MouseMotionListener 
 		drawOverlays(gl);
 	}
 
-	public void displayChanged(GLAutoDrawable gLDrawable, boolean modeChanged, boolean deviceChanged) {
-	}
-
 	public void init(GLAutoDrawable glDrawable) {
-		final GL gl = glDrawable.getGL();
-		gl.glShadeModel(GL.GL_FLAT);
+		final GL2 gl = glDrawable.getGL().getGL2();
+		gl.glShadeModel(GL2.GL_FLAT);
 		gl.glClearColor(1f, 1f, 1f, 0.0f);
 		gl.glClearDepth(1.0f);
 		gl.glDepthFunc(GL.GL_LEQUAL);
-		gl.glHint(GL.GL_PERSPECTIVE_CORRECTION_HINT, GL.GL_NICEST);
+		gl.glHint(GL2.GL_PERSPECTIVE_CORRECTION_HINT, GL.GL_NICEST);
 		
-	    gl.glLightModeli(GL.GL_LIGHT_MODEL_TWO_SIDE, GL.GL_TRUE);
-	    gl.glLightfv(GL.GL_LIGHT1, GL.GL_POSITION, new float[] {1,0,1,0}, 0);
-	    gl.glLightfv(GL.GL_LIGHT1, GL.GL_DIFFUSE, new float[]{1,1,1,1}, 0);
+	    gl.glLightModeli(GL2.GL_LIGHT_MODEL_TWO_SIDE, GL.GL_TRUE);
+	    gl.glLightfv(GL2.GL_LIGHT1, GL2.GL_POSITION, new float[] {1,0,1,0}, 0);
+	    gl.glLightfv(GL2.GL_LIGHT1, GL2.GL_DIFFUSE, new float[]{1,1,1,1}, 0);
 	    
 		gl.glEnable(GL.GL_DEPTH_TEST);
-	    gl.glEnable(GL.GL_NORMALIZE);
-		gl.glEnable(GL.GL_LIGHTING);
-		gl.glEnable(GL.GL_LIGHT0);
-		gl.glEnable(GL.GL_LIGHT1);
+	    gl.glEnable(GL2.GL_NORMALIZE);
+		gl.glEnable(GL2.GL_LIGHTING);
+		gl.glEnable(GL2.GL_LIGHT0);
+		gl.glEnable(GL2.GL_LIGHT1);
 		
-		glDrawable.addKeyListener(this);
-		glDrawable.addMouseMotionListener(this);
+//		glDrawable.addKeyListener(this);
+//		glDrawable.addMouseMotionListener(this);
 	}
 
+	public void dispose(GLAutoDrawable gLDrawable) {}
+	
 	public void reshape(GLAutoDrawable gLDrawable, int x, int y, int width, int height) {
 		this.width = width;
 		this.height = height;
 		
-		GL gl = gLDrawable.getGL();
-		gl.glMatrixMode(GL.GL_PROJECTION);
+		GL2 gl = gLDrawable.getGL().getGL2();
+		gl.glMatrixMode(GL2.GL_PROJECTION);
 		gl.glLoadIdentity();
 		(new GLU()).gluPerspective(50.0f, width/(float)height, 1.0, 1000.0);
-		gl.glMatrixMode(GL.GL_MODELVIEW);
+		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glLoadIdentity();
 	}
 
@@ -216,7 +218,12 @@ public class FastestLap implements Runnable {
 	public void run() {
 		Frame frame = new Frame("Jogl 3d Shape/Rotation");
 		GLCanvas canvas = new GLCanvas();
-		canvas.addGLEventListener(new JavaRenderer());
+		
+		JavaRenderer jr = new JavaRenderer();
+		canvas.addGLEventListener(jr);
+		canvas.addMouseMotionListener(jr);
+		canvas.addKeyListener(jr);
+		
 		frame.add(canvas);
 		frame.setSize(1024, 768);
 //		frame.setUndecorated(true);
