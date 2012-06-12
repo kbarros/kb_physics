@@ -45,7 +45,6 @@ class HexOrtho2Sim(params: Parameters) {
   
   val tau = -1d
   val a_b = 60d
-  val a_s = 120d
   val K0 = 1d
   val eta0 = 0.1
   
