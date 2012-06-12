@@ -5,8 +5,9 @@ import java.io.File
 import kip.util.Util
 import kip.enrich._
 import ctor._
+import scala.math._
 
-case class KondoConf(w: Int, h: Int, t: Double, J_H: Double, B_n: Int, mu: Double,
+case class KondoConf(w: Int, h: Int, t: Double, J_H: Double, B_n: Int, T: Double, mu: Double,
                      order: Int, order_exact: Int, de: Double, dt_per_rand: Double,
                      nrand: Int, dumpPeriod: Int, initConf: String)
 case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[Double],
@@ -48,14 +49,34 @@ object KondoApp extends App {
   
   initConf match {
     case "random" => q.setFieldRandom(q.field, kpm.rand)
+    case "ferro" => q.setFieldFerro(q.field)
     case "allout" => q.setFieldAllOut(q.field)
     case "threeout" => q.setFieldThreeOut(q.field)
+    case s => {
+      val f = new File(s)
+      println("Loading dump file: "+s)
+      implicit val formats = json.DefaultFormats
+      val snap = json.Serialization.read[KondoSnap](f.slurp)
+    }
   }
   q.fillMatrix(q.matrix)
   val dt = dt_per_rand * nrand
   val mup = q.scaleEnergy(mu)
+  val Tp = q.scaleEnergy(T)
   
-  val fn_action:  (R => R) = e => if (e < mup) (e - mup) else 0
+  val fn_action:  (R => R) = {
+    if (Tp == 0) (e => if (e - mup < 0) (e - mup) else 0)
+    else { e =>
+      val x: Double = (e - mup)/Tp
+      if (x < -20)
+        (e - mup)
+      else if (x > 20)
+        0
+      else
+        -Tp*log(1 + exp(-x))
+    }
+  }
+  
   val fn_filling: (R => R) = e => if (e < mup) (1.0 / q.matrix.numRows) else 0
   
   val c_action   = KPM.expansionCoefficients(order, de, fn_action)
@@ -64,22 +85,32 @@ object KondoApp extends App {
   
   println("N=%d matrix, %d moments".format(q.matrix.numRows, order))
   
+  val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=1, rand=kpm.rand) {
+    override def calcForce(x: Array[R], f: Array[R]) {
+      q.fillMatrix(q.matrix)
+      val r = kpm.randomVector()
+      
+      if (true)
+        kpm.functionAndGradient(r, c_action, q.delMatrix) // approximate gradient
+      else
+        kpm.gradientExactDense(c_action, q.delMatrix) // exact gradient
+      
+      q.fieldDerivative(q.delMatrix, f)
+    }
+    override def projectToBase(x: Array[R], xp: Array[R]) {
+      q.normalizeField(q.field, validate=true)
+    }
+  }
+  
   for (iter <- 0 until 1000) {
     Util.time("Iteration "+iter) (for (iter2 <- 0 until dumpPeriod) {
-      val r = kpm.randomVector()
-      val f0 = kpm.functionAndGradient(r, c_action, q.delMatrix)
-      q.fieldDerivative(q.delMatrix, q.delField)
-      for (i <- q.field.indices) {
-        q.field(i) -= dt * q.delField(i)
-      }
-      q.normalizeField(q.field, validate=true)
-      q.fillMatrix(q.matrix)
-      
+      lang.step()
       val hermitDev = math.sqrt((q.matrix - q.matrix.dag).norm2.abs)
       require(hermitDev < 1e-6, "Found non-hermitian hamiltonian! Deviation: "+hermitDev)
     })
 
     // exact moments
+    q.fillMatrix(q.matrix)
     val (eig, moments, action, filling) = {
       if (false) Util.time("Exact diagonalization") {
         val eig = KPM.eigenvaluesExact(q.matrix)
@@ -94,7 +125,7 @@ object KondoApp extends App {
         (Array[Double](), moments, action, filling)
       }
     }
-    println("  Action  = %g".format(action))
+    println("  Action  = %.7g".format(action))
     println("  Filling = %g".format(filling))
 
     val time = iter*dumpPeriod*dt

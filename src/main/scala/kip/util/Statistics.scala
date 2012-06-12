@@ -10,7 +10,7 @@ object Statistics {
     
     def n = _n
     def mean = _mean
-    def variance = m2 / n
+    def population_variance = m2 / n
     def sample_variance = m2 / (n-1) // sample variance; an unbiased estimator of true variance
     def stddev = math.sqrt(sample_variance) // sample standard deviation
     
@@ -29,7 +29,7 @@ object Statistics {
     
     def n = _n
     def mean = _mean
-    def variance = m2 / n
+    def population_variance = m2 / n
     def sample_variance = m2 / (n-1) // sample variance; an unbiased estimator of true variance
     def stddev = math.sqrt(sample_variance) // sample standard deviation
     def skewness = (m3/n) / math.pow(m2/n, 3./2.)
@@ -53,11 +53,18 @@ object Statistics {
     if (vs.size == 0) Double.NaN else vs.sum / vs.size
   }
   
-  // Approximate error in the mean
+  // Estimated error of the mean assuming uncorrelated data
   def mean_err(vs: Traversable[Double]) = {
     stddev(vs) / math.sqrt(vs.size)
   }
   
+  // Unbiased estimate of the variance
+  def sample_variance(vs: Traversable[Double]) = {
+    val o = new OnlineVariance
+    vs.foreach(o accum _)
+    o.sample_variance
+  }
+
   def stddev(vs: Traversable[Double]) = {
     val o = new OnlineVariance
     vs.foreach(o accum _)

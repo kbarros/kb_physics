@@ -7,12 +7,13 @@ import ctor._
 object Quantum extends App {
   import kip.util.Util.{time}
   
-  testIntegratedDensity()
-//  testDerivative2()
+  testEffectiveEnergy()
 //  time("eigenvalues")(testEigenvalues())
+//  testIntegratedDensity()
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
+//    val q = new Quantum(w=8, h=8, t=1, J_H=2.0, B_n= 0, e_min= -10, e_max=10)
     val q = new Quantum(w=20, h=20, t=1, J_H=3, B_n= 1, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
@@ -106,24 +107,61 @@ object Quantum extends App {
   }
   
   
-  def testDerivative2() {
-    val q = new Quantum(w=10, h=10, t=1, J_H=0.1, B_n=0, e_min= -10, e_max= 10)
+  // Estimate effective temperature as a function of dt_per_rand and J_H
+  // (Other parameters shouldn't have much effect)
+  // Note: for small J, we observe (T_eff ~ (0.03 J)^2 dt_per_rand) in scaled units.
+  // In unscaled units: T => 10 T, dt => 0.1 dt, so that (T_eff ~ (0.3 J)^2 dt)
+  // 
+  def testEffectiveEnergy() {
+    val dt_per_rand = 0.1
+    val nrand = 4
+    val dt = dt_per_rand * nrand
+    val mu = 0 // -2.56
+    val q = new Quantum(w=16, h=16, t=1, J_H=2.0, B_n=0, e_min= -10, e_max= 10)
+    q.setFieldRandom(q.field, new util.Random())
+//    q.setFieldFerro(q.field)
+    q.fillMatrix(q.matrix)
+    
     val H = q.matrix
     val dH1 = q.delMatrix
     val dH2 = dH1.duplicate
     val order = 100
-    val kpm = new KPM(H, nrand=200)
+    val kpm = new KPM(H, nrand, seed=2)
     
-    val c = KPM.expansionCoefficients(order, de=1e-4, e => e*e)
+    val mup = q.scaleEnergy(mu)
+    val c = KPM.expansionCoefficients(order, de=1e-4, (e => if (e < mup) (e - mup) else 0))
     kpm.gradientExactDense(c, dH1)
     val r = kpm.randomGaussianVector()
     kpm.functionAndGradient(r, c, dH2)
     
+    val dS1 = q.delField
+    val dS2 = dS1.clone()
+
     println("exact  dH = "+dH1)
     println("approx dH = "+dH2)
+
+    q.fieldDerivative(dH1, dS1)
+    q.fieldDerivative(dH2, dS2)
     
-    val resid = dH1 - dH2
-    println("scaled error = " + math.sqrt(resid.norm2.re / dH1.norm2.re))
+    // get deviations from exact gradient components
+    val delta = (dS1, dS2).zipped.map((s1, s2) => s1-s2)
+    // sigma = standard deviation
+    val sigma2 = delta.map(x => x*x).sum / delta.size
+    val sigma = math.sqrt(sigma2)
+    
+    println("Standard deviation of energy gradient = " + sigma)
+    println("Effective (scaled) temperature = " + (dt * sigma2 / 2))
+    
+    if (false) {
+      // plot histogram of error, and compare to gaussian
+      import math._
+      val hist = new scikit.dataset.Histogram(0.04)
+      hist.setNormalizing(true)
+      delta.foreach(e => hist.accum(e))
+      val gauss = new scikit.dataset.Function { def eval(x: Double) = (1/(sigma*sqrt(2*Pi)))*exp(-x*x/(2*sigma2)) }
+      scikit.util.Commands.plot(hist)
+      scikit.util.Commands.replot(gauss)
+    }
   }
 }
 
@@ -243,6 +281,25 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
     }
   }
   
+  // remove component of dS that is parallel to field S
+  def projectTangentField(S: Array[R], dS: Array[R]) {
+    for (y <- 0 until h;
+         x <- 0 until w) {
+      var s_dot_s = 0d
+      var s_dot_ds = 0d
+      for (d <- 0 until 3) {
+        val i = fieldIndex(d, x, y)
+        s_dot_s  += S(i)*S(i)
+        s_dot_ds += S(i)*dS(i)
+      }
+      val alpha = s_dot_ds / s_dot_s
+      for (d <- 0 until 3) {
+        val i = fieldIndex(d, x, y)
+        dS(i) -= alpha * S(i)
+      }
+    }
+  }
+
   trait Lattice {
     def neighbors(x: Int, y: Int, d: Int): (Int, Int)
     def displacement(x: Int, y: Int, d: Int): (Double, Double)
@@ -334,14 +391,17 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
 
 //    // Make sure hamiltonian is hermitian
 //    val H = m.toDense
-//    require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
+//    require((H - H.dag).norm2.abs < 1e-6, "Found non-hermitian hamiltonian!")
   }
 
   def scaleEnergy(x: R): R = {
     (x - e_avg) / e_scale
   }
   
-  // Derivative of field S corresponding to derivative of matrix H (hund coupling)
+  // Use chain rule to transform derivative wrt matrix elements dF/dH, into derivative wrt spin indices
+  //   dF/dS = dF/dH dH/dS
+  // In both factors, H is assumed to be dimensionless (scaled energy). If F is also dimensionless, then it
+  // may be desired to multiply the final result by the energy scale.
   def fieldDerivative(dH: PackedSparse[S], dS: Array[R]) {
     // loop over all lattice sites and vector indices
     for (y <- 0 until h;
@@ -355,28 +415,12 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
         val j = matrixIndex(sp2, x, y)
         dCoupling += dH(i, j) * pauli(pauliIndex(sp1, sp2, d))
       }
-      require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero")
+      require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero: " + dCoupling.im)
       dS(fieldIndex(d, x, y)) = -J_H * dCoupling.re
     }
     
-    // remove component of dS parallel to S
-    for (y <- 0 until h;
-         x <- 0 until w) {
-      var s_dot_s = 0d
-      var s_dot_ds = 0d
-      for (d <- 0 until 3) {
-        val i = fieldIndex(d, x, y)
-        s_dot_s  += field(i)*field(i)
-        s_dot_ds += field(i)*dS(i) 
-      }
-      val alpha = s_dot_ds / s_dot_s
-      for (d <- 0 until 3) {
-        val i = fieldIndex(d, x, y)
-        dS(i) -= alpha * field(i)
-      }
-    }
+    projectTangentField(field, dS)
     
-    // consistent matrix scaling
     dS.transform(_ / e_scale)
   }
 }

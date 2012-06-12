@@ -35,7 +35,7 @@ object KPM {
   }
   
   // Coefficients c_m of linear combination of moments for weight calculation
-  //   F = \sum mu_m c_m = \int rho(e) fn(e)
+  //   F = \sum mu_m c_m = \int rho(e) fn(e) de
   def expansionCoefficients(order: Int, de: R, fn: R => R): Array[R] = {
     import math._
     val kernel = jacksonKernel(order)
