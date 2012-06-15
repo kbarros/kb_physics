@@ -19,6 +19,8 @@ object KondoViz extends App {
   val h = conf.h
   val dumpdir = new java.io.File(dir+"/dump")
   require(dumpdir.isDirectory(), "Cannot load directory %s".format(dumpdir))
+  val imgdir = new java.io.File(dir+"/imgs")
+  kip.util.Util.createEmptyDir(imgdir)
   
   def splitFieldComponents(field: Array[R]): Seq[Array[R]] = {
     val x = new Array[R](w*h)
@@ -202,6 +204,7 @@ object KondoViz extends App {
   
   //scala.tools.nsc.interpreter.ILoop.break(Nil)
   
+
   var i = 0
   for (f <- dumpdir.listFiles() /* ; if i < 50 */ ) {
     implicit val formats = json.DefaultFormats
@@ -209,7 +212,7 @@ object KondoViz extends App {
     println("t=%g, action=%g".format(snap.time, snap.action))
 
     viz.drawables = Vector(new RetainedScene.Cuboid(bds))
-//    drawSpins(snap.spin)
+    drawSpins(snap.spin)
     drawPlaquettes(snap.spin)
     viz.display()
 
@@ -220,7 +223,7 @@ object KondoViz extends App {
 //    drawDensity(snap.moments)
     
 //    Thread.sleep(500)
-    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File("imgs/%03d.png".format(i)))
+    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(imgdir+"/%03d.png".format(i)))
     //javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
     i += 1
   }
