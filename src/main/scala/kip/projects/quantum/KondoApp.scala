@@ -85,20 +85,15 @@ object KondoApp extends App {
   
   println("N=%d matrix, %d moments".format(q.matrix.numRows, order))
   
-  val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=1, rand=kpm.rand) {
+  val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=10, rand=kpm.rand) {
     override def calcForce(x: Array[R], f: Array[R]) {
       q.fillMatrix(q.matrix)
       val r = kpm.randomVector()
-      
-      if (true)
-        kpm.functionAndGradient(r, c_action, q.delMatrix) // approximate gradient
-      else
-        kpm.gradientExactDense(c_action, q.delMatrix) // exact gradient
-      
+      kpm.functionAndGradient(r, c_action, q.delMatrix)
       q.fieldDerivative(q.delMatrix, f)
     }
-    override def projectToBase(x: Array[R], xp: Array[R]) {
-      q.normalizeField(q.field, validate=true)
+    override def projectToBase(x: Array[R]) {
+      q.normalizeField(x, validate=true)
     }
   }
   

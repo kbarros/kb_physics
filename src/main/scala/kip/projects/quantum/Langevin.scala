@@ -5,7 +5,7 @@ import scala.util.Random
 // solves the equation
 //   d^2x/dt^2 = - dF/dx - gamma \dot x + sqrt(2 T gamma) eta
 //
-// via the equations
+// via
 //
 //   dx/dt = p
 //   dp/dt = - dF/dx - gamma p + sqrt(2 T gamma) eta
@@ -22,10 +22,10 @@ abstract class InertialLangevin(x: Array[R], gamma: R, T: R, dt: R, subIter: Int
   def calcForce(x: Array[R], f: Array[R])
   
   // projects vector x onto base manifold
-  def projectToBase(x: Array[R], xp: Array[R]) { x.copyToArray(xp) }
+  def projectToBase(x: Array[R]) { }
   
   // projects vector t (e.g., momentum, force) onto tangent manifold at point x
-  def projectToTangent(x: Array[R], t: Array[R], tp: Array[R]) { t.copyToArray(tp) }
+  def projectToTangent(x: Array[R], t: Array[R]) { }
   
   def step() {
     val dt2 = dt / subIter
@@ -36,7 +36,7 @@ abstract class InertialLangevin(x: Array[R], gamma: R, T: R, dt: R, subIter: Int
       for (i <- 0 until N) {
         p(i) = p(i) + dt2 * (- f(i) - gamma * p(i)) + (math.sqrt(dt2 * 2 * T * gamma) * rand.nextGaussian()).toFloat
       }
-      projectToTangent(x, p, p)
+      projectToTangent(x, p)
     }
     
     // update position at fixed momentum
@@ -44,8 +44,8 @@ abstract class InertialLangevin(x: Array[R], gamma: R, T: R, dt: R, subIter: Int
       for (i <- 0 until N) {
         x(i) = x(i) + dt2 * p(i)
       }
-      projectToBase(x, x)
-      projectToTangent(x, p, p)
+      projectToBase(x)
+      projectToTangent(x, p)
     }
   }
 }
@@ -64,7 +64,7 @@ abstract class OverdampedLangevin(x: Array[R], T: R, dt: R, subIter: Int, rand: 
   def calcForce(x: Array[R], f: Array[R])
   
   // projects vector x onto base manifold
-  def projectToBase(x: Array[R], xp: Array[R]) { x.copyToArray(xp) }
+  def projectToBase(x: Array[R]) { }
 
   def step() {
     val dt2 = dt / subIter
@@ -74,7 +74,7 @@ abstract class OverdampedLangevin(x: Array[R], T: R, dt: R, subIter: Int, rand: 
       for (i <- 0 until N) {
         x(i) = x(i) - dt2 * f(i) + (math.sqrt(dt2 * 2 * T) * rand.nextGaussian()).toFloat
       }
-      projectToBase(x, x)
+      projectToBase(x)
     }
     
     if (false) {
