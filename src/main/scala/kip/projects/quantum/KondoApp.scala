@@ -132,7 +132,7 @@ object KondoApp extends App {
     println("  Action  = %.7g".format(action))
     println("  Filling = %g".format(filling))
 
-    val time = iter*dumpPeriod*dt
+    val time = (iter+1)*dumpPeriod*dt
 //    val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field)
     val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field, moments=moments)
     implicit val formats = json.DefaultFormats
