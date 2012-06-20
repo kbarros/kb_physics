@@ -147,7 +147,8 @@ object MolViz {
       // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 1000)
       // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10-1/dump3-0.gz", 20)
       // (home+"/Desktop/dlc-data/n100_v0.05_qr1_b400_p372_k10-2/dump3-0.gz", 20)
-      (home+"/dev/project_data/dielectric/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz", 100)
+//      (home+"/dev/project_data/dielectric/n100_v0.05_qr1_b400_p372_k0.1/dump2-0.gz", 100)
+      (home+"/dev/project_data/dielectric/n100_v0.05_qr1_b400_p372_k10/dump2-0.gz", 500)
     }
     Interpreter.break(List(("molviz", makeMolviz(file, readEvery))))
   }
