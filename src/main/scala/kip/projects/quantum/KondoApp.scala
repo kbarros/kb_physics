@@ -21,6 +21,8 @@ object KondoApp extends App {
     json.Serialization.read[KondoConf](confStripped)
   }
   
+  def dumpFile(iter: Int) = dumpdir+"/%04d.json".format(iter)
+  
   if (args.size != 2) {
     println("KondoApp requires <dir> and <device> parameters")
     sys.exit
@@ -47,18 +49,25 @@ object KondoApp extends App {
     }
   }
   
-  initConf match {
-    case "random" => q.setFieldRandom(q.field, kpm.rand)
-    case "ferro" => q.setFieldFerro(q.field)
-    case "allout" => q.setFieldAllOut(q.field)
-    case "threeout" => q.setFieldThreeOut(q.field)
+  val iter0 = initConf match {
+    case "random" => {q.setFieldRandom(q.field, kpm.rand); 0}
+    case "ferro" => {q.setFieldFerro(q.field); 0}
+    case "allout" => {q.setFieldAllOut(q.field); 0}
+    case "threeout" => {q.setFieldThreeOut(q.field); 0}
     case s => {
-      val f = new File(s)
-      println("Loading dump file: "+s)
+      val lastDump = s.toInt
+      val f = new File(dumpFile(lastDump))
+      println("Reading initial configuration from file: "+f)
       implicit val formats = json.DefaultFormats
       val snap = json.Serialization.read[KondoSnap](f.slurp)
+      snap.spin.copyToArray(q.field)
+      lastDump+1
     }
   }
+  
+  // don't overwrite any existing data
+  require(!(new File(dumpFile(iter0))).exists, "Refuse to overwrite dump file %s".format(dumpFile(iter0)))
+  
   q.fillMatrix(q.matrix)
   val dt = dt_per_rand * nrand
   val mup = q.scaleEnergy(mu)
@@ -97,7 +106,7 @@ object KondoApp extends App {
     }
   }
   
-  for (iter <- 0 until 1000) {
+  for (iter <- iter0 until 1000) {
     Util.time("Iteration "+iter) (for (iter2 <- 0 until dumpPeriod) {
       lang.step()
       val hermitDev = math.sqrt((q.matrix - q.matrix.dag).norm2.abs)
@@ -128,6 +137,6 @@ object KondoApp extends App {
     val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field, moments=moments)
     implicit val formats = json.DefaultFormats
     val serialized = json.Serialization.write(snap)
-    kip.util.Util.writeStringToFile(serialized, dumpdir+"/%04d.json".format(iter))
+    kip.util.Util.writeStringToFile(serialized, dumpFile(iter))
   }
 }
