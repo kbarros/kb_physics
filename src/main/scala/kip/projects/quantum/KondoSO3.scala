@@ -11,10 +11,12 @@ class KondoSO3() {
   val bds = Bounds3d(Vec3(-tp,-tp,-tp), Vec3(tp,tp,tp))
   val viz = new RetainedScene(bds, title="SO(3) path")
   
-    
+  // center and radius are in units of (2x2) spin plaquettes
   def loop(center: (Int, Int), radius: Int): Seq[(Int,Int)] = {
+    // this (x,y) coordinates are in units of individual spin
     def mkPath(v0: (Int, Int), dv: (Int, Int), n: Int): Seq[(Int, Int)] = {
       val (x0, y0) = v0
+//      println("Path corner at %d %d".format(x0, y0))
       val (dx, dy) = dv
       val ret = new ArrayBuffer[(Int, Int)]
       for (i <- 0 until n) {
@@ -24,10 +26,10 @@ class KondoSO3() {
       ret
     }
     val (cx, cy) = center
-    val l1 = mkPath((cx-2*radius, cy-2*radius), (+2, 0), 2*radius)
-    val l2 = mkPath((cx+2*radius, cy-2*radius), (0, +2), 2*radius) 
-    val l3 = mkPath((cx+2*radius, cy+2*radius), (-2, 0), 2*radius) 
-    val l4 = mkPath((cx-2*radius, cy+2*radius), (0, -2), 2*radius)
+    val l1 = mkPath((2*cx-2*radius, 2*cy-2*radius), (+2, 0), 2*radius)
+    val l2 = mkPath((2*cx+2*radius, 2*cy-2*radius), (0, +2), 2*radius)
+    val l3 = mkPath((2*cx+2*radius, 2*cy+2*radius), (-2, 0), 2*radius)
+    val l4 = mkPath((2*cx-2*radius, 2*cy+2*radius), (0, -2), 2*radius)
     l1 ++ l2 ++ l3 ++ l4 :+ l1(0)
   }
 
@@ -138,6 +140,8 @@ class KondoSO3() {
     val pts = for ((x, y) <- xys) yield {
       siteToSO3(x, y, field)
     }
+    
+//    for (p <- pts) { println("%f %f %f".format(p.x, p.y, p.z)) }
     
     import java.awt.Color.{RED, GRAY}
     val colors = for (i <- pts.indices.dropRight(1)) yield {

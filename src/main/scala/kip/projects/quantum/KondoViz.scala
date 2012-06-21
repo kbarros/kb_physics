@@ -15,8 +15,30 @@ import kip.math.Vec3
 object KondoViz extends App {
   val dir = args(0)
   val conf = KondoApp.readConfig(new File(dir+"/cfg.json"))
-  val w = conf.w
-  val h = conf.h
+  
+  val w_orig = conf.w
+  val h_orig = conf.h
+  
+  val (left, right, bottom, top) = (0, w_orig, 0, h_orig)
+//  val (left, right, bottom, top) = (114, 134, 178, 198) // 'v3/three_quarter/w200/j02_1947_b1_m500_dt20/dump/0022.json'
+  
+  val w = right-left
+  val h = top-bottom
+  
+  def remapSpinField(field: Array[R]): Array[R] = {
+    val ret = new Array[R](3*w*h)
+    for (x <- 0 until w; y <- 0 until h) {
+      val i = x+w*y
+      val xp = (x + left) % w_orig
+      val yp = (y + bottom) % h_orig
+      val ip = xp + w_orig*yp
+      ret(3*i+0) = field(3*ip+0)
+      ret(3*i+1) = field(3*ip+1)
+      ret(3*i+2) = field(3*ip+2)
+    }
+    ret
+  }
+  
   val dumpdir = new java.io.File(dir+"/dump")
   require(dumpdir.isDirectory(), "Cannot load directory %s".format(dumpdir))
   val imgdir = new java.io.File(dir+"/imgs")
@@ -43,10 +65,10 @@ object KondoViz extends App {
   val latN = lat0 + latDel1*(h-1) + latDel3*(w-1)
 
   val bds = Bounds3d(lat0, latN)
-  val viz = new RetainedScene(bds)
+  val viz = new RetainedScene(bds, sizew=1200, sizeh=800, cameraDistance=0.9)
   
-//  val so3 = new KondoSO3()
-  
+  val so3 = new KondoSO3()
+
   
   def readSpin(x: Int, y: Int, field: Array[R]): Vec3 = {
     require(x < w && y < h)
@@ -89,18 +111,18 @@ object KondoViz extends App {
     val sd = spinDir(field)
     
     val arrows = for (i <- 0 until w*h) yield {
-      val pos = spinPos(i) + Vec3(0, 0, 2)
+      val pos = spinPos(i)
       val spin = sd(i)
       val delta = spin*2
       val width = 0.2
       
       val red = java.awt.Color.RED
-      val blue = java.awt.Color.BLUE
+      val green = java.awt.Color.GREEN
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
 
-      if (spinSubLattice(i) == 0)
-        new RetainedScene.Arrow(pos, delta, width, color1=black, color2=red)
+      if (spinSubLattice(i) == 1)
+        new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
       else
         new RetainedScene.Arrow(pos, delta, width*0, color1=gray, color2=gray)
     }
@@ -137,7 +159,7 @@ object KondoViz extends App {
         vals += s1 dot (s2 cross s4)
       }
       
-      val cg = ColorGradient.blueRed(-0.9, +0.9)
+      val cg = ColorGradient.blueRed(-0.9, +0.9, alpha=1.0)
       val colors = vals.map(cg.interpolate(_))
       new RetainedScene.TriangleStrip(pts.toArray, colors.toArray)
     }
@@ -206,25 +228,29 @@ object KondoViz extends App {
   
 
   var i = 0
-  for (f <- dumpdir.listFiles() /* ; if i < 50 */ ) {
+  for (f <- dumpdir.listFiles()) {
+    if (true || i == 22) {
     implicit val formats = json.DefaultFormats
     val snap = json.Serialization.read[KondoSnap](f.slurp)
     println("t=%g, action=%g".format(snap.time, snap.action))
 
-    viz.drawables = Vector(new RetainedScene.Cuboid(bds))
-    drawSpins(snap.spin)
-    drawPlaquettes(snap.spin)
+    val spin = remapSpinField(snap.spin)
+    
+    viz.drawables = Vector() // Vector(new RetainedScene.Cuboid(bds))
+//    drawSpins(spin)
+    drawPlaquettes(spin)
     viz.display()
 
-//    so3.drawPath(so3.loop((30,30), 4).toArray, snap.spin)
+    so3.drawPath(so3.loop((w/4,w/4), w/4-1).toArray, spin)
 
-//    drawGrid(snap.spin)
-    drawGridFft(snap.spin)
+//    drawGrid(spin)
+    drawGridFft(spin)
 //    drawDensity(snap.moments)
     
 //    Thread.sleep(500)
     javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(imgdir+"/%03d.png".format(i)))
     //javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
+    }
     i += 1
   }
 }
