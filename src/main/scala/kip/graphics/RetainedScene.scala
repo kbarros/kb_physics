@@ -80,7 +80,7 @@ object RetainedScene {
   }
 }
 
-class RetainedScene(var bds: Bounds3d, sizew: Int = 600, sizeh: Int = 600, title: String = "Retained Scene") {
+class RetainedScene(var bds: Bounds3d, cameraDistance: Double = 1.5, sizew: Int = 600, sizeh: Int = 600, title: String = "Retained Scene") {
   var drawables = Vector[RetainedScene.Drawable]()
   var rasterString = ""
   var arrowHeadSize = 1.0
@@ -91,7 +91,7 @@ class RetainedScene(var bds: Bounds3d, sizew: Int = 600, sizeh: Int = 600, title
   
   val scene = new Scene() {
     def drawContent(gfx: GfxGL) {
-      gfx.perspective3d(bds, rotation, translation*((bds.hi-bds.lo).norm))
+      gfx.perspective3d(bds, rotation, translation*((bds.hi-bds.lo).norm), cameraDistance)
       
       // gfx.setMultisampling(true)
       for (d <- drawables) {

@@ -54,7 +54,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     gl.glLoadIdentity()
   }
 
-  def perspective3d(bds: Bounds3d, rotation: Quaternion, translation: Vec3) {
+  def perspective3d(bds: Bounds3d, rotation: Quaternion, translation: Vec3, cameraDistance: Double = 1.5) {
     gl.glEnable(GL_DEPTH_TEST)
     gl.glEnable(GL_COLOR_MATERIAL)
     gl.glEnable(GL_LIGHTING)
@@ -82,7 +82,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
     // step (4): translate object according to user
     gl.glTranslated(translation.x, translation.y, translation.z)
     // step (3): move object away from camera
-    gl.glTranslated(0, 0, -1.5*len)
+    gl.glTranslated(0, 0, -cameraDistance*len)
     // step (2): rotate object about zero
     gl.glMultMatrixd(rotation.toGLRotationMatrix, 0)
     // step (1): move object to its center
