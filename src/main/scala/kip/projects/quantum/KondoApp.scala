@@ -21,7 +21,7 @@ object KondoApp extends App {
     json.Serialization.read[KondoConf](confStripped)
   }
   
-  def dumpFile(iter: Int) = dumpdir+"/%04d.json".format(iter)
+  def dumpFilename(iter: Int) = dumpdir+"/%04d.json".format(iter)
   
   if (args.size != 2) {
     println("KondoApp requires <dir> and <device> parameters")
@@ -49,24 +49,25 @@ object KondoApp extends App {
     }
   }
   
-  val iter0 = initConf match {
-    case "random" => {q.setFieldRandom(q.field, kpm.rand); 0}
-    case "ferro" => {q.setFieldFerro(q.field); 0}
-    case "allout" => {q.setFieldAllOut(q.field); 0}
-    case "threeout" => {q.setFieldThreeOut(q.field); 0}
+  var iter = 0
+  initConf match {
+    case "random"   => q.setFieldRandom(q.field, kpm.rand)
+    case "ferro"    => q.setFieldFerro(q.field)
+    case "allout"   => q.setFieldAllOut(q.field)
+    case "threeout" => q.setFieldThreeOut(q.field)
     case s => {
       val lastDump = s.toInt
-      val f = new File(dumpFile(lastDump))
+      val f = new File(dumpFilename(lastDump))
       println("Reading initial configuration from file: "+f)
       implicit val formats = json.DefaultFormats
       val snap = json.Serialization.read[KondoSnap](f.slurp)
       snap.spin.copyToArray(q.field)
-      lastDump+1
+      iter = lastDump+1
     }
   }
   
   // don't overwrite any existing data
-  require(!(new File(dumpFile(iter0))).exists, "Refuse to overwrite dump file %s".format(dumpFile(iter0)))
+  require(!(new File(dumpFilename(iter))).exists, "Refuse to overwrite dump file %s".format(dumpFilename(iter)))
   
   q.fillMatrix(q.matrix)
   val dt = dt_per_rand * nrand
@@ -94,25 +95,8 @@ object KondoApp extends App {
   
   println("N=%d matrix, %d moments".format(q.matrix.numRows, order))
   
-  val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=10, rand=kpm.rand) {
-    override def calcForce(x: Array[R], f: Array[R]) {
-      q.fillMatrix(q.matrix)
-      val r = kpm.randomVector()
-      kpm.functionAndGradient(r, c_action, q.delMatrix)
-      q.fieldDerivative(q.delMatrix, f)
-    }
-    override def projectToBase(x: Array[R]) {
-      q.normalizeField(x, validate=true)
-    }
-  }
   
-  for (iter <- iter0 until 1000) {
-    Util.time("Iteration "+iter) (for (iter2 <- 0 until dumpPeriod) {
-      lang.step()
-      val hermitDev = math.sqrt((q.matrix - q.matrix.dag).norm2.abs)
-      require(hermitDev < 1e-6, "Found non-hermitian hamiltonian! Deviation: "+hermitDev)
-    })
-
+  def calcMomentsAndDump() {
     // exact moments
     q.fillMatrix(q.matrix)
     val (eig, moments, action, filling) = {
@@ -131,12 +115,41 @@ object KondoApp extends App {
     }
     println("  Action  = %.7g".format(action))
     println("  Filling = %g".format(filling))
-
-    val time = (iter+1)*dumpPeriod*dt
-//    val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field)
+    
+    // dump configuration
+    val time = iter*dumpPeriod*dt
     val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field, moments=moments)
     implicit val formats = json.DefaultFormats
     val serialized = json.Serialization.write(snap)
-    kip.util.Util.writeStringToFile(serialized, dumpFile(iter))
+    val fn = dumpFilename(iter)
+    println("Dumping %s (t=%g)".format(fn, time))
+    kip.util.Util.writeStringToFile(serialized, fn)
+  }
+  
+  val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=10, rand=kpm.rand) {
+    override def calcForce(x: Array[R], f: Array[R]) {
+      q.fillMatrix(q.matrix)
+      val r = kpm.randomVector()
+      kpm.functionAndGradient(r, c_action, q.delMatrix)
+      q.fieldDerivative(q.delMatrix, f)
+    }
+    override def projectToBase(x: Array[R]) {
+      q.normalizeField(x, validate=true)
+    }
+  }
+  
+  if (iter == 0) {
+    calcMomentsAndDump()
+    iter += 1
+  }
+  
+  while (true) {
+    Util.time("Langevin dynamics") (for (_ <- 0 until dumpPeriod) {
+      lang.step()
+      val hermitDev = math.sqrt((q.matrix - q.matrix.dag).norm2.abs)
+      require(hermitDev < 1e-6, "Found non-hermitian hamiltonian! Deviation: "+hermitDev)
+    })
+    calcMomentsAndDump()
+    iter += 1
   }
 }
