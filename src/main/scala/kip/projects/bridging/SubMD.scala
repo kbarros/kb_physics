@@ -1,22 +1,24 @@
 package kip.projects.bridging
 
 import math._
+import scala.util.Random
+
+case class Vector(x: Double, y: Double) {
+  val abs2 = x*x + y*y
+  val abs = sqrt(abs2)
+  def *(a: Double) = Vector(x*a, y*a)
+  def +(v: Vector) = Vector(x+v.x, y+v.y)
+}
+
 
 class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val m: Double = 1, val sigma: Double = 1, val rc: Double = 3) {
+  val rnd = new Random()
   val n = ncols*nrows // number of atoms
   
-  case class Vector(x: Double, y: Double) {
-    val abs2 = x*x + y*y 
-    val abs = sqrt(abs2)
-    def *(a: Double) = Vector(x*a, y*a)
-    def +(v: Vector) = Vector(x+v.x, y+v.y)
-  }
-  
-  // physical (x, y) coordinates in deformed box (i.e., box is transformed according to strain tensor) 
-  val p = new Array[Vector](n)
-
-  // physical velocity in deformed box (i.e., box is transformed according to strain tensor) 
-  val v = new Array[Vector](n)
+  // general Strain type would be a full 3x3 matrix. for now, only handle stretch along x direction
+  type Strain = Double
+  type Stress = Double
+  var strain: Strain = 1
   
   // hexagonal crystal in equilibrium
   //
@@ -26,21 +28,16 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   // o   o   o   o 
   // <-a->
   
-  // width/height of undeformed box
-  val wu = a*ncols + 0.321
-  val hu = (a*sqrt(3)/2)*nrows
+  // width/height of reference box
+  val w0 = a*ncols
+  val h0 = (a*sqrt(3)/2)*nrows
+
+  // physical (x, y) coordinates in deformed box (i.e., box is transformed according to strain tensor) 
+  val p = Array.fill(n)(Vector(0, 0))
+  initializeCrystalPositions()
   
-  // initialize particles in hexagonal crystal
-  require (nrows % 2 == 0)
-  for (iy <- 0 until nrows; ix <- 0 until ncols) {
-    val i = iy*ncols + ix
-    p(i) = Vector(x = ix*a + (iy%2)*(a/2), y = iy*(a*sqrt(3)/2))
-    v(i) = Vector(0, 0)
-  }
-  
-  // general Strain type would be a full 3x3 matrix. for now, only handle stretch along x direction
-  type Strain = Double
-  var strain: Strain = 1
+  // physical velocity in deformed box (i.e., box is transformed according to strain tensor) 
+  val v = Array.fill(n)(Vector(0, 0))
   
   // apply new strain to all particles (position and velocities)
   def applyStrain(newStrain: Strain) {
@@ -52,11 +49,23 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
     this.strain = newStrain
   }
   
-  // apply strain tensor to vector
+  // transform vector from reference to physical coordinates (according to strain)
   def forwardTransform(strain: Strain, r: Vector) = Vector(r.x*strain, r.y)
   
-  // apply inverse strain tensor to vector
+  // transform vector from physical to reference coordinates (according to strain)
   def backwardTransform(strain: Strain, r: Vector) = Vector(r.x/strain, r.y)
+  
+  // initialize particles to strained hexagonal crystal
+  def initializeCrystalPositions() {
+    require (nrows % 2 == 0)
+    for (iy <- 0 until nrows; ix <- 0 until ncols) {
+      val i = iy*ncols + ix
+      // crystal position in reference coordinates 
+      val p0 = Vector(x = ix*a + (iy%2)*(a/2), y = iy*(a*sqrt(3)/2))
+      // transform to physical coordinates
+      p(i) = forwardTransform(strain, p0)
+    }
+  }
   
   def sqr(x: Double) = x*x
   def cube(x: Double) = x*x*x
@@ -104,32 +113,34 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   
   
   def wrapAtomPosition(i: Int) {
-    // backtransform position to cubic volume of reference crystal 
-    val pu = backwardTransform(strain, p(i))
-    // wrap atom position in cubic volume, and then reapply strain deformation
-    p(i) = forwardTransform(strain, Vector(mod(pu.x, wu), mod(pu.y, hu)))
+    // particle position in reference (undeformed) coordinates
+    val p0 = backwardTransform(strain, p(i))
+    // wrap atom position in reference cubic volume, then re-apply deformation
+    p(i) = forwardTransform(strain, Vector(mod(p0.x, w0), mod(p0.y, h0)))
   } 
 
-  // Calculates displacement (p(i) - p(j)) accounting for periodic boundary conditions
-  // of deformed simulation volume. Uses the heuristic that the nearest image in the
-  // reference volume is also the nearest image in the deformed volume.
-  def atomDisplacement(i: Int, j: Int): Vector = {
-    // backtransform positions to cubic volume of reference crystal 
-    val pi = backwardTransform(strain, p(i))
-    val pj = backwardTransform(strain, p(j))
+  // Calculates displacement vector (p0(i) - p0(j)) in reference coordinates
+  def referenceDisplacement(i: Int, j: Int): Vector = {
+    // particle positions in reference crystal
+    val p0i = backwardTransform(strain, p(i))
+    val p0j = backwardTransform(strain, p(j))
     
-    // find distance in reference crystal, according to periodic boundary conditions
-    val r = Vector(x = wrap(pi.x - pj.x, wu), y = wrap(pi.y - pj.y, hu))
-    
-    // reapply strain deformation
-    forwardTransform(strain, r)
+    // use minimal image in cubic volume with periodic boundary conditions
+    Vector(x = wrap(p0i.x - p0j.x, w0), y = wrap(p0i.y - p0j.y, h0))    
+  }
+  
+  // Calculates displacement vector (p(i) - p(j)) in physical coordinates.
+  // Assumes that the nearest image in the reference volume is also the
+  // nearest image in the deformed volume.
+  def displacement(i: Int, j: Int): Vector = {
+    forwardTransform(strain, referenceDisplacement(i, j))
   }
   
   // naive summation over all pairs
   def potentialEnergy() = {
     var ret = 0d
     for (i <- 0 until n; j <- (i+1) until n) {
-      val r = atomDisplacement(i, j).abs
+      val r = displacement(i, j).abs
       ret += lennardJonesPotentialTruncated(r)
     }
     ret
@@ -140,7 +151,7 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   def netForce(i: Int) = {
     var ret = Vector(0, 0)
     for (j <- 0 until n; if j != i) {
-      ret += lennardJonesForceTruncated(atomDisplacement(i, j))
+      ret += lennardJonesForceTruncated(displacement(i, j))
     }
     ret
   }
@@ -157,5 +168,28 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
       p(i) += v(i) * dt
       wrapAtomPosition(i)
     }
+  }
+  
+  // re-initialize particle velocities to achieve target (kinetic+potential) energy
+  def applyEnergy(e: Double) {
+    val targetKinetic = e - potentialEnergy()
+    require(targetKinetic >= 0, "Target energy %g cannot be achieved with potential energy %g".format(e, potentialEnergy()))
+    
+    v.transform(_ => Vector(rnd.nextGaussian(), rnd.nextGaussian()))
+    val ke = kineticEnergy()
+    val scale = sqrt(targetKinetic / kineticEnergy())
+    v.transform(_*scale)
+  }
+  
+  def piolaKirchhoffStress(): Stress = {
+    var ret: Stress = 0d
+    for (i <- 0 until n; j <- i+1 until n) {
+      val r0 = referenceDisplacement(i, j)
+      val r = displacement(i, j)
+      val f = lennardJonesForceTruncated(r) // force on atom i due to atom j
+      ret += (-f.x)*r0.x // just need the (1,1) component of stress tensor 
+    }
+    val volume = w0*h0
+    ret / volume
   }
 }

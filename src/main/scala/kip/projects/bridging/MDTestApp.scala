@@ -36,10 +36,10 @@ class MDTestApp extends Simulation {
     
     params.add("ncols", 4)
     params.add("nrows", 4)
-    params.add("a", 1.0)
+    params.add("a", 1.12246)
     params.add("dt", 0.01)
-    
-    params.add("energy")
+    params.addm("strain", 1.0)
+    params.addm("target energy", 0)
   }
   
   def animate() {
@@ -53,7 +53,12 @@ class MDTestApp extends Simulation {
     plots.registerLines("Kinetic", kinetic, Color.BLUE)
     plots.registerLines("Total", totalEnergy, Color.BLACK)
     
-    params.set("energy", sim.energy())
+    val strain = params.fget("strain")
+    if (strain != sim.strain) {
+      sim.applyStrain(strain)
+      sim.initializeCrystalPositions()
+      sim.applyEnergy(params.fget("target energy"))
+    }
   }
   
   def clear() {
