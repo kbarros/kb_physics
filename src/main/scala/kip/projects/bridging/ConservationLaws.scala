@@ -93,27 +93,40 @@ object CLIntegratorSecondOrder extends CLIntegrator {
 //
 
 trait StressFn {
-  // Stress as a function of strain and energy
-  def apply(strain: Double, velocity: Double, energy: Double): Double
+  // Stress as a function of state variables (strain, velocity and energy)
+  def apply(strain: Double, energy: Double): Double
+  
+  // Potential energy at zero temperature
+  def zeroTempEnergy(strain: Double): Double
 }
 
-class StrainVelocityEnergy(val L: Int, strain0: Array[Double], sf: StressFn) extends ConservationLaws {
+class StrainVelocityEnergy(val L: Int, val rho0: Double, strain0: Array[Double], sf: StressFn) extends ConservationLaws {
   val strain: Array[Double] = strain0.clone()
-  val velocity: Array[Double] = new Array[Double](L)
+  val momentum: Array[Double] = new Array[Double](L)
   val energy: Array[Double] = new Array[Double](L)
   
-  val ws = Seq(strain, velocity, energy)
+  adjustEnergyToZeroTemperature()
+  
+  // adjust energy so that the configuration is at zero temperature
+  def adjustEnergyToZeroTemperature() {
+    for (i <- 0 until L) {
+      energy(i) = sf.zeroTempEnergy(strain(i))
+    }
+  }
+  
+  val ws = Seq(strain, momentum, energy)
   
   def fs(ws: Seq[Array[Double]]): Seq[Array[Double]] = {
     val w_strain = ws(0)
-    val w_velocity = ws(1)
+    val w_momentum = ws(1)
     val w_energy = ws(2)
     
-    val stress = Array.tabulate(L)(i => sf(strain=w_strain(i), velocity=w_velocity(i), energy=w_energy(i))) 
-      
-    val sflux = Array.tabulate(L)(i => -w_velocity(i))
+    val stress = Array.tabulate(L)(i => sf(strain=w_strain(i), energy=w_energy(i)))
+
+    val v =     Array.tabulate(L)(i => w_momentum(i) / rho0)
+    val sflux = Array.tabulate(L)(i => -v(i))
     val vflux = Array.tabulate(L)(i => -stress(i))
-    val eflux = Array.tabulate(L)(i => stress(i) * w_velocity(i))
+    val eflux = Array.tabulate(L)(i => -stress(i)*v(i))
     
     Seq(sflux, vflux, eflux)
   }

@@ -22,42 +22,45 @@ object MDTestApp extends App {
 
 class MDTestApp extends Simulation {
   val canvas = new Scene2D("Particles")
-  val plots = new Plot("Energies")
-  
+  val energyPlots = new Plot("Energies")
+  val stressPlot = new Plot("Stress")
+
   var potential = new Accumulator()
   var kinetic = new Accumulator()
   var totalEnergy = new Accumulator()
+  var stressAcc = new Accumulator()
   
   var sim: SubMD2d = _
   
   def load(c: Control) {
-    c.frame(canvas)
-    c.frame(plots)
+    c.frameTogether("", canvas, energyPlots, stressPlot)
     
     params.add("ncols", 4)
     params.add("nrows", 4)
     params.add("a", 1.12246)
     params.add("dt", 0.01)
     params.addm("strain", 1.0)
-    params.addm("target energy", 0)
+    params.addm("target kinetic energy", 0)
   }
   
   def animate() {
     val circles = sim.p.map(p => Geom2D.circle(p.x, p.y, sim.sigma/2, Color.BLACK))
     import scala.collection.JavaConversions._
     canvas.setDrawables(circles.toSeq)
-    val bds = new Bounds(0, sim.wu*sim.strain, 0, sim.hu, 0, 0)
+    val bds = new Bounds(0, sim.w0*sim.strain, 0, sim.h0, 0, 0)
     canvas.addDrawable(Geom2D.rectangle(bds, Color.GREEN))
     
-    plots.registerLines("Potential", potential, Color.RED)
-    plots.registerLines("Kinetic", kinetic, Color.BLUE)
-    plots.registerLines("Total", totalEnergy, Color.BLACK)
+    energyPlots.registerLines("Potential", potential, Color.RED)
+    energyPlots.registerLines("Kinetic", kinetic, Color.BLUE)
+    energyPlots.registerLines("Total", totalEnergy, Color.BLACK)
+    
+    stressPlot.registerLines("Stress", stressAcc, Color.BLACK)
     
     val strain = params.fget("strain")
     if (strain != sim.strain) {
       sim.applyStrain(strain)
       sim.initializeCrystalPositions()
-      sim.applyEnergy(params.fget("target energy"))
+      sim.applyKineticEnergy(params.fget("target kinetic energy"))
     }
   }
   
@@ -65,6 +68,7 @@ class MDTestApp extends Simulation {
     potential = new Accumulator()
     kinetic = new Accumulator()
     totalEnergy = new Accumulator()
+    stressAcc = new Accumulator()
   }
   
   def run() {
@@ -87,6 +91,8 @@ class MDTestApp extends Simulation {
        potential.accum(time, pe)
        kinetic.accum(time, ke)
        totalEnergy.accum(time, pe+ke)
+       
+       stressAcc.accum(time, sim.convertCauchyToFirstPiolaKirchoff(sim.virialStress()))
      }
      Thread.sleep(10)
     }

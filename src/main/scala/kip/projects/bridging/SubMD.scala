@@ -8,6 +8,8 @@ case class Vector(x: Double, y: Double) {
   val abs = sqrt(abs2)
   def *(a: Double) = Vector(x*a, y*a)
   def +(v: Vector) = Vector(x+v.x, y+v.y)
+  def -(v: Vector) = Vector(x-v.x, y-v.y)
+  def dot(v: Vector) = x*v.x + y*v.y
 }
 
 
@@ -47,6 +49,13 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
       v(i) = forwardTransform(newStrain, backwardTransform(oldStrain, v(i)))
     }
     this.strain = newStrain
+  }
+  
+  // volume of deformed box 
+  def volume() = {
+    val v0 = w0*h0
+    val jacobian = strain // more generally: jacobian of deformation gradient
+    v0 * jacobian
   }
   
   // transform vector from reference to physical coordinates (according to strain)
@@ -170,26 +179,51 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
     }
   }
   
-  // re-initialize particle velocities to achieve target (kinetic+potential) energy
-  def applyEnergy(e: Double) {
-    val targetKinetic = e - potentialEnergy()
-    require(targetKinetic >= 0, "Target energy %g cannot be achieved with potential energy %g".format(e, potentialEnergy()))
-    
+  // re-initialize particle velocities to achieve target kinetic energy
+  def applyKineticEnergy(targetKinetic: Double) {
+    // randomize velocities
     v.transform(_ => Vector(rnd.nextGaussian(), rnd.nextGaussian()))
+    
+    // adjust velocities so that net momentum is zero
+    var pnet = Vector(0, 0)
+    for (i <- 0 until n) pnet += v(i) * m
+    for (i <- 0 until n) v(i) -= pnet * (1.0 / (m * n))
+    
+    // rescale velocities to match target kinetic energy
     val ke = kineticEnergy()
     val scale = sqrt(targetKinetic / kineticEnergy())
     v.transform(_*scale)
   }
   
-  def piolaKirchhoffStress(): Stress = {
+  // the virial stress is consistent with the macroscale Cauchy stress
+  //   http://en.wikipedia.org/wiki/Virial_stress
+  // for now, compute only (1,1) component
+  def virialStress(): Stress = {
     var ret: Stress = 0d
+    // kinetic part
+    for (i <- 0 until n) {
+      ret += - m * v(i).x * v(i).x
+    }
+    // potential part
     for (i <- 0 until n; j <- i+1 until n) {
-      val r0 = referenceDisplacement(i, j)
       val r = displacement(i, j)
       val f = lennardJonesForceTruncated(r) // force on atom i due to atom j
-      ret += (-f.x)*r0.x // just need the (1,1) component of stress tensor 
+      ret += - r.x * f.x // just need the (1,1) component of stress tensor 
     }
-    val volume = w0*h0
-    ret / volume
+    ret / volume()
+  }
+  
+  // see definitions here: http://en.wikipedia.org/wiki/Stress_(mechanics)
+  // 
+  // the 1st Piola-Kirchoff stress tensor is: P = (det F) F^-1 sigma
+  // where sigma is the Cauchy stress and F is the deformation gradient dx / dx^0
+  //
+  // note that sigma is symmetric, but P is not, because it connects reference
+  // to material coordinates (ie., it is a "two-point" tensor).
+  //
+  // in the present case of our 1d problem, where F = diag(a, 1, 1), this is a no-op.
+  // 
+  def convertCauchyToFirstPiolaKirchoff(s: Stress): Stress = {
+    s
   }
 }
