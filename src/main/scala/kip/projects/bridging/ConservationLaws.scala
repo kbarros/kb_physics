@@ -89,19 +89,19 @@ object CLIntegratorSecondOrder extends CLIntegrator {
 
 
 //
-// Strain-velocity-energy conservation laws in 1d
+// Elastodynamic conservation laws in 1d
 //
 
 trait StressFn {
-  // Stress as a function of state variables (strain, velocity and energy)
-  def apply(strain: Double, energy: Double): Double
+  // Stress as a function of state variables (deformation gradient and energy)
+  def stress(defgrad: Double, energy: Double): Double
   
   // Potential energy at zero temperature
-  def zeroTempEnergy(strain: Double): Double
+  def zeroTempEnergy(defgrad: Double): Double
 }
 
-class StrainVelocityEnergy(val L: Int, val rho0: Double, strain0: Array[Double], sf: StressFn) extends ConservationLaws {
-  val strain: Array[Double] = strain0.clone()
+class ElastodynamicLaws1d(val L: Int, val rho0: Double, defgrad0: Array[Double], sf: StressFn) extends ConservationLaws {
+  val defgrad: Array[Double] = defgrad0.clone()
   val momentum: Array[Double] = new Array[Double](L)
   val energy: Array[Double] = new Array[Double](L)
   
@@ -110,18 +110,18 @@ class StrainVelocityEnergy(val L: Int, val rho0: Double, strain0: Array[Double],
   // adjust energy so that the configuration is at zero temperature
   def adjustEnergyToZeroTemperature() {
     for (i <- 0 until L) {
-      energy(i) = sf.zeroTempEnergy(strain(i))
+      energy(i) = sf.zeroTempEnergy(defgrad(i))
     }
   }
   
-  val ws = Seq(strain, momentum, energy)
+  val ws = Seq(defgrad, momentum, energy)
   
   def fs(ws: Seq[Array[Double]]): Seq[Array[Double]] = {
-    val w_strain = ws(0)
+    val w_defgrad = ws(0)
     val w_momentum = ws(1)
     val w_energy = ws(2)
     
-    val stress = Array.tabulate(L)(i => sf(strain=w_strain(i), energy=w_energy(i)))
+    val stress = Array.tabulate(L)(i => sf.stress(defgrad=w_defgrad(i), energy=w_energy(i)))
 
     val v =     Array.tabulate(L)(i => w_momentum(i) / rho0)
     val sflux = Array.tabulate(L)(i => -v(i))

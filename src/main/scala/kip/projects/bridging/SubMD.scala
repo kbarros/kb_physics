@@ -17,10 +17,9 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   val rnd = new Random()
   val n = ncols*nrows // number of atoms
   
-  // general Strain type would be a full 3x3 matrix. for now, only handle stretch along x direction
-  type Strain = Double
-  type Stress = Double
-  var strain: Strain = 1
+  // General tensor would be a full 3x3 matrix, but we currently only treat stretch along x direction
+  type Tensor = Double
+  var defgrad: Tensor = 1
   
   // hexagonal crystal in equilibrium
   //
@@ -34,37 +33,37 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   val w0 = a*ncols
   val h0 = (a*sqrt(3)/2)*nrows
 
-  // physical (x, y) coordinates in deformed box (i.e., box is transformed according to strain tensor) 
+  // position and velocity in physical coordinates (i.e., volume is transformed according to deformation gradient) 
   val p = Array.fill(n)(Vector(0, 0))
-  initializeCrystalPositions()
-  
-  // physical velocity in deformed box (i.e., box is transformed according to strain tensor) 
   val v = Array.fill(n)(Vector(0, 0))
   
-  // apply new strain to all particles (position and velocities)
-  def applyStrain(newStrain: Strain) {
-    val oldStrain = this.strain
+  initializeCrystalPositions()
+  
+  // apply new deformation gradient to all particles
+  def applyDeformationGradient(newDefgrad: Tensor) {
+    val oldDefgrad = this.defgrad
     for (i <- 0 until n) {
-      p(i) = forwardTransform(newStrain, backwardTransform(oldStrain, p(i)))
-      v(i) = forwardTransform(newStrain, backwardTransform(oldStrain, v(i)))
+      p(i) = forwardTransform(newDefgrad, backwardTransform(oldDefgrad, p(i)))
+      v(i) = forwardTransform(newDefgrad, backwardTransform(oldDefgrad, v(i)))
     }
-    this.strain = newStrain
+    this.defgrad = newDefgrad
   }
   
   // volume of deformed box 
   def volume() = {
     val v0 = w0*h0
-    val jacobian = strain // more generally: jacobian of deformation gradient
+    val jacobian = defgrad // more generally, would take jacobian of defgrad tensor
     v0 * jacobian
   }
   
-  // transform vector from reference to physical coordinates (according to strain)
-  def forwardTransform(strain: Strain, r: Vector) = Vector(r.x*strain, r.y)
+  // transform vector from reference to physical coordinates (according to deformation gradient)
+  def forwardTransform(defgrad: Tensor, r: Vector) = Vector(r.x*defgrad, r.y)
   
-  // transform vector from physical to reference coordinates (according to strain)
-  def backwardTransform(strain: Strain, r: Vector) = Vector(r.x/strain, r.y)
+  // transform vector from physical to reference coordinates
+  // in the general case, would need to invert defgrad matrix
+  def backwardTransform(defgrad: Tensor, r: Vector) = Vector(r.x/defgrad, r.y)
   
-  // initialize particles to strained hexagonal crystal
+  // initialize particles to deformed hexagonal crystal
   def initializeCrystalPositions() {
     require (nrows % 2 == 0)
     for (iy <- 0 until nrows; ix <- 0 until ncols) {
@@ -72,7 +71,7 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
       // crystal position in reference coordinates 
       val p0 = Vector(x = ix*a + (iy%2)*(a/2), y = iy*(a*sqrt(3)/2))
       // transform to physical coordinates
-      p(i) = forwardTransform(strain, p0)
+      p(i) = forwardTransform(defgrad, p0)
     }
   }
   
@@ -123,16 +122,16 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   
   def wrapAtomPosition(i: Int) {
     // particle position in reference (undeformed) coordinates
-    val p0 = backwardTransform(strain, p(i))
+    val p0 = backwardTransform(defgrad, p(i))
     // wrap atom position in reference cubic volume, then re-apply deformation
-    p(i) = forwardTransform(strain, Vector(mod(p0.x, w0), mod(p0.y, h0)))
+    p(i) = forwardTransform(defgrad, Vector(mod(p0.x, w0), mod(p0.y, h0)))
   } 
 
   // Calculates displacement vector (p0(i) - p0(j)) in reference coordinates
   def referenceDisplacement(i: Int, j: Int): Vector = {
     // particle positions in reference crystal
-    val p0i = backwardTransform(strain, p(i))
-    val p0j = backwardTransform(strain, p(j))
+    val p0i = backwardTransform(defgrad, p(i))
+    val p0j = backwardTransform(defgrad, p(j))
     
     // use minimal image in cubic volume with periodic boundary conditions
     Vector(x = wrap(p0i.x - p0j.x, w0), y = wrap(p0i.y - p0j.y, h0))    
@@ -142,7 +141,7 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   // Assumes that the nearest image in the reference volume is also the
   // nearest image in the deformed volume.
   def displacement(i: Int, j: Int): Vector = {
-    forwardTransform(strain, referenceDisplacement(i, j))
+    forwardTransform(defgrad, referenceDisplacement(i, j))
   }
   
   // naive summation over all pairs
@@ -198,8 +197,8 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   // the virial stress is consistent with the macroscale Cauchy stress
   //   http://en.wikipedia.org/wiki/Virial_stress
   // for now, compute only (1,1) component
-  def virialStress(): Stress = {
-    var ret: Stress = 0d
+  def virialStress(): Tensor = {
+    var ret = 0d
     // kinetic part
     for (i <- 0 until n) {
       ret += - m * v(i).x * v(i).x
@@ -223,7 +222,7 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   //
   // in the present case of our 1d problem, where F = diag(a, 1, 1), this is a no-op.
   // 
-  def convertCauchyToFirstPiolaKirchoff(s: Stress): Stress = {
+  def convertCauchyToFirstPiolaKirchoff(s: Tensor): Tensor = {
     s
   }
 }

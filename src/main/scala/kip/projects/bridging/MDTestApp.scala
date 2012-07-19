@@ -39,7 +39,7 @@ class MDTestApp extends Simulation {
     params.add("nrows", 4)
     params.add("a", 1.12246)
     params.add("dt", 0.01)
-    params.addm("strain", 1.0)
+    params.addm("defgrad", 1.0)
     params.addm("target kinetic energy", 0)
   }
   
@@ -47,7 +47,7 @@ class MDTestApp extends Simulation {
     val circles = sim.p.map(p => Geom2D.circle(p.x, p.y, sim.sigma/2, Color.BLACK))
     import scala.collection.JavaConversions._
     canvas.setDrawables(circles.toSeq)
-    val bds = new Bounds(0, sim.w0*sim.strain, 0, sim.h0, 0, 0)
+    val bds = new Bounds(0, sim.w0*sim.defgrad, 0, sim.h0, 0, 0)
     canvas.addDrawable(Geom2D.rectangle(bds, Color.GREEN))
     
     energyPlots.registerLines("Potential", potential, Color.RED)
@@ -56,9 +56,9 @@ class MDTestApp extends Simulation {
     
     stressPlot.registerLines("Stress", stressAcc, Color.BLACK)
     
-    val strain = params.fget("strain")
-    if (strain != sim.strain) {
-      sim.applyStrain(strain)
+    val defgrad = params.fget("defgrad")
+    if (defgrad != sim.defgrad) {
+      sim.applyDeformationGradient(defgrad)
       sim.initializeCrystalPositions()
       sim.applyKineticEnergy(params.fget("target kinetic energy"))
     }

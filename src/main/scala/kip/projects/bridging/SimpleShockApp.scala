@@ -19,20 +19,20 @@ object SimpleStress extends StressFn {
   val c = 0.5 // wave speed
   val rho0 = 0.5 // density
   
-  def apply(strain: Double, energy: Double) = rho0*c*c*(strain - 1)
+  def stress(defgrad: Double, energy: Double) = rho0*c*c*(defgrad - 1)
   
-  def zeroTempEnergy(strain: Double) = {
-    rho0*c*c*(strain-1)*(strain-1)/2
+  def zeroTempEnergy(defgrad: Double) = {
+    rho0*c*c*(defgrad-1)*(defgrad-1)/2
   }
 }
 
 
 class SimpleShockSolver(val L: Int, dx: Double, dt: Double) {
-  // initial strain conditions
-  def strain0 = Array.tabulate(L)(i => if (i < L/2) 1.01 else 1.0)
+  // initial deformation gradient
+  def defgrad0 = Array.tabulate(L)(i => if (i < L/2) 1.01 else 1.0)
   
-  var sve1 = new StrainVelocityEnergy(L, SimpleStress.rho0, strain0, SimpleStress)  
-  var sve2 = new StrainVelocityEnergy(L, SimpleStress.rho0, strain0, SimpleStress)  
+  var sve1 = new ElastodynamicLaws1d(L, SimpleStress.rho0, defgrad0, SimpleStress)  
+  var sve2 = new ElastodynamicLaws1d(L, SimpleStress.rho0, defgrad0, SimpleStress)  
   var time = 0.0
   
   def step() {
@@ -46,12 +46,12 @@ class SimpleShockSolver(val L: Int, dx: Double, dt: Double) {
     if (rem < 0) rem + y else rem
   }
   
-  def linearStrainSolution(): Array[Double] = {
+  def linearDefgradSolution(): Array[Double] = {
     val del_i = ((time * SimpleStress.c) / dx).toInt
     Array.tabulate(L) { i =>
       val i1 = mod(i+del_i, L)
       val i2 = mod(i-del_i, L)
-      0.5*(strain0(i1) + strain0(i2))
+      0.5*(defgrad0(i1) + defgrad0(i2))
     } 
   }
   
@@ -60,17 +60,17 @@ class SimpleShockSolver(val L: Int, dx: Double, dt: Double) {
     Array.tabulate(L) { i =>
       val i1 = mod(i+del_i, L)
       val i2 = mod(i-del_i, L)
-      SimpleStress.c * 0.5*(strain0(i1) - strain0(i2))
+      SimpleStress.c * 0.5*(defgrad0(i1) - defgrad0(i2))
     } 
   }
   
   def linearEnergySolution(): Array[Double] = {
-    val strain = linearStrainSolution()
-    val vel    = linearVelocitySolution()
-    val rho0   = SimpleStress.rho0
+    val defgrad = linearDefgradSolution()
+    val vel     = linearVelocitySolution()
+    val rho0    = SimpleStress.rho0
     val ret = new Array[Double](L)
     for (i <- ret.indices) {
-      ret(i) = SimpleStress.zeroTempEnergy(strain(i)) + rho0*vel(i)*vel(i)/2
+      ret(i) = SimpleStress.zeroTempEnergy(defgrad(i)) + rho0*vel(i)*vel(i)/2
     }
     ret
   }
@@ -82,13 +82,13 @@ object SimpleShockApp extends App {
 }
 
 class SimpleShockApp extends Simulation {
-  val strainPlot = new Plot("Strain")
+  val defgradPlot = new Plot("Deformation Gradient")
   val energyPlot = new Plot("Energy")
   
   var sim: SimpleShockSolver = _
   
   def load(c: Control) {
-    c.frameTogether("Plots", strainPlot, energyPlot)
+    c.frameTogether("Plots", defgradPlot, energyPlot)
 
     params.add("L", 400)
     params.add("dx", 1.0)
@@ -97,9 +97,9 @@ class SimpleShockApp extends Simulation {
   }
   
   def animate() {
-    strainPlot.registerLines("strain1", new PointSet(0, 1, sim.sve1.strain), Color.GRAY)
-    strainPlot.registerLines("strain2", new PointSet(0, 1, sim.sve2.strain), Color.BLACK)
-    strainPlot.registerLines("strain exact", new PointSet(0, 1, sim.linearStrainSolution()), Color.RED)
+    defgradPlot.registerLines("defgrad1", new PointSet(0, 1, sim.sve1.defgrad), Color.GRAY)
+    defgradPlot.registerLines("defgrad2", new PointSet(0, 1, sim.sve2.defgrad), Color.BLACK)
+    defgradPlot.registerLines("defgrad exact", new PointSet(0, 1, sim.linearDefgradSolution()), Color.RED)
     
     energyPlot.registerLines("energy 1", new PointSet(0, 1, sim.sve1.energy), Color.GRAY)
     energyPlot.registerLines("energy 2", new PointSet(0, 1, sim.sve2.energy), Color.BLACK)
