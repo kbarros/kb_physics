@@ -19,7 +19,7 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   
   // General tensor would be a full 3x3 matrix, but we currently only treat stretch along x direction
   type Tensor = Double
-  var defgrad: Tensor = 1
+  var defgrad: Tensor = 1.0
   
   // hexagonal crystal in equilibrium
   //
@@ -49,12 +49,17 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
     this.defgrad = newDefgrad
   }
   
+  // volume of undeformed reference box
+  val volume0 = w0*h0
+  
   // volume of deformed box 
   def volume() = {
-    val v0 = w0*h0
     val jacobian = defgrad // more generally, would take jacobian of defgrad tensor
-    v0 * jacobian
+    volume0 * jacobian
   }
+  
+  // density of undeformed reference box
+  val density0 = m * n / volume0  
   
   // transform vector from reference to physical coordinates (according to deformation gradient)
   def forwardTransform(defgrad: Tensor, r: Vector) = Vector(r.x*defgrad, r.y)

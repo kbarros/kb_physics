@@ -40,7 +40,9 @@ class MDTestApp extends Simulation {
     params.add("a", 1.12246)
     params.add("dt", 0.01)
     params.addm("defgrad", 1.0)
-    params.addm("target kinetic energy", 0)
+    params.addm("target kinetic energy", 0.0)
+    
+    flags.add("Reinitialize")
   }
   
   def animate() {
@@ -56,12 +58,12 @@ class MDTestApp extends Simulation {
     
     stressPlot.registerLines("Stress", stressAcc, Color.BLACK)
     
-    val defgrad = params.fget("defgrad")
-    if (defgrad != sim.defgrad) {
-      sim.applyDeformationGradient(defgrad)
+    if (flags.contains("Reinitialize")) {
+      sim.applyDeformationGradient(params.fget("defgrad"))
       sim.initializeCrystalPositions()
       sim.applyKineticEnergy(params.fget("target kinetic energy"))
     }
+    flags.clear()
   }
   
   def clear() {

@@ -15,7 +15,7 @@ import scikit.graphics.dim2.{Scene2D, Geom2D, Plot}
 
 
 
-object SimpleStress extends StressFn {
+object SimpleStressFn extends StressFn {
   val c = 0.5 // wave speed
   val rho0 = 0.5 // density
   
@@ -31,8 +31,8 @@ class SimpleShockSolver(val L: Int, dx: Double, dt: Double) {
   // initial deformation gradient
   def defgrad0 = Array.tabulate(L)(i => if (i < L/2) 1.01 else 1.0)
   
-  var sve1 = new ElastodynamicLaws1d(L, SimpleStress.rho0, defgrad0, SimpleStress)  
-  var sve2 = new ElastodynamicLaws1d(L, SimpleStress.rho0, defgrad0, SimpleStress)  
+  var sve1 = new ElastodynamicLaws1d(L, SimpleStressFn.rho0, defgrad0, SimpleStressFn)  
+  var sve2 = new ElastodynamicLaws1d(L, SimpleStressFn.rho0, defgrad0, SimpleStressFn)  
   var time = 0.0
   
   def step() {
@@ -47,7 +47,7 @@ class SimpleShockSolver(val L: Int, dx: Double, dt: Double) {
   }
   
   def linearDefgradSolution(): Array[Double] = {
-    val del_i = ((time * SimpleStress.c) / dx).toInt
+    val del_i = ((time * SimpleStressFn.c) / dx).toInt
     Array.tabulate(L) { i =>
       val i1 = mod(i+del_i, L)
       val i2 = mod(i-del_i, L)
@@ -56,21 +56,21 @@ class SimpleShockSolver(val L: Int, dx: Double, dt: Double) {
   }
   
   def linearVelocitySolution() = {
-    val del_i = ((time * SimpleStress.c) / dx).toInt
+    val del_i = ((time * SimpleStressFn.c) / dx).toInt
     Array.tabulate(L) { i =>
       val i1 = mod(i+del_i, L)
       val i2 = mod(i-del_i, L)
-      SimpleStress.c * 0.5*(defgrad0(i1) - defgrad0(i2))
+      SimpleStressFn.c * 0.5*(defgrad0(i1) - defgrad0(i2))
     } 
   }
   
   def linearEnergySolution(): Array[Double] = {
     val defgrad = linearDefgradSolution()
     val vel     = linearVelocitySolution()
-    val rho0    = SimpleStress.rho0
+    val rho0    = SimpleStressFn.rho0
     val ret = new Array[Double](L)
     for (i <- ret.indices) {
-      ret(i) = SimpleStress.zeroTempEnergy(defgrad(i)) + rho0*vel(i)*vel(i)/2
+      ret(i) = SimpleStressFn.zeroTempEnergy(defgrad(i)) + rho0*vel(i)*vel(i)/2
     }
     ret
   }

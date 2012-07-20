@@ -96,8 +96,21 @@ trait StressFn {
   // Stress as a function of state variables (deformation gradient and energy)
   def stress(defgrad: Double, energy: Double): Double
   
-  // Potential energy at zero temperature
+  // Potential energy density at zero temperature
   def zeroTempEnergy(defgrad: Double): Double
+  
+  // At zero temperature, the stress should be the derivative of the potential energy.
+  // Check this by numerical differentiation.
+  def checkZeroTempConsistency(defgrad: Double, h: Double) {
+    val e = zeroTempEnergy(defgrad)
+    val s1 = stress(defgrad, e)
+    val s2 = {
+      val e1 = zeroTempEnergy(defgrad-h)
+      val e2 = zeroTempEnergy(defgrad+h)
+      (e2 - e1) / (2*h)
+    }
+    println("Checking stress at deformation gradient %g. Exact: %g, Numeric: %g".format(defgrad, s1, s2))
+  }
 }
 
 class ElastodynamicLaws1d(val L: Int, val rho0: Double, defgrad0: Array[Double], sf: StressFn) extends ConservationLaws {
