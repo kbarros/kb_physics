@@ -16,7 +16,7 @@ import scikit.graphics.dim2.{Scene2D, Geom2D, Plot}
 
 
 object MDStressFn extends StressFn {
-  val md = new SubMD2d(ncols=2, nrows=2, a=1.12246, dt=0.01)
+  val md = new SubMD2d(ncols=2, nrows=2, a=1.12246, dt=0.01) // in production, we should use a 4x4 MD lattice or greater
   val rho0 = md.density0
   
   def stress(defgrad: Double, energy: Double): Double = {
@@ -29,7 +29,25 @@ object MDStressFn extends StressFn {
     }
     else {
       md.applyKineticEnergy(energy*md.volume0 - md.potentialEnergy())
-      md.convertCauchyToFirstPiolaKirchoff(md.virialStress()) // TODO average data
+      val tLo = 1.0
+      val tHi = 10.0
+      var time = 0.0
+      // skip transient behavior in (0 < t < tLo)
+      while (time < tLo) {
+        md.verletStep()
+        time += md.dt
+      }
+      // average stress over times (tLo < t < tHi)
+      // (testing is needed to set these parameters)
+      var stressAcc = 0.0
+      var stressAccCnt = 0
+      while (time < tHi) {
+        md.verletStep()
+        stressAcc += md.convertCauchyToFirstPiolaKirchoff(md.virialStress())
+        stressAccCnt += 1
+        time += md.dt
+      }
+      stressAcc / stressAccCnt
     }
   }
   
@@ -43,13 +61,12 @@ object MDStressFn extends StressFn {
 
 
 class MDShockSolver(val L: Int, dx: Double, dt: Double, defgradAmplitude: Double, defgradWidth: Double) {
-  // initial deformation gradient
-//  def defgrad0 = Array.tabulate(L)(i => 1.0 + 0.04*(math.tanh(0.1*(i - L/2)) + 1.0))
-  
+  // initial deformation gradient is a stretched region (L/4 < x < 3L/4) in a relaxed background
   import math.tanh
   val (a, w) = (defgradAmplitude, defgradWidth)
   def defgrad0 = Array.tabulate(L)(i => 1.0 + (a/2)*(tanh((dx/w)*(i-L/4)) - tanh((dx/w)*(i-3*L/4))))
   
+  // two macro-solvers at first and second accuracy
   var sve1 = new ElastodynamicLaws1d(L, MDStressFn.rho0, defgrad0, MDStressFn)  
   var sve2 = new ElastodynamicLaws1d(L, MDStressFn.rho0, defgrad0, MDStressFn)  
   var time = 0.0
