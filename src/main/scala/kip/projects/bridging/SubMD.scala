@@ -204,7 +204,7 @@ class SubMD2d(val ncols: Int, val nrows: Int, val a: Double, val dt: Double, val
   // for now, compute only (1,1) component
   def virialStress(): Tensor = {
     var ret = 0d
-    // kinetic part
+    // kinetic part (!! THE TERM MISSING IN LI & E's PAPER !!)
     for (i <- 0 until n) {
       ret += - m * v(i).x * v(i).x
     }
