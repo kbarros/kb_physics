@@ -402,7 +402,7 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
   //   dF/dS = dF/dH dH/dS
   // In both factors, H is assumed to be dimensionless (scaled energy). If F is also dimensionless, then it
   // may be desired to multiply the final result by the energy scale.
-  def fieldDerivative(dH: PackedSparse[S], dS: Array[R]) {
+  def fieldDerivative(dFdH: PackedSparse[S], dFdS: Array[R]) {
     // loop over all lattice sites and vector indices
     for (y <- 0 until h;
          x <- 0 until w;
@@ -413,14 +413,16 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
            sp2 <- 0 until 2) {
         val i = matrixIndex(sp1, x, y)
         val j = matrixIndex(sp2, x, y)
-        dCoupling += dH(i, j) * pauli(pauliIndex(sp1, sp2, d))
+        dCoupling += dFdH(i, j) * pauli(pauliIndex(sp1, sp2, d))
       }
       require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero: " + dCoupling.im)
-      dS(fieldIndex(d, x, y)) = -J_H * dCoupling.re
+      dFdS(fieldIndex(d, x, y)) = -J_H * dCoupling.re
     }
     
-    projectTangentField(field, dS)
+    // the derivative is perpendicular to the direction of S, due to constraint |S|=1 
+    projectTangentField(field, dFdS)
     
-    dS.transform(_ / e_scale)
+    // properly scale the factor dH/dS, corresponding to scaled H
+    dFdS.transform(_ / e_scale)
   }
 }

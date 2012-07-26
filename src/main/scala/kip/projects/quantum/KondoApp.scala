@@ -74,6 +74,8 @@ object KondoApp extends App {
   val mup = q.scaleEnergy(mu)
   val Tp = q.scaleEnergy(T)
   
+  // calculates the action in **scaled coordinates**
+  // this means that action and its derivative will be too small by a factor of q.e_scale (typically 10)
   val fn_action:  (R => R) = {
     if (Tp == 0) (e => if (e - mup < 0) (e - mup) else 0)
     else { e =>
@@ -126,6 +128,9 @@ object KondoApp extends App {
     kip.util.Util.writeStringToFile(serialized, fn)
   }
   
+  // the energy scales used in the langevin equation are reduced by q.e_scale (typically ~10)
+  // this effectively reduces "time" scale by q.e_scale
+  // therefore, to get the actual parameter (z=dt/nrand), one must divide by q.e_scale 
   val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=10, rand=kpm.rand) {
     override def calcForce(x: Array[R], f: Array[R]) {
       q.fillMatrix(q.matrix)

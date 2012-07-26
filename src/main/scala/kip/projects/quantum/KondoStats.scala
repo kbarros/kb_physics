@@ -24,12 +24,12 @@ object KondoStats extends App {
   }
   
   
-  val i = time.indexWhere(_ > 100)
+  val i = 0 // time.indexWhere(_ > 5000)
   val data = new scikit.dataset.PointSet(time.drop(i).toArray, energy.drop(i).toArray)
   scikit.util.Commands.plot(data)
   
   val ba = new kip.util.BlockAnalysis(energy.drop(i).toArray)
-  println("energy = %g +- %g".format(ba.mean, ba.error))
+  println("energy = %.8g +- %.8g".format(ba.mean, ba.error))
   if (!ba.isDecorrelated) {
     println("not decorrelated!")
     ba.blocks.foreach(b => println(b))
