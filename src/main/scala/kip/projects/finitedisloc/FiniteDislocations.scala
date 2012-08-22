@@ -92,15 +92,13 @@ class FiniteDislocSim(params: Parameters) {
   val A2 = 1.0
   val A3 = 1.0
   
-  val fourierVectors = fft.fourierVectors
-
   val gamma1 = fft.allocFourierArray()
   val gamma2 = fft.allocFourierArray()
   val gamma3 = fft.allocFourierArray()
   val gamma4 = fft.allocFourierArray()
   for (i <- 0 until gamma1.size/2) {
-    val kx: Double = fourierVectors(i)(0)
-    val ky: Double = fourierVectors(i)(1)
+    val kx: Double = fft.fourierVector(i)(0)
+    val ky: Double = fft.fourierVector(i)(1)
     val k2 = kx*kx + ky*ky
     if (k2 > 0) {
       gamma1(2*i+0) = (kx*kx-ky*ky)/k2
@@ -152,8 +150,8 @@ class FiniteDislocSim(params: Parameters) {
     
     // calculate d1k and d4k in fourier space
     for (i <- 0 until d1k.size/2) {
-      val kx: Double = fourierVectors(i)(0)
-      val ky: Double = fourierVectors(i)(1)
+      val kx: Double = fft.fourierVector(i)(0)
+      val ky: Double = fft.fourierVector(i)(1)
       val k2  = kx*kx + ky*ky
       if (k2 == 0) {
         d1k(2*i+0) = 0
@@ -211,10 +209,10 @@ class FiniteDislocSim(params: Parameters) {
     }
     
     // constrained total derivative
-    fft.convolveWithRecip(du_dd1, du_dd2_tot)(gamma1)
-    fft.convolveWithRecip(du_dd1, du_dd3_tot)(gamma2)
-    fft.convolveWithRecip(du_dd1, du_da31_tot)(gamma3)
-    fft.convolveWithRecip(du_dd1, du_da32_tot)(gamma4)
+    fft.convolveWithRecip(du_dd1, gamma1, du_dd2_tot)
+    fft.convolveWithRecip(du_dd1, gamma2, du_dd3_tot)
+    fft.convolveWithRecip(du_dd1, gamma3, du_da31_tot)
+    fft.convolveWithRecip(du_dd1, gamma4, du_da32_tot)
     for (i <- 0 until lp2) {
       du_dd2_tot(i) += du_dd2(i)
       du_dd3_tot(i) += du_dd3(i)
