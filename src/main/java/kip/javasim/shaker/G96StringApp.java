@@ -321,7 +321,6 @@ public class G96StringApp extends Terminal {
 		
 		
 		void parse2(String fname, int maxFrames, int skipEvery) throws IOException {
-			@SuppressWarnings("resource")
 			BufferedReader is = new BufferedReader (new FileReader (fname));
 			
 			verifyEntry(is.readLine(), "TITLE");

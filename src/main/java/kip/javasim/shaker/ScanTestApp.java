@@ -63,7 +63,6 @@ public class ScanTestApp {
 
 	static void streamFile2(File file) {
 		try {
-			@SuppressWarnings("resource")
 			BufferedReader is = new BufferedReader (new FileReader (file));
 //			String[] splitStrs = new String[256];
 			double[] splitVals = new double[256];
