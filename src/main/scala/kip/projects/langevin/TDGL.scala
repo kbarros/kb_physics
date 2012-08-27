@@ -45,6 +45,7 @@ class TDGL(params: Parameters, dimensions: Int) {
   
   val kernel1 = fft.allocFourierArray()
   val kernel2 = fft.allocFourierArray()
+  val kernel3 = fft.allocFourierArray()
   
   readParams(params)
   
@@ -98,15 +99,19 @@ class TDGL(params: Parameters, dimensions: Int) {
     
     if (r != rp) {
       r = rp
-      fft.tabulateFourierArray(kernel1) { k: Array[Double] =>
+      
+      for (i <- 0 until fft.nrecip/2) {
+        val k = fft.fourierVector(i)
         val k2 = r2k2(k)
-        val re = (1 + a1*dt + a2*dt*(-k2)) / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
-        (re, 0)
-      }
-      fft.tabulateFourierArray(kernel2) { k: Array[Double] =>
-        val k2 = r2k2(k)
-        val re = dt / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
-        (re, 0)
+        
+        kernel1(2*i+0) = (1 + a1*dt + a2*dt*(-k2)) / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
+        kernel1(2*i+1) = 0
+        
+        kernel2(2*i+0) = dt / (1 + (a1-1)*dt + (a2-1)*dt*(-k2))
+        kernel2(2*i+1) = 0
+          
+        kernel3(2*i+0) = 1-k2
+        kernel3(2*i+1) = 0 
       }
     }
   }
@@ -128,13 +133,13 @@ class TDGL(params: Parameters, dimensions: Int) {
   
   def simulate() {
     // scratch1 stores term proportional to phi
-    fft.convolveWithRecip(phi, scratch1)(kernel1)
+    fft.convolveWithRecip(phi, kernel1, scratch1)
     
     // scratch2 stores term proportional to phi^3
     for (i <- 0 until lpd) {
       scratch2(i) = phi(i)*phi(i)*phi(i)
     }
-    fft.convolveWithRecip(scratch2, scratch2)(kernel2)
+    fft.convolveWithRecip(scratch2, kernel2, scratch2)
 
     for (i <- 0 until lpd) {
       phi(i) = scratch1(i) - scratch2(i)
@@ -146,10 +151,7 @@ class TDGL(params: Parameters, dimensions: Int) {
   // F = \int dx^2 [ - phi (1 + \del^2) phi / 2 + phi^4 / 4 ]  
   def freeEnergy: Double = {
     // scratch1 stores (1 + \del^2) phi
-    fft.convolveWithRecipFn(phi, scratch1) { k: Array[Double] =>
-      val k2 = r2k2(k)
-      (1-k2, 0)
-    }
+    fft.convolveWithRecip(phi, kernel3, scratch1)
     var ret = 0.0
     for (i <- 0 until lpd) {
       ret += - phi(i)*scratch1(i)/2      // - phi (1 + \del^2) phi / 2 

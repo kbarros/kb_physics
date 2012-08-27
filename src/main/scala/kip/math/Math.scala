@@ -3,8 +3,10 @@ package kip.math
 
 object Math {
   def sqr(x: Double) = x*x
-  def hypot(x: Double, y: Double, z: Double) = math.sqrt(x*x + y*y + z*z)
-  def avg(x: Double, y: Double) = 0.5*(x+y)
+  def cube(x: Double) = x*x*x
+  
+  def mod(x: Double, y: Double) = ((x % y) + y) % y
+  def mod(x: Int, y: Int) = ((x % y) + y) % y
   
   def fftReal(in: Array[Double]): Array[Complex] = {
     val tran = new fft.FFTReal(dim=Array(in.size))

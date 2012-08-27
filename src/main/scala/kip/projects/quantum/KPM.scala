@@ -101,7 +101,7 @@ object KPM {
     var j = 0
     var acc = 0d
     for (i <- xs.indices) {
-      val binEnd: R = if (i < xs.size-1) avg(xs(i), xs(i+1)) else xs(i)
+      val binEnd: R = if (i < xs.size-1) 0.5*(xs(i)+xs(i+1)) else xs(i)
       while (j < deltas.size && deltas(j) <= binEnd) {
         acc += math.pow(deltas(j), moment)
         j += 1

@@ -11,8 +11,6 @@ object FFTComplex {
 }
 
 
-// Note that arrays are packed in row major order, so the last index is the fastest varying.
-// Thus, if indices are computed as (i = Lx*y + x) then one should use dim(Ly, Lx)
 class FFTComplex(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: Int = FFTW.FFTW_ESTIMATE) {
 
   val len = lenOption.getOrElse(dim.map(_.toDouble))
@@ -20,6 +18,7 @@ class FFTComplex(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags
   
   // number of doubles in real/reciprocal-space array
   val n = 2*dim.product
+  val nrecip = n
   
   val sizeofDouble = 8;
   val inBytes  = sizeofDouble*n
@@ -67,36 +66,38 @@ class FFTComplex(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags
     new Array[Double](n)
   }
   
-  def tabulateFourierArray(dst: Array[Double])(f: Array[Double] => (Double, Double)) {
-    require(dst.size == n)
-    for (i <- 0 until dst.size/2) {
-      val k = fourierVector(i)
-      val (re, im) = f(k)
-      dst(2*i+0) = re
-      dst(2*i+1) = im
-    }
-  }
-    
-  // Returns the list of all fourier vectors
-  def fourierVectors: Array[Array[Double]] = {
-    Array.tabulate(n/2) { fourierVector(_) }
-  }
-  
   // for each indexed complex number in fourier array, return corresponding vector k
   // where component k(r) = n (2 pi / L_r) for integer n in range [-N/2, +N/2)
   def fourierVector(i: Int): Array[Double] = {
+    val k = fourierIndices(i)
+    Array.tabulate[Double](rank) (r => 2*math.Pi*k(r) / len(r))
+  }
+  
+  def fourierIndices(i: Int): Array[Int] = {
     require(0 <= i && i < n/2)
-    val k = new Array[Double](rank)
+    val k = new Array[Int](rank)
     var ip = i
     for (r <- rank-1 to 0 by -1) {
       k(r) = ip % dim(r)
-      if (k(r) >= dim(r)/2)
-        k(r) -= dim(r)
-      val dk = 2*math.Pi/len(r)
-      k(r) *= dk
+      if (k(r) >= dim(r)/2) k(r) -= dim(r) // shift to range [-dim/2, +dim/2]
       ip /= dim(r)
     }
     k
+  }
+  
+  // Note that arrays are packed in row major order, so the last index is the fastest varying.
+  // For example, in three dimensions: 
+  //  system dimensions   = (Lx, Ly, Lz)
+  //  fourier k-indices   = (kx, ky, kz)
+  //  fourier array index = kz + Lz * (ky + ly * (kz))
+  //
+  def arrayIndex(k: Array[Int]): Int = {
+    var ip = 0
+    for (r <- 0 until rank) {
+      ip *= dim(r) 
+      ip += (k(r) + dim(r)) % dim(r)
+    }
+    ip
   }
   
   def destroy {
@@ -106,4 +107,22 @@ class FFTComplex(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags
     fftw.fftw_free(out)
   }
 
+  // returns dst(i) = \sum_j a(i) b(j-i)
+  def convolve(a: Array[Double], b: Array[Double], dst: Array[Double]) {
+    require(a.size == n && b.size == n && dst.size == n)
+    val ap = allocFourierArray()
+    val bp = allocFourierArray()
+    forwardTransform(a, ap)
+    forwardTransform(b, bp)
+    multiplyComplexArrays(ap, bp, ap)
+    backwardTransform(ap, dst)
+  }
+
+  def convolveWithRecip(a: Array[Double], bp: Array[Double], dst: Array[Double]) {
+    require(a.size == n && bp.size == n && dst.size == n)
+    val ap = allocFourierArray()
+    forwardTransform(a, ap)
+    multiplyComplexArrays(ap, bp, ap)
+    backwardTransform(ap, dst)
+  }
 }

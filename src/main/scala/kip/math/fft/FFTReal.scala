@@ -28,8 +28,10 @@ object FFTReal {
     fft.forwardTransform(a, ap)
     
     val bp = fft.allocFourierArray()
-    fft.tabulateFourierArray(bp) { k: Array[Double] =>
-      (math.cos(-k(1)), math.sin(-k(1)))
+    for (i <- 0 until bp.size/2) {
+      val k = fft.fourierVector(i)
+      bp(2*i+0) = math.cos(-k(1))
+      bp(2*i+1) = math.sin(-k(1))
     }
     
     for (i <- ap.indices) {
@@ -45,8 +47,10 @@ object FFTReal {
     fft.forwardTransform(a, ap)
     
     val bp = fft.allocFourierArray()
-    fft.tabulateFourierArray(bp) { k: Array[Double] =>
-      (math.cos(-k(0)), math.sin(-k(0)))
+    for (i <- 0 until bp.size/2) {
+      val k = fft.fourierVector(i)
+      bp(2*i+0) = math.cos(-k(0))
+      bp(2*i+1) = math.sin(-k(0))
     }
     
     for (i <- ap.indices) {
@@ -56,8 +60,6 @@ object FFTReal {
 }
 
 
-// Note that arrays are packed in row major order, so the last index is the fastest varying.
-// Thus, if indices are computed as (i = Lx*y + x) then one should use dim(Ly, Lx)
 class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: Int = FFTW.FFTW_ESTIMATE) {
 
   val len = lenOption.getOrElse(dim.map(_.toDouble))
@@ -114,86 +116,73 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
     new Array[Double](nrecip)
   }
   
-  def tabulateFourierArray(dst: Array[Double])(f: Array[Double] => (Double, Double)) {
-    require(dst.size == nrecip)
-    for (i <- 0 until dst.size/2) {
-      val k = fourierVector(i)
-      val (re, im) = f(k)
-      dst(2*i+0) = re
-      dst(2*i+1) = im
-    }
-  }
-  
-  // TODO: generalize beyond rank-2
-  // TODO: test with FFTComplex
+  // TODO: generalize to arbitrary rank
   def uncompressFourierArray(f: Array[Double]): Array[Double] = {
     val ret = new Array[Double](2*dim.product)
     require(rank == 2)
-    val ly = dim(0)
-    val lx = dim(1) 
-    for (y <- 0 until ly; x <- 0 until lx) {
-      val i = lx*y + x
-      if (x < lx/2 + 1) {
-        val j = (lx/2+1)*y + x
+    for (k0 <- 0 until dim(0); k1 <- 0 until dim(1)) {
+      val i = k1 + dim(1)*(k0)
+      val j = arrayIndex(Array(k0, k1))
+      if (j >= 0) {
         ret(2*i+0) = f(2*j+0)
         ret(2*i+1) = f(2*j+1)
       }
       else {
-        val yp = if (y == 0) 0 else ly - y
-        val xp = lx - x
-        val j = (lx/2+1)*yp + xp
-        ret(2*i+0) = + f(2*j+0)
-        ret(2*i+1) = - f(2*j+1) // complex conjugate
+        ret(2*i+0) = + f(-2*j+0)
+        ret(2*i+1) = - f(-2*j+1) // complex conjugate
       }
     }
     ret
   }
 
-  def multiplyFourierArrays(src1: Array[Double], src2: Array[Double], dst: Array[Double]) {
-    require(src1.size == nrecip)
-    require(src2.size == nrecip)
-    require(dst.size == nrecip)
-    for (i <- 0 until src1.size/2) {
-      // src and dst arrays might be aliased; create temporary variables
-      val re = src1(2*i+0)*src2(2*i+0) - src1(2*i+1)*src2(2*i+1)
-      val im = src1(2*i+0)*src2(2*i+1) + src1(2*i+1)*src2(2*i+0)
-      dst(2*i+0) = re
-      dst(2*i+1) = im
-    }
-  }
-
-  def conjugateFourierArray(src: Array[Double], dst: Array[Double]) {
-    require(src.size == nrecip)
-    require(dst.size == nrecip)
-    for (i <- 0 until src.size/2) {
-      dst(2*i+0) = src(2*i+0)
-      dst(2*i+1) = -src(2*i+1)
-    }
-  }
-  
-  // Returns the list of all fourier vectors
-  def fourierVectors: Array[Array[Double]] = {
-    Array.tabulate(nrecip/2) { fourierVector(_) }
-  }
-  
   // for each indexed complex number in fourier array, return corresponding vector k
   // where component k(r) = n (2 pi / L_r) for integer n in range [-N/2, +N/2)
   def fourierVector(i: Int): Array[Double] = {
+    val k = fourierIndices(i)
+    Array.tabulate[Double](rank) (r => 2*math.Pi*k(r) / len(r))
+  }
+  
+  def fourierIndices(i: Int): Array[Int] = {
     require(0 <= i && i < nrecip/2)
-    val k = new Array[Double](rank)
+    val k = new Array[Int](rank)
     var ip = i
     for (r <- rank-1 to 0 by -1) {
       val d = if (r == rank-1) (dim(r)/2+1) else dim(r) // fftw compresses last index
       k(r) = ip % d
       if (k(r) >= dim(r)/2)
         k(r) -= dim(r)
-      val dk = 2*math.Pi/len(r)
-      k(r) *= dk
       ip /= d
     }
     k
   }
   
+  // Note that arrays are packed in row major order, so the last index is the fastest varying.
+  // For example, in three dimensions: 
+  //  system dimensions   = (Lx, Ly, Lz)
+  //  fourier k-indices   = (kx, ky, kz)
+  //  fourier array index = kz + Lz * (ky + ly * (kz))
+  //
+  // Not all Fourier vectors k map to valid array indices. In such cases, we encode ki < 0
+  // such that: f(ki) == f(-ki)^\ast
+  def arrayIndex(k: Array[Int]): Int = {
+    import kip.math.Math.mod
+    
+    // no index exists for some fourier indices. these are available by complex conjugation
+    // of k -> -k index
+    val invert = if (mod(k(rank-1), dim(rank-1)) > dim(rank-1)/2) -1 else 1
+    
+    val kp = Array.tabulate[Int](rank) { r => mod(invert * k(r), dim(r)) }
+    
+    var ip = 0
+    for (r <- 0 until rank) {
+      val d = if (r == rank-1) (dim(r)/2+1) else dim(r)
+      ip *= d
+      ip += kp(r)
+    }
+    
+    invert * ip
+  }
+
   def destroy {
     fftw.fftw_destroy_plan(planForward)
     fftw.fftw_destroy_plan(planBackward)
@@ -202,32 +191,22 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
   }
 
   
+  // returns dst(i) = \sum_j a(i) b(j-i)
   def convolve(a: Array[Double], b: Array[Double], dst: Array[Double]) {
     require(a.size == n && b.size == n && dst.size == n)
     val ap = allocFourierArray()
     val bp = allocFourierArray()
     forwardTransform(a, ap)
     forwardTransform(b, bp)
-    // conjugateFourierArray(bp, bp) // affects sign: c(j) = \sum_i a(i) b(i-j)
-    multiplyFourierArrays(ap, bp, ap)
+    multiplyComplexArrays(ap, bp, ap)
     backwardTransform(ap, dst)
   }
 
-  def convolveWithRecip(a: Array[Double], dst: Array[Double])(bp: Array[Double]) {
+  def convolveWithRecip(a: Array[Double], bp: Array[Double], dst: Array[Double]) {
     require(a.size == n && bp.size == nrecip && dst.size == n)
     val ap = allocFourierArray()
     forwardTransform(a, ap)
-    multiplyFourierArrays(ap, bp, ap)
-    backwardTransform(ap, dst)
-  }
-
-  def convolveWithRecipFn(a: Array[Double], dst: Array[Double])(fn: Array[Double] => (Double, Double)) {
-    require(a.size == n && dst.size == n)
-    val ap = allocFourierArray()
-    val bp = allocFourierArray()
-    forwardTransform(a, ap)
-    tabulateFourierArray(bp)(fn)
-    multiplyFourierArrays(ap, bp, ap)
+    multiplyComplexArrays(ap, bp, ap)
     backwardTransform(ap, dst)
   }
 }
