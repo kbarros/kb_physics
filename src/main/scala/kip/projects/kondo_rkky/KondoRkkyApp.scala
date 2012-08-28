@@ -13,32 +13,34 @@ import kip.math.fft.{FFTReal, FFTComplex}
 import kip.math.Math._
 
 
-class Rkky(val L: Int, val mu: Double, val beta: Double, val seed: Int = 0) {
+class Rkky(val L: Int, val mu: Double, val beta: Double, val seed: Int, var dt: Double) {
   val N = L*L
-
-  val dt = 0.01
-    
+  
   val rand = new Random(seed)
   
   val sx = new Array[Double](N)
   val sy = new Array[Double](N)
   val sz = new Array[Double](N)
   randomizeSpins()
+  ferromagnetizeSpins()
   
   val sbar = new Array[Double](N)
+  
+  // tight binding eigenvalues
+  val eps = Array.tabulate[Double](N) { i =>
+    val kx = i % L
+    val ky = i / L
+    -2 * (cos(2*Pi*kx/L) + cos(2*Pi*ky/L) + cos(2*Pi*(kx+ky)/L))
+  }
   
   val chi = {
     val ret = new Array[Double](N)
     
-    // tight binding eigenvalues
-    val eps = Array.tabulate[Double](N) { i =>
-      val kx = i % L
-      val ky = i / L
-      -2 * (cos(2*Pi*kx/L) + cos(2*Pi*ky/L) + cos(2*Pi*(kx+ky)/L))
-    }
-
     // fermi function of tight binding eigenvalues
-    val f = eps.map { e => 1 / (exp(beta * (e - mu)) + 1) }
+    val f = eps.map { e =>
+      // if (e - mu > 0) 0 else 1
+      1 / (exp(beta * (e - mu)) + 1)
+    }
     
     // susceptibility
     for (i_q <- 0 until N) {
@@ -74,7 +76,7 @@ class Rkky(val L: Int, val mu: Double, val beta: Double, val seed: Int = 0) {
     val kx = (k(0) + L) % L
     val ky = (k(1) + L) % L
     val i_k = ky*L + kx
-    kernel(2*i+0) = chi(i_k)
+    kernel(2*i+0) = chi(i_k) / N
     kernel(2*i+1) = 0
   }
   
@@ -87,6 +89,13 @@ class Rkky(val L: Int, val mu: Double, val beta: Double, val seed: Int = 0) {
     normalizeSpins()
   }
   
+  def ferromagnetizeSpins() {
+    for (i <- 0 until N) {
+      sx(i) = 1
+      sy(i) = 0
+      sz(i) = 0
+    }
+  }
   def normalizeSpins() {
     for (i <- 0 until N) {
       val len = math.sqrt(sx(i)*sx(i) + sy(i)*sy(i) + sz(i)*sz(i))
@@ -102,10 +111,10 @@ class Rkky(val L: Int, val mu: Double, val beta: Double, val seed: Int = 0) {
     for (si <- Seq(sx, sy, sz)) {
       fft.convolveWithRecip(si, kernel, sbar)
       for (i <- 0 until N) {
-        ret += - 0.5 * si(i) * sbar(i)
+        ret += 0.5 * si(i) * sbar(i)
       }
     }
-    ret
+    ret / N
   }
   
   def step() {
@@ -131,15 +140,18 @@ class KondoRkkyApp extends Simulation {
   
   def load(c: Control) {
     c.frame(grid1, grid2)
-    params.add("L", 10)
-    params.add("mu", -3.0)
-    params.add("beta", 100.0)
+    params.add("L", 100)
+    params.add("mu", -5.7)
+    params.add("beta", 200.0)
     params.add("energy")
+    params.addm("dt", 1)
   }
 
   def animate() {
+    sim.dt = params.fget("dt")
+    
     grid1.registerData(sim.L, sim.L, sim.chi)
-//    grid.registerData(sim.L, sim.L, sim.sx)
+    grid2.registerData(sim.L, sim.L, sim.sy)
     
     params.set("energy", sim.energy())
   }
@@ -150,8 +162,9 @@ class KondoRkkyApp extends Simulation {
   }
 
   def run() {
-    sim = new Rkky(params.iget("L"), params.fget("mu"), params.fget("beta"))
+    sim = new Rkky(L=params.iget("L"), mu=params.fget("mu"), beta=params.fget("beta"), seed=0, dt=params.fget("dt"))
     
+    println("max %g min %g".format(sim.chi.max, sim.chi.min))
     println(sim.energy())
     
     while (true) {
