@@ -64,11 +64,11 @@ object KondoStats extends App {
       val s2 = readSpin((x+1)%w, (y+0)%h, field)
       val s3 = readSpin((x+0)%w, (y+1)%h, field)
       val s4 = readSpin((x+1)%w, (y+1)%h, field)
-      a1 += s1 dot s2
+      a1 += s1 dot s2 
       a2 += s1 dot s4
       a3 += s1 dot s3
     }
-    (a1, a2, a3)
+    (a1/(w*h), a2/(w*h), a3/(w*h))
   }
   
   for (f <- dumpdir.listFiles() /* ; if i < 50 */ ) {
@@ -84,8 +84,7 @@ object KondoStats extends App {
     a3 += as._3
   }
   
-  
-  val i = time.indexWhere(_ > (time.last / 5)) // skip first 1/5=20%
+  val i = 0 // time.indexWhere(_ > (time.last / 5)) // skip first 1/5=20%
   val data = new scikit.dataset.PointSet(time.drop(i).toArray, chiral.drop(i).toArray)
   scikit.util.Commands.plot(data)
   
@@ -98,7 +97,7 @@ object KondoStats extends App {
   scikit.util.Commands.replot(new scikit.dataset.PointSet(time.toArray, a2.toArray))
   scikit.util.Commands.replot(new scikit.dataset.PointSet(time.toArray, a3.toArray))
 
-  println("%g %g %g".format(a1.sum/a1.size, a2.sum/a2.size, a3.sum/a3.size))
+  println("%g %g %g".format(a1.sum, a2.sum, a3.sum))
   
   if (!ba1.isDecorrelated) {
     println("not decorrelated!")
