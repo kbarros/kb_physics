@@ -9,7 +9,6 @@ import kip.math.fft.FFTComplex
 import kip.math.fft.FFTReal
 import scala.collection.mutable.ArrayBuffer
 import kip.graphics._
-import kip.math.Vec3
 
 
 object KondoViz extends App {
@@ -111,7 +110,7 @@ object KondoViz extends App {
     val sd = spinDir(field)
     
     val arrows = for (i <- 0 until w*h) yield {
-      val pos = spinPos(i)
+      val pos = spinPos(i) + Vec3(0, 0, 1)
       val spin = sd(i)
       val delta = spin*2
       val width = 0.2
@@ -121,7 +120,7 @@ object KondoViz extends App {
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
 
-      if (spinSubLattice(i) == 1)
+      if (spinSubLattice(i) == 0)
         new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
       else
         new RetainedScene.Arrow(pos, delta, width*0, color1=gray, color2=gray)
@@ -213,6 +212,14 @@ object KondoViz extends App {
       }
     }
     gridFft.registerData(w, h, gridFftData)
+    
+//    // three-Q vectors
+//    val i1 = 2*(w/2)+0
+//    val i2 = 2*((h/2)*w)+0
+//    val i3 = 2*((h/2)*w+w/2)+0
+//    val sq1 = Vec3(fx(i1), fy(i1), fz(i1)) / (w*h)
+//    val sq2 = Vec3(fx(i2), fy(i2), fz(i2)) / (w*h)
+//    val sq3 = Vec3(fx(i3), fy(i3), fz(i3)) / (w*h)
   }
   
 //  val plot = KPM.mkPlot("Integrated rho")
@@ -241,7 +248,7 @@ object KondoViz extends App {
     drawPlaquettes(spin)
     viz.display()
 
-    so3.drawPath(so3.loop((w/4,w/4), w/4-1).toArray, spin)
+//    so3.drawPath(so3.loop((w/4,w/4), w/4-1).toArray, spin)
 
 //    drawGrid(spin)
     drawGridFft(spin)
