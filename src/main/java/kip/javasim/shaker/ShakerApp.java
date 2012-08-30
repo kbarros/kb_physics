@@ -385,7 +385,8 @@ class ShakerData {
 	
 	public ShakerData(Terminal term, String fname) {
 		try {
-			FileChannel channel = new FileInputStream(fname).getChannel();
+			@SuppressWarnings("resource")
+            FileChannel channel = new FileInputStream(fname).getChannel();
 			MappedByteBuffer bb = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
 			bb.order(ByteOrder.LITTLE_ENDIAN);
 			

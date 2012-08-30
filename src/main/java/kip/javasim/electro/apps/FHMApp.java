@@ -150,6 +150,7 @@ public class FHMApp {
 			while (s.hasNextDouble()) {
 				ret.add(s.nextDouble());
 			}
+			s.close();
 			return ret;
 		} catch (IOException e) {
 			System.out.println(e.toString());
