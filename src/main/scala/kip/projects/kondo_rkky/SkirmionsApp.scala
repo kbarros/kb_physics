@@ -12,6 +12,11 @@ import math._
 import kip.math.fft.{FFTReal, FFTComplex}
 import kip.math.Math._
 import java.lang.System
+import kip.math.Vec3
+import kip.graphics.RetainedScene
+import kip.graphics.Bounds3d
+import javax.media.opengl.awt.GLJPanel
+import javax.swing.SwingUtilities
 
 
 class Skirmions(val L: Int, var T: Double, var H: Double, var dt: Double) {
@@ -65,9 +70,9 @@ class Skirmions(val L: Int, var T: Double, var H: Double, var dt: Double) {
   
   def ferromagnetizeSpins() {
     for (i <- 0 until N) {
-      sx(i) = 1
+      sx(i) = 0
       sy(i) = 0
-      sz(i) = 0
+      sz(i) = 1
     }
   }
   def normalizeSpins() {
@@ -99,7 +104,7 @@ class Skirmions(val L: Int, var T: Double, var H: Double, var dt: Double) {
       }
     }
     for (i <- 0 until N) {
-      sy(i) -= dt * H
+      sz(i) += dt * (H + 0.5 * sz(i))
     }
     
     normalizeSpins()
@@ -107,7 +112,74 @@ class Skirmions(val L: Int, var T: Double, var H: Double, var dt: Double) {
 }
 
 
+class SpinViz(w: Int, h: Int) {
+  val latDel1 = Vec3(0.5, -0.5*math.sqrt(3), 0)
+  val latDel2 = Vec3(0.5, +0.5*math.sqrt(3), 0)
+  val latDel3 = latDel1 + latDel2
+
+  val lat0 = Vec3(0, 0.5*math.sqrt(3)*(h-1), 0)
+  val latN = lat0 + latDel1*(h-1) + latDel3*(w-1)
+  
+  val bds = Bounds3d(lat0, latN)
+
+  def readSpin(x: Int, y: Int, field: Array[Double]): Vec3 = {
+    require(x < w && y < w)
+    val sx = field(0 + 3*(x + w*y))
+    val sy = field(1 + 3*(x + w*y))
+    val sz = field(2 + 3*(x + w*y))
+    Vec3(sx, sy, sz)
+  }
+  
+  def readPos(x: Int, y: Int): Vec3 = {
+    lat0 + latDel3*x + latDel1*(h-1-y)
+  }
+  
+  val spinPos: Array[Vec3] = {
+    val ret = for (y <- (h-1) to 0 by -1;
+         x <- 0 until w) yield {
+      readPos(x, y)
+    }
+    ret.toArray
+  }
+
+  def spinDir(field: Array[Double]): Array[Vec3] = {
+    val ret = for (y <- (h-1) to 0 by -1;
+                   x <- 0 until w) yield {
+      readSpin(x, y, field)
+    }
+    ret.toArray
+  }
+
+  def drawSpins(field: Array[Double], rs: RetainedScene) {
+
+    val sd = spinDir(field)
+    
+    val arrows = for (i <- 0 until w*w) yield {
+      val pos = spinPos(i) + Vec3(0, 0, 1)
+      val spin = sd(i)
+      val delta = spin*1.5
+      val width = 0.3
+      
+      import java.awt.Color._
+      val gray = new java.awt.Color(0, 0, 0, 50)
+
+      new RetainedScene.Arrow(pos, delta, width, color1=ORANGE, color2=RED)
+    }
+    
+    rs.bds = bds
+    rs.drawables = Vector()
+    rs.drawables ++= arrows
+    
+    SwingUtilities.invokeLater(new Runnable() {
+      def run() = rs.display()
+    })
+  }
+
+}
+
 object SkirmionsApp extends App {
+  val canvas = new GLJPanel() // new GLCanvas()
+  
   new Control(new SkirmionsApp(), "Skirmions");  
 }
 
@@ -115,11 +187,12 @@ class SkirmionsApp extends Simulation {
   val grid1 = new Grid("Chi")
   val grid2 = new Grid("Spin")
   var sim: Skirmions = _
+  val rs = new RetainedScene(Bounds3d(Vec3(0,0,0),Vec3(1,1,0)), sizew=800, sizeh=600, cameraDistance=0.9)
   
   def load(c: Control) {
     c.frame(grid1, grid2)
-    params.add("L", 100)
-    params.addm("T", 0.1)
+    params.add("L", 50)
+    params.addm("T", 0.05)
     params.addm("H", 0.1)
     params.addm("dt", 0.2)
     params.add("energy")
@@ -131,7 +204,17 @@ class SkirmionsApp extends Simulation {
     sim.dt = params.fget("dt")
     
     grid1.registerData(sim.L, sim.L, sim.chi)
-    grid2.registerData(sim.L, sim.L, sim.sy)
+    grid2.registerData(sim.L, sim.L, sim.sz.map(s => -s).toArray)
+    
+    val field = new Array[Double](3*sim.sx.size)
+    for (i <- 0 until sim.sx.size) {
+      field(0 + 3*i) = sim.sx(i)
+      field(1 + 3*i) = sim.sy(i)
+      field(2 + 3*i) = sim.sz(i)
+    }
+    
+    val viz = new SpinViz(sim.L, sim.L)
+    viz.drawSpins(field, rs)
     
     params.set("energy", sim.energy())
   }
@@ -142,11 +225,14 @@ class SkirmionsApp extends Simulation {
   }
 
   def run() {
-    sim = new Skirmions(L=params.iget("L"), T=params.fget("T"), H=params.fget("H"), dt=params.fget("dt"))
+    val L = params.iget("L")
+    sim = new Skirmions(L=L, T=params.fget("T"), H=params.fget("H"), dt=params.fget("dt"))
     
     while (true) {
-      Job.animate();
-      sim.step()
+      Job.animate()
+      
+      for (i <- 0 until 20)
+        sim.step()
     }
   }
 }
