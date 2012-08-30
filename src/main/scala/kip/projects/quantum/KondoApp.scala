@@ -32,6 +32,7 @@ object KondoApp extends App {
   
   val conf = readConfig(new File(dir+"/cfg.json"))
   import conf._
+  val seed = System.currentTimeMillis().toInt
   
   // create output directory for spin configurations
   val dumpdir = new java.io.File(dir+"/dump")
@@ -41,11 +42,11 @@ object KondoApp extends App {
 
   val kpm = try {
     import kip.projects.cuda._
-    new CuKPM(new JCudaWorld(deviceIndex), q.matrix, nrand)
+    new CuKPM(new JCudaWorld(deviceIndex), q.matrix, nrand, seed)
   } catch {
     case _ => {
       println("CUDA device not available! Defaulting to CPU implementation.")
-      new KPM(q.matrix, nrand)
+      new KPM(q.matrix, nrand, seed)
     }
   }
   
