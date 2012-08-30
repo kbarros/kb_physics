@@ -26,7 +26,7 @@ public class SpinBlocks1D implements Cloneable {
 	
 	// L is the system size
 	// 2*R+1 is the number of spin in the interaction range.
-	// initialize all spins up in direction dir = ±1
+	// initialize all spins up in direction dir = +-1
 	public SpinBlocks1D(int L, int R, int dir) {
 		this.L = L;
 		this.R = R;
