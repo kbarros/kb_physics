@@ -19,7 +19,7 @@ import javax.media.opengl.awt.GLJPanel
 import javax.swing.SwingUtilities
 
 
-class Skirmions(val L: Int, var T: Double, var H: Double, var dt: Double) {
+class Skirmions(val L: Int, var T: Double, var H: Double, var anisotropy: Double, var dt: Double) {
   val rand = new Random(System.currentTimeMillis())
 
   val N = L*L
@@ -104,7 +104,7 @@ class Skirmions(val L: Int, var T: Double, var H: Double, var dt: Double) {
       }
     }
     for (i <- 0 until N) {
-      sz(i) += dt * (H + 0.5 * sz(i))
+      sz(i) += dt * (H + anisotropy * sz(i))
     }
     
     normalizeSpins()
@@ -194,6 +194,7 @@ class SkirmionsApp extends Simulation {
     params.add("L", 50)
     params.addm("T", 0.05)
     params.addm("H", 0.1)
+    params.addm("anisotropy", 0.5)
     params.addm("dt", 0.2)
     params.add("energy")
   }
@@ -201,6 +202,7 @@ class SkirmionsApp extends Simulation {
   def animate() {
     sim.T = params.fget("T")
     sim.H = params.fget("H")
+    sim.anisotropy = params.fget("anisotropy")
     sim.dt = params.fget("dt")
     
     grid1.registerData(sim.L, sim.L, sim.chi)
@@ -226,7 +228,7 @@ class SkirmionsApp extends Simulation {
 
   def run() {
     val L = params.iget("L")
-    sim = new Skirmions(L=L, T=params.fget("T"), H=params.fget("H"), dt=params.fget("dt"))
+    sim = new Skirmions(L=L, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
     
     while (true) {
       Job.animate()
