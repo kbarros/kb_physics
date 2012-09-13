@@ -1,17 +1,12 @@
 package kip.projects.bridging
 
+import java.awt.Color
+
 import scikit.dataset.PointSet
+import scikit.graphics.dim2.Plot
 import scikit.jobs.Control
 import scikit.jobs.Job
 import scikit.jobs.Simulation
-import scikit.jobs.params.DoubleValue
-import scikit.jobs.params.Parameters
-import scikit.numerics.Math2;
-import scala.util.Random
-import scala.math.sqrt
-
-import java.awt.Color
-import scikit.graphics.dim2.{Scene2D, Geom2D, Plot}
 
 
 
