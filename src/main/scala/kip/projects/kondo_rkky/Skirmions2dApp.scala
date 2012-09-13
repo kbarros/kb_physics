@@ -16,7 +16,7 @@ object Skirmions2dApp extends App {
 class Skirmions2dApp extends Simulation {
   val grid = new Grid("Spin")
   var sim: SkirmionsSim = _
-  val rs = new RetainedScene(Bounds3d(Vec3(0,0,0),Vec3(1,1,0)), sizew=800, sizeh=600, cameraDistance=0.9)
+  val rs = new RetainedScene(Bounds3d(Vec3(0,0,0),Vec3(1,1,0)), sizew=600, sizeh=600, cameraDistance=1.2)
   
   def load(c: Control) {
     c.frame(grid)

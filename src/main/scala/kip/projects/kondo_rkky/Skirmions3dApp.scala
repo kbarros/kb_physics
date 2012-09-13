@@ -12,17 +12,18 @@ import scikit.graphics.dim3.Grid3D
 
 
 object Skirmions3dApp extends App {
-  new Control(new Skirmions3dApp(), "3d Skirmions");  
+  new Control(new Skirmions3dApp(), "3d Skyrmions")
 }
 
 class Skirmions3dApp extends Simulation {
   val grid3d = new Grid3D("Grid")
+  val gridHH = new Grid3D("Hedgehog")
 
   var sim: SkirmionsSim = _
-  val rs = new RetainedScene(Bounds3d(Vec3(0,0,0),Vec3(1,1,0)), sizew=800, sizeh=600, cameraDistance=0.9)
+  val rs = new RetainedScene(Bounds3d(Vec3(0,0,0),Vec3(1,1,0)), sizew=600, sizeh=600, cameraDistance=1.2)
 
   def load(c: Control) {
-    c.frame(grid3d)
+    c.frame(grid3d, gridHH)
     params.add("L", 30)
     params.addm("T", 0.1)
     params.addm("H", 0.2)
@@ -52,15 +53,18 @@ class Skirmions3dApp extends Simulation {
     
     grid3d.setScale(-1, 1)
     val lp = sim.L
-//    grid3d.registerData(lp, lp, lp, sim.sz.map(- _))
+    grid3d.registerData(lp, lp, lp, sim.sz.map(- _))
+    
+    gridHH.setScale(-1, 1)
     val charge = Array.tabulate[Double](sim.L*sim.L*sim.L) { windingCharge(_) }
-    grid3d.registerData(lp, lp, lp, charge)
+    gridHH.registerData(lp, lp, lp, charge)
 
     params.set("energy", sim.energy())
   }
 
   def clear() {
     grid3d.clear()
+    gridHH.clear()
   }
 
   def donutSpins() {

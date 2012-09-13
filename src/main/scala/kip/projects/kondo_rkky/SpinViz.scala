@@ -10,9 +10,8 @@ import kip.math.Vec3
 
 
 class SpinViz(w: Int, h: Int) {
-  val latDel1 = Vec3(0.5, -0.5*math.sqrt(3), 0)
-  val latDel2 = Vec3(0.5, +0.5*math.sqrt(3), 0)
-  val latDel3 = latDel1 + latDel2
+  val latDel1 = Vec3(0, 1, 0)
+  val latDel3 = Vec3(1, 0, 0)
 
   val lat0 = Vec3(0, 0.5*math.sqrt(3)*(h-1), 0)
   val latN = lat0 + latDel1*(h-1) + latDel3*(w-1)
