@@ -135,6 +135,8 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
     ret
   }
 
+  lazy val allFourierVectors = Array.tabulate(nrecip/2)(fourierVector _)
+  
   // for each indexed complex number in fourier array, return corresponding vector k
   // where component k(r) = n (2 pi / L_r) for integer n in range [-N/2, +N/2)
   def fourierVector(i: Int): Array[Double] = {
@@ -156,6 +158,8 @@ class FFTReal(dim: Array[Int], lenOption: Option[Array[Double]] = None, flags: I
     k
   }
   
+  // Returns the array index corresponding to Fourier vector indices
+  //
   // Note that arrays are packed in row major order, so the last index is the fastest varying.
   // For example, in three dimensions: 
   //  system dimensions   = (Lx, Ly, Lz)
