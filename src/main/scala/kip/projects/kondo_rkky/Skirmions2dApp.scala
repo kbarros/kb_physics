@@ -28,13 +28,36 @@ class Skirmions2dApp extends Simulation {
     params.add("energy")
   }
 
+  def wrap(xp: Int) = (xp+sim.L)%sim.L
+  
+  def idx(xp: Int, yp: Int) = {
+    wrap(yp)*sim.L + wrap(xp)
+  }
+
+  def coords(i: Int) = (i % sim.L, i / sim.L)
+  
+  def spin(i: Int) = Vec3(sim.sx(i), sim.sy(i), sim.sz(i))
+
+    // \int dx dy S dot (dS/dx) cross (dS/dy)
+  def windingCharge(i: Int) = {
+    val (x, y) = coords(i)
+    
+    val S1 = spin(idx(x, y))
+    val S2 = spin(idx(x+1, y))
+    val S3 = spin(idx(x, y+1))
+    S1 dot (S2 cross S3)
+  }
+
   def animate() {
     sim.T = params.fget("T")
     sim.H = params.fget("H")
     sim.anisotropy = params.fget("anisotropy")
     sim.dt = params.fget("dt")
     
-    grid.registerData(sim.L, sim.L, sim.sz.map(s => -s).toArray)
+    val charge = Array.tabulate[Double](sim.L*sim.L*sim.L) { windingCharge(_) }
+
+//    grid.registerData(sim.L, sim.L, sim.sz.map(s => -s).toArray)
+    grid.registerData(sim.L, sim.L, charge)
     
     val field = new Array[Double](3*sim.sx.size)
     for (i <- 0 until sim.sx.size) {

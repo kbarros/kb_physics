@@ -27,7 +27,7 @@ class SpinViz(w: Int, h: Int) {
   }
   
   def readPos(x: Int, y: Int): Vec3 = {
-    lat0 + latDel3*x + latDel1*(h-1-y)
+    lat0 + latDel3*x + latDel1*y
   }
   
   val spinPos: Array[Vec3] = {
