@@ -84,7 +84,7 @@ object KondoStats extends App {
     a3 += as._3
   }
   
-  val i = 0 // time.indexWhere(_ > (time.last / 5)) // skip first 1/5=20%
+  val i = time.indexWhere(_ > (time.last / 2)) // skip first 1/5=20%
   val data = new scikit.dataset.PointSet(time.drop(i).toArray, chiral.drop(i).toArray)
   scikit.util.Commands.plot(data)
   
@@ -97,7 +97,7 @@ object KondoStats extends App {
   scikit.util.Commands.replot(new scikit.dataset.PointSet(time.toArray, a2.toArray))
   scikit.util.Commands.replot(new scikit.dataset.PointSet(time.toArray, a3.toArray))
 
-  println("%g %g %g".format(a1.sum, a2.sum, a3.sum))
+    println("%g %g %g".format(a1.sum / a1.size, a2.sum / a2.size, a3.sum / a3.size))
   
   if (!ba1.isDecorrelated) {
     println("not decorrelated!")

@@ -29,18 +29,19 @@ class MDTestApp extends Simulation {
   var kinetic = new Accumulator()
   var totalEnergy = new Accumulator()
   var stressAcc = new Accumulator()
-  
+  var stressAvg = new Accumulator()
+
   var sim: SubMD2d = _
   
   def load(c: Control) {
     c.frameTogether("", canvas, energyPlots, stressPlot)
     
-    params.add("ncols", 4)
-    params.add("nrows", 4)
+    params.add("ncols", 6)
+    params.add("nrows", 6)
     params.add("a", 1.12246)
     params.add("dt", 0.01)
-    params.addm("defgrad", 1.0)
-    params.addm("target kinetic energy", 0.0)
+    params.addm("defgrad", 1.1)
+    params.addm("target kinetic energy", 4.0)
     
     flags.add("Reinitialize")
   }
@@ -52,7 +53,7 @@ class MDTestApp extends Simulation {
   }
   
   def animate() {
-    val circles = sim.p.map(p => Geom2D.circle(p.x, p.y, sim.sigma/2, Color.BLACK))
+    val circles = sim.p.map(p => Geom2D.circle(p.x, p.y, sim.sigma/2, Color.BLUE))
     import scala.collection.JavaConversions._
     canvas.setDrawables(circles.toSeq)
     val bds = new Bounds(0, sim.w0*sim.defgrad, 0, sim.h0, 0, 0)
@@ -63,6 +64,7 @@ class MDTestApp extends Simulation {
     energyPlots.registerLines("Total", totalEnergy, Color.BLACK)
     
     stressPlot.registerLines("Stress", stressAcc, Color.BLACK)
+    stressPlot.registerLines("Stress Avg", stressAvg, Color.RED)
     
     if (flags.contains("Reinitialize"))
       reinitialize()
@@ -74,6 +76,7 @@ class MDTestApp extends Simulation {
     kinetic = new Accumulator()
     totalEnergy = new Accumulator()
     stressAcc = new Accumulator()
+    stressAvg = new Accumulator()
   }
   
   def run() {
@@ -86,12 +89,12 @@ class MDTestApp extends Simulation {
     reinitialize()
     
     var time = 0d
-    
-    sim.p(0) += Vector(0.1, 0)
-    
+
+    flags.add("Reinitialize")
+
     while (true) {
      Job.animate()
-     for (i <- 0 until 1) {
+     for (i <- 0 until 5) {
        sim.verletStep()
        time += sim.dt
        
@@ -102,6 +105,13 @@ class MDTestApp extends Simulation {
        totalEnergy.accum(time, pe+ke)
        
        stressAcc.accum(time, sim.convertCauchyToFirstPiolaKirchoff(sim.virialStress()))
+       
+       val db = stressAcc.copyData()
+       var acc = 0.0
+       for (i <- 0 until db.size) {
+         acc += db.y(i)
+       }
+       stressAvg.accum(time, acc/db.size)
      }
      Thread.sleep(10)
     }
