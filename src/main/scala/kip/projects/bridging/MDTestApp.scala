@@ -45,6 +45,12 @@ class MDTestApp extends Simulation {
     flags.add("Reinitialize")
   }
   
+  def reinitialize() {
+    sim.applyDeformationGradient(params.fget("defgrad"))
+    sim.initializeCrystalPositions()
+    sim.applyKineticEnergy(params.fget("target kinetic energy"))
+  }
+  
   def animate() {
     val circles = sim.p.map(p => Geom2D.circle(p.x, p.y, sim.sigma/2, Color.BLACK))
     import scala.collection.JavaConversions._
@@ -58,11 +64,8 @@ class MDTestApp extends Simulation {
     
     stressPlot.registerLines("Stress", stressAcc, Color.BLACK)
     
-    if (flags.contains("Reinitialize")) {
-      sim.applyDeformationGradient(params.fget("defgrad"))
-      sim.initializeCrystalPositions()
-      sim.applyKineticEnergy(params.fget("target kinetic energy"))
-    }
+    if (flags.contains("Reinitialize"))
+      reinitialize()
     flags.clear()
   }
   
@@ -80,7 +83,11 @@ class MDTestApp extends Simulation {
     val dt = params.fget("dt")
     
     sim = new SubMD2d(ncols=ncols, nrows=nrows, a=a, dt=dt)
+    reinitialize()
+    
     var time = 0d
+    
+    sim.p(0) += Vector(0.1, 0)
     
     while (true) {
      Job.animate()
