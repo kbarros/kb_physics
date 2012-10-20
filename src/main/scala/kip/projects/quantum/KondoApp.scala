@@ -132,7 +132,7 @@ object KondoApp extends App {
   // the energy scales used in the langevin equation are reduced by q.e_scale (typically ~10)
   // this effectively reduces "time" scale by q.e_scale
   // therefore, to get the actual parameter (z=dt/nrand), one must divide by q.e_scale 
-  val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=100, rand=kpm.rand) {
+  val lang = new OverdampedLangevin(x=q.field, T=Tp, dt=dt, subIter=200, rand=kpm.rand) {
     override def calcForce(x: Array[R], f: Array[R]) {
       q.fillMatrix(q.matrix)
       val r = kpm.randomVector()
