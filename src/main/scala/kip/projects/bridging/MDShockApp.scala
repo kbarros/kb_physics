@@ -28,6 +28,7 @@ class MDShockApp extends Simulation {
     params.add("dx", 1.0)
     params.add("dt", 0.02)
     params.add("net energy")
+    params.add("time")
   }
   
   def animate() {
@@ -49,22 +50,23 @@ class MDShockApp extends Simulation {
     energyPlot.registerLines("energy exact", new PointSet(0, 1, potentialExact), Color.RED)
     
     params.set("net energy", sim.s2.energy.sum)
+    params.set("time", sim.time)
   }
   
   def clear() {
-    println("clear")
   }
   
   def run() {
     val L = params.iget("L")
     val dx = params.fget("dx")
     val dt = params.fget("dt")
-    sim = new MDShockSolver(L=L, dx=dx, dt=dt, defgradAmplitude=0.04, defgradWidth=5*dx)
+    sim = new MDShockSolver(L=L, dx=dx, dt=dt, defgradAmplitude=0.04, defgradWidth=5 /*5*dx*/)
     
     while (true) {
      Job.animate()
-     for (i <- 0 until 1)
+     for (i <- 0 until 10) {
        sim.step()
+     }
      Thread.sleep(10)
     }
   }
