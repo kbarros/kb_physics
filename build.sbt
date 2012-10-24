@@ -18,7 +18,8 @@ libraryDependencies ++= Seq(
   "net.liftweb" %% "lift-json" % "2.4",
   "net.java.dev.jna" % "jna" % "3.3.0",
   "org.scala-lang" % "scala-compiler" % "2.9.1",
-  "org.scala-lang" % "jline" % "2.9.1"
+  "org.scala-lang" % "jline" % "2.9.1",
+  "com.googlecode.matrix-toolkits-java" % "mtj" % "0.9.14"
 )
 
 scalacOptions ++= Seq(
