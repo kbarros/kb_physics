@@ -237,6 +237,7 @@ class Version3Sim(val L: Int, val dx: Double, val dt: Double, val omega: Double,
       val Axm = (A(i) - A(m(i))) / dx
       val Axx = (A(p(i)) - 2 * A(i) + A(m(i))) / (dx*dx) 
 
+      // A_t = - |A_x| F 
       val F = vel(i) - omega * Axx
       
       if (F > 0) {

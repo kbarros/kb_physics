@@ -1,3 +1,6 @@
+// Previous version of Amit's notes, now out of date.
+
+
 package kip.projects.acharya_transf
 
 import scikit.jobs.Control
