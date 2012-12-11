@@ -1,7 +1,6 @@
 //
-// integrate A_dot = |A_x| (1 - A_xx)
+// integrate A_t = |A_x| (-v + omega A_xx)
 //
-// with pointy initial conditions
 //
 
 package kip.projects.acharya_transf
@@ -230,7 +229,7 @@ class Version3Sim(val L: Int, val dx: Double, val dt: Double, val omega: Double,
   def implicitUpwindStep() {
     def sqr(x: Double) = x*x
     
-    def vel(i: Int) = v * (i*dx - 6)
+    def vel(i: Int) = 1 // v * (i*dx - 6)
     
     val absAx = Array.tabulate[Double](L) { i =>
       val Axp = (A(p(i)) - A(i)) / dx

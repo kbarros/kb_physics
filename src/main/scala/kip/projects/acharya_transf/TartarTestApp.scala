@@ -54,24 +54,47 @@ class TartarTestSim(val L: Int, val dx: Double, val dt: Double, val omega: Doubl
   def m(i: Int) = (i-1+L) % L
   def p(i: Int) = (i+1) % L
 
-  { // initialize fields
+  // initialize fields
+  def initA() { 
     for (i <- 0 until L) {
       val x = dx * i
-      
       phi1(i) = 1 + 0.1 * sin(Pi * x / (dx*L/8))// + 0.005 * sin(Pi*x / (dx*L/64))
       phi2(i) = 1 + 0.1 * cos(Pi * x / (dx*L/8))
-      
 //      phi1(i) = 0.1 * exp(- sqr(x - L*dx/2) / sqr(0.5))
 //      phi2(i) = 0.05 * exp(- sqr(x - L*dx/2) / sqr(2)) * cos(Pi * x / (dx*L/17))
     }
-    
-    
+  }
+  
+  def initB() {
     for (i <- 0 until L) {
-      u1(i) = (phi1(p(i)) - phi1(m(i))) / (2*dx)
-      u2(i) = (phi2(p(i)) - phi2(m(i))) / (2*dx)
+      val x = dx * i
+      
+      val a = 0
+      val b = 1
+      phi1(i) = i*4 / L match {
+      case 0 => a
+      case 1 => {
+        val theta = 4.0*i/L - 1.0
+        b*theta + a*(1-theta)
+      }
+      case 2 => b
+      case 3 => {
+        val theta = 4.0*i/L - 3.0
+        a*theta + b*(1-theta)
+      }
+      }
+    }
+    for (i <- 0 until L) {
+      phi2(i) = phi1((i+L/8)%L)
     }
   }
 
+  initB()
+  for (i <- 0 until L) {
+    u1(i) = (phi1(p(i)) - phi1(m(i))) / (2*dx)
+    u2(i) = (phi2(p(i)) - phi2(m(i))) / (2*dx)
+  }
+  
   // force = - d energy / d phi
   def force(phi1: Double, phi2: Double) = (+phi1, +phi2)
   def energy(phi1: Double, phi2: Double) = 0.5 * (sqr(phi1) + sqr(phi2))
