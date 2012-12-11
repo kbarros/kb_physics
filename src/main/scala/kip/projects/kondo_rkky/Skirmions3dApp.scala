@@ -42,12 +42,7 @@ class Skirmions3dApp extends Simulation {
     val slice = math.min((params.fget("slice") * sim.L).toInt, sim.L-1)
     
     val field = new Array[Double](3*sim.L*sim.L)
-    for (i <- 0 until sim.L*sim.L) {
-      val ip = i + slice*sim.L*sim.L
-      field(0 + 3*i) = sim.sx(ip)
-      field(1 + 3*i) = sim.sy(ip)
-      field(2 + 3*i) = sim.sz(ip)
-    }
+    spinXYCrossSection(field, slice)
     val viz = new SpinViz(sim.L, sim.L)
     viz.drawSpins(field, rs)
     
@@ -67,6 +62,29 @@ class Skirmions3dApp extends Simulation {
     gridHH.clear()
   }
 
+  def spinXYCrossSection(field: Array[Double], z: Int) {
+    for (i <- 0 until sim.L*sim.L) {
+      val ip = i + z*sim.L*sim.L
+      field(0 + 3*i) = sim.sx(ip)
+      field(1 + 3*i) = sim.sy(ip)
+      field(2 + 3*i) = sim.sz(ip)
+    }
+  }
+  
+  // spins in yz plane at fixed x index
+  def spinYZCrossSection(field: Array[Double], x: Int) {
+    var cnt = 0
+    val L = sim.L
+    for (y <- 0 until L;
+         z <- 0 until L) {
+      val i = z*L*L + y*L + x
+      field(0 + 3*cnt) = sim.sx(i)
+      field(1 + 3*cnt) = sim.sy(i)
+      field(2 + 3*cnt) = sim.sz(i)
+      cnt += 1
+    }
+  }
+  
   def donutSpins() {
     val L = sim.L
     for (x <- 0 until L;
@@ -83,6 +101,37 @@ class Skirmions3dApp extends Simulation {
       else
         sim.sz(i) = 1
     }
+  }
+  
+  def ballSpins() {
+    val L = sim.L
+    for (x <- 0 until L;
+         y <- 0 until L;
+         z <- 0 until L) {
+      val i = z*L*L + y*L + x
+      sim.sx(i) = 0
+      sim.sy(i) = 0
+     
+//      val del = Vec3(x-L/2, y-L/2, z-L/2+0.001).normalize
+//      sim.sx(i) += 0.1*del.y
+//      sim.sy(i) -= 0.1*del.x 
+      val del = Vec3(x-L/2, y-L/2, 0.0001).normalize
+      sim.sx(i) += 0.1*del.x
+      sim.sy(i) += 0.1*del.y
+      
+//      val rho = Vec3(x-L/2, y-L/2, 0)
+//      val s = Vec3(sim.sx(i), sim.sy(i), sim.sz(i))
+//      val del = s cross rho
+      
+      import kip.math.Math.sqr
+      val r = math.sqrt(sqr(x-L/2) + sqr(y-L/2) + sqr(z-L/2))
+      if (r < L/4)
+        sim.sz(i) = -1
+      else
+        sim.sz(i) = 1
+    }
+    
+    sim.normalizeSpins()
   }
   
   def wrap(xp: Int) = (xp+sim.L)%sim.L
@@ -135,6 +184,7 @@ class Skirmions3dApp extends Simulation {
     val L = params.iget("L")
     sim = new SkirmionsSim(d=3, L=L, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
     // donutSpins()
+    ballSpins()
     
     while (true) {
       Job.animate()

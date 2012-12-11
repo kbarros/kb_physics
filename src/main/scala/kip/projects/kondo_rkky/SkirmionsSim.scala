@@ -27,10 +27,11 @@ class SkirmionsSim(val d: Int, val L: Int, var T: Double, var H: Double, var ani
       val k = fft.fourierVector(i)
       val k2 = k.map(sqr(_)).sum
       
-      val w0 = L/8.0
-      val q0 = 2*Pi*w0/L
+      val q0 = 2*Pi / 8
 
-      val inter =  sqr(k2 - sqr(q0)) 
+//      val inter = sqr(sqrt(k2) - q0)
+
+      val inter =  sqr(k2 - sqr(q0))
       val inter0 = sqr(sqr(2*q0) - sqr(q0)) 
 
       ret(2*i+0) = min(inter, inter0)
@@ -81,5 +82,13 @@ class SkirmionsSim(val d: Int, val L: Int, var T: Double, var H: Double, var ani
     }
     
     normalizeSpins()
+    
+//    for (i <- 0 until N) {
+//      if (i % L < L/2) {
+//        sx(i) = 0
+//        sy(i) = 0
+//        sz(i) = 0
+//      }
+//    }
   }
 }
