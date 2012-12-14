@@ -6,7 +6,8 @@ import kip.math.fft.FFTReal
 import kip.math.Math._
 
 
-class SkirmionsSim(val d: Int, val L: Int, var T: Double, var H: Double, var anisotropy: Double, var dt: Double) {
+class SkirmionsSim(val d: Int, val L: Int, val len: Double, var T: Double, var H: Double, var anisotropy: Double, var dt: Double) {
+  val dx = len / L
   val rand = new Random(System.currentTimeMillis())
 
   val dimensions = Array.fill(d)(L)
@@ -19,7 +20,7 @@ class SkirmionsSim(val d: Int, val L: Int, var T: Double, var H: Double, var ani
   
   val sbar = new Array[Double](N)
 
-  val fft = new FFTReal(dim=dimensions)
+  val fft = new FFTReal(dim=dimensions, lenOption=Some(Array.fill(d)(len)))
   
   val kernel = {
     val ret = fft.allocFourierArray()
@@ -28,17 +29,18 @@ class SkirmionsSim(val d: Int, val L: Int, var T: Double, var H: Double, var ani
       val k2 = k.map(sqr(_)).sum
       
       val q0 = 2*Pi / 8
-
+      val q1 = 2*q0
+      val modulation = 1 / (1 + sqr(k2 / sqr(q1)))
+      
 //      val inter = sqr(sqrt(k2) - q0)
 
-      val inter =  sqr(k2 - sqr(q0))
-      val inter0 = sqr(sqr(2*q0) - sqr(q0)) 
-
-      ret(2*i+0) = min(inter, inter0)
+      ret(2*i+0) = sqr(k2 - sqr(q0)) * modulation
       ret(2*i+1) = 0
     }
     ret
   }
+  
+  val kernel2 = fft.allocFourierArray()
   
   def randomizeSpins() {
     for (i <- 0 until N) {
@@ -67,7 +69,28 @@ class SkirmionsSim(val d: Int, val L: Int, var T: Double, var H: Double, var ani
         ret += 0.5 * si(i) * sbar(i)
       }
     }
+    for (i <- 0 until N) {
+      ret += - H * sz(i) - 0.5 * anisotropy * sz(i)*sz(i)
+    }
     ret / N
+  }
+  
+  def implicitStep() {
+    for (i <- 0 until kernel2.size/2) {
+      kernel2(2*i+0) = 1 / (1 + dt * kernel(2*i+0))
+      kernel2(2*i+1) = 0
+    }
+
+    for (si <- Seq(sx, sy, sz)) {
+      fft.convolveWithRecip(si, kernel2, sbar)
+      for (i <- 0 until N) {
+        si(i) = sbar(i) + math.sqrt(dt * 2 * T) * rand.nextGaussian()
+      }
+    }
+    for (i <- 0 until N) {
+      sz(i) += dt * (H + anisotropy * sz(i))
+    }
+    normalizeSpins()
   }
   
   def step() {

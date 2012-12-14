@@ -25,10 +25,11 @@ class Skirmions3dApp extends Simulation {
   def load(c: Control) {
     c.frame(grid3d, gridHH)
     params.add("L", 30)
-    params.addm("T", 0.1)
+    params.add("Len", 30.0)
+    params.addm("T", 0.0)
     params.addm("H", 0.2)
     params.addm("anisotropy", 0.2)
-    params.addm("dt", 0.2)
+    params.addm("dt", 0.1)
     params.addm("slice", new DoubleValue(0, 0, 1).withSlider)
     params.add("energy")
   }
@@ -103,32 +104,24 @@ class Skirmions3dApp extends Simulation {
     }
   }
   
-  def ballSpins() {
+  def ballSpins(sigma: Double) {
     val L = sim.L
     for (x <- 0 until L;
          y <- 0 until L;
          z <- 0 until L) {
       val i = z*L*L + y*L + x
-      sim.sx(i) = 0
-      sim.sy(i) = 0
-     
-//      val del = Vec3(x-L/2, y-L/2, z-L/2+0.001).normalize
-//      sim.sx(i) += 0.1*del.y
-//      sim.sy(i) -= 0.1*del.x 
-      val del = Vec3(x-L/2, y-L/2, 0.0001).normalize
-      sim.sx(i) += 0.1*del.x
-      sim.sy(i) += 0.1*del.y
       
-//      val rho = Vec3(x-L/2, y-L/2, 0)
-//      val s = Vec3(sim.sx(i), sim.sy(i), sim.sz(i))
-//      val del = s cross rho
+      val del = Vec3(x-L/2+0.5, y-L/2+0.5, z-L/2+0.5) * sim.dx
+      val r = del.norm
       
-      import kip.math.Math.sqr
-      val r = math.sqrt(sqr(x-L/2) + sqr(y-L/2) + sqr(z-L/2))
-      if (r < L/4)
-        sim.sz(i) = -1
-      else
-        sim.sz(i) = 1
+      val s_z = 1 - 2*math.exp(- r*r / (2 * sigma))      
+      
+      val e_rho = Vec3(del.x, del.y, 0).normalize
+      val s_rho = math.sqrt(1 - s_z*s_z)
+      
+      sim.sx(i) = e_rho.x * s_rho
+      sim.sy(i) = e_rho.y * s_rho
+      sim.sz(i) = s_z
     }
     
     sim.normalizeSpins()
@@ -182,15 +175,27 @@ class Skirmions3dApp extends Simulation {
 
   def run() {
     val L = params.iget("L")
-    sim = new SkirmionsSim(d=3, L=L, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
+    val len = params.fget("Len")
+    sim = new SkirmionsSim(d=3, L=L, len=len, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
     // donutSpins()
-    ballSpins()
+    ballSpins(3.75)
+
+    val printEnergy = false
+    if (printEnergy) {
+      var sigma = 0.0
+      for (i <- 0 until 120) {
+        ballSpins(sigma)
+        printf("%f %f\n", sigma, sim.energy())
+        sigma += 0.05
+      }
+    }
     
     while (true) {
       Job.animate()
       
 //      for (i <- 0 until 20)
-      sim.step()
+      sim.implicitStep()
+//       sim.step()
     }
   }
 }

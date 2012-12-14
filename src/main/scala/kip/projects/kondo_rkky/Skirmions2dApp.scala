@@ -21,12 +21,35 @@ class Skirmions2dApp extends Simulation {
   def load(c: Control) {
     c.frame(grid)
     params.add("L", 50)
-    params.addm("T", 0.05)
-    params.addm("H", 0.1)
-    params.addm("anisotropy", 0.5)
-    params.addm("dt", 0.2)
+    params.addm("T", 0.1)
+    params.addm("H", 0.2)
+    params.addm("anisotropy", 1.0)
+    params.addm("dt", 0.01)
     params.add("energy")
+    params.add("skyrmion charge")
   }
+  
+  def ballSpins(sigma: Double) {
+    val L = sim.L
+    for (x <- 0 until L;
+         y <- 0 until L) {
+      val i = y*L + x
+      
+      val del = Vec3(x-L/2+0.5, y-L/2+0.5, 0) * sim.dx
+      val r = del.norm
+      
+      val s_z = 1 - 2*math.exp(- r*r / (2 * sigma))
+      
+      val s_rho = math.sqrt(1 - s_z*s_z)
+      
+      sim.sx(i) = del.x * s_rho / r
+      sim.sy(i) = del.y * s_rho / r
+      sim.sz(i) = s_z
+    }
+    
+    sim.normalizeSpins()
+  }
+
 
   def wrap(xp: Int) = (xp+sim.L)%sim.L
   
@@ -54,7 +77,7 @@ class Skirmions2dApp extends Simulation {
     sim.anisotropy = params.fget("anisotropy")
     sim.dt = params.fget("dt")
     
-    val charge = Array.tabulate[Double](sim.L*sim.L*sim.L) { windingCharge(_) }
+    val charge = Array.tabulate[Double](sim.L*sim.L) { windingCharge(_) }
 
 //    grid.registerData(sim.L, sim.L, sim.sz.map(s => -s).toArray)
     grid.registerData(sim.L, sim.L, charge)
@@ -69,6 +92,7 @@ class Skirmions2dApp extends Simulation {
     viz.drawSpins(field, rs)
     
     params.set("energy", sim.energy())
+    params.set("skyrmion charge", charge.sum)
   }
 
   def clear() {
@@ -77,13 +101,14 @@ class Skirmions2dApp extends Simulation {
 
   def run() {
     val L = params.iget("L")
-    sim = new SkirmionsSim(d=2, L=L, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
+    sim = new SkirmionsSim(d=2, L=L, len=L, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
+    ballSpins(3.75)
     
     while (true) {
       Job.animate()
       
       for (i <- 0 until 20)
-        sim.step()
+        sim.implicitStep()
     }
   }
 }
