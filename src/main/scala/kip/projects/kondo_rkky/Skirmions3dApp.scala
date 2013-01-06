@@ -114,7 +114,8 @@ class Skirmions3dApp extends Simulation {
       val del = Vec3(x-L/2+0.5, y-L/2+0.5, z-L/2+0.5) * sim.dx
       val r = del.norm
       
-      val s_z = 1 - 2*math.exp(- r*r / (2 * sigma))      
+      import kip.math.Math._
+      val s_z = 1 - 2*math.exp(- r*r / (2 * sqr(sigma)))      
       
       val e_rho = Vec3(del.x, del.y, 0).normalize
       val s_rho = math.sqrt(1 - s_z*s_z)
@@ -178,7 +179,7 @@ class Skirmions3dApp extends Simulation {
     val len = params.fget("Len")
     sim = new SkirmionsSim(d=3, L=L, len=len, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
     // donutSpins()
-    ballSpins(3.75)
+    ballSpins(2)
 
     val printEnergy = false
     if (printEnergy) {
@@ -189,6 +190,17 @@ class Skirmions3dApp extends Simulation {
         sigma += 0.05
       }
     }
+    
+//    val printPairEnergy = true
+//    if (printPairEnergy) {
+//      val sigma = 3.75
+//      var disp = 1.0
+//      for (i <- 0 until 120) {
+//        ballSpins(sigma, Vec3)
+//        printf("%f %f\n", sigma, sim.energy())
+//        disp += 0.05
+//      }
+//    }
     
     while (true) {
       Job.animate()
