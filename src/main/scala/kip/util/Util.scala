@@ -18,7 +18,7 @@ object Util {
     val t1 = System.currentTimeMillis
     val ret = f
     val t2 = System.currentTimeMillis
-    println(" done. Elapsed time "+(t2-t1)/1000.+"s");
+    println(" done. Elapsed time "+(t2-t1)/1000.0+"s");
     ret
   }
 

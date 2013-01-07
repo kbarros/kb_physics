@@ -131,9 +131,9 @@ class CubicTetrSim(params: Parameters) {
       val G2 = 2*tau*E2 + 6*(sqr(E2)-sqr(E3)) + 4*(sqr(E2) + sqr(E3))*E2 - K0*lp_E2
       val G3 = 2*tau*E3 - 12*E2*E3            + 4*(sqr(E2) + sqr(E3))*E3 - K0*lp_E3
       
-      sxx(i) = (G1/sqrt(3.)) + (G2/sqrt(2.)) + (G3/sqrt(6.))
-      syy(i) = (G1/sqrt(3.)) - (G2/sqrt(2.)) + (G3/sqrt(6.))
-      szz(i) = (G1/sqrt(3.)) - (2*G3/sqrt(6.))
+      sxx(i) = (G1/sqrt(3.0)) + (G2/sqrt(2.0)) + (G3/sqrt(6.0))
+      syy(i) = (G1/sqrt(3.0)) - (G2/sqrt(2.0)) + (G3/sqrt(6.0))
+      szz(i) = (G1/sqrt(3.0)) - (2*G3/sqrt(6.0))
       sxy(i) = a_s*E6
       sxz(i) = a_s*E5
       syz(i) = a_s*E4

@@ -47,7 +47,7 @@ class LJWall(val pos: Vec3,
              val normal: Vec3,
              val eps: Double = 1.0,
              val sigma: Double = 1.0,
-             val scaled_cutoff: Double = pow(2, 1./6)) extends Interaction1 {
+             val scaled_cutoff: Double = pow(2, 1.0/6)) extends Interaction1 {
   var netForceX = 0d
   var netForceY = 0d
   var netForceZ = 0d

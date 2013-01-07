@@ -43,7 +43,7 @@ object KondoApp extends App {
     import kip.projects.cuda._
     new CuKPM(new JCudaWorld(deviceIndex), q.matrix, nrand, seed)
   } catch {
-    case _ => {
+    case _: Throwable => {
       println("CUDA device not available! Defaulting to CPU implementation.")
       new KPM(q.matrix, nrand, seed)
     }

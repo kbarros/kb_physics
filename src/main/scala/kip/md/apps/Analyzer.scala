@@ -76,7 +76,7 @@ object Analyzer extends App {
   viz.scene.translation = Vec3(0, 0, 1.1) // zoom in for improved movie frames
   val bounds = {
     val sizeAsymmetry = 1.1
-    val r1 = math.pow(2, 1./6) / 2 // radius of smaller atom
+    val r1 = math.pow(2, 1.0/6) / 2 // radius of smaller atom
     val r2 = r1 * sizeAsymmetry
     val layers = 4 
     val cols1 = 200

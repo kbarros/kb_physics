@@ -125,7 +125,7 @@ object LJTest {
     val integrator = new Verlet(dt=0.02, thermostat=thermoDamp)
     
 
-    val r1 = pow(2, 1./6) / 2 // radius of smaller atom
+    val r1 = pow(2, 1.0/6) / 2 // radius of smaller atom
     val r2 = r1 * sizeAsymmetry
 
     val rows2 = rows1
