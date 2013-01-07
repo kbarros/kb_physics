@@ -47,7 +47,7 @@ object Analyzer extends App {
   for (df <- dumpFiles) {
     val frameData = kip.util.Util.readObjectGz[FrameData](df.getPath)
     
-    for ((i, j) <- pathIndices zipWithIndex) {
+    for ((i, j) <- pathIndices.zipWithIndex) {
       pathData(j) += Vec3(frameData.x(i), frameData.y(i), 0.01)
     }
     

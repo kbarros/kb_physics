@@ -22,7 +22,8 @@ libraryDependencies ++= Seq(
 )
 
 scalacOptions ++= Seq(
-  "-deprecation", "-unchecked"
+  "-deprecation", "-unchecked",
+  "-language:implicitConversions", "-language:higherKinds"
 )
 
 javacOptions ++= Seq(
