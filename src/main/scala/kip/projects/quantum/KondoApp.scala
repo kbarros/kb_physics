@@ -1,8 +1,8 @@
 package kip.projects.quantum
 
-import net.liftweb.json
 import java.io.File
 import kip.util.Util
+import kip.util.JacksonWrapper._
 import kip.enrich._
 import ctor._
 import scala.math._
@@ -17,8 +17,7 @@ case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[D
 object KondoApp extends App {
   def readConfig(f: File): KondoConf = {
     val confStripped = f.slurp.split("\n") map { _.split("""//""")(0) } mkString("\n")
-    implicit val formats = json.DefaultFormats
-    json.Serialization.read[KondoConf](confStripped)
+    deserialize[KondoConf](confStripped)
   }
   
   def dumpFilename(iter: Int) = dumpdir+"/%04d.json".format(iter)
@@ -60,8 +59,7 @@ object KondoApp extends App {
       val lastDump = s.toInt
       val f = new File(dumpFilename(lastDump))
       println("Reading initial configuration from file: "+f)
-      implicit val formats = json.DefaultFormats
-      val snap = json.Serialization.read[KondoSnap](f.slurp)
+      val snap = deserialize[KondoSnap](f.slurp)
       snap.spin.copyToArray(q.field)
       iter = lastDump+1
     }
@@ -122,11 +120,9 @@ object KondoApp extends App {
     // dump configuration
     val time = iter*dumpPeriod*dt
     val snap = KondoSnap(time=time, action=action, filling=filling, eig=eig, spin=q.field, moments=moments)
-    implicit val formats = json.DefaultFormats
-    val serialized = json.Serialization.write(snap)
     val fn = dumpFilename(iter)
     println("Dumping %s (t=%g)".format(fn, time))
-    kip.util.Util.writeStringToFile(serialized, fn)
+    kip.util.Util.writeStringToFile(serialize(snap), fn)
   }
   
   // the energy scales used in the langevin equation are reduced by q.e_scale (typically ~10)

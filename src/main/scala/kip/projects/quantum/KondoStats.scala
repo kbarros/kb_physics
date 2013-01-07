@@ -1,6 +1,5 @@
 package kip.projects.quantum
 
-import net.liftweb.json
 import java.io.File
 import kip.enrich._
 import kip.math.Vec3
@@ -72,8 +71,7 @@ object KondoStats extends App {
   }
   
   for (f <- dumpdir.listFiles() /* ; if i < 50 */ ) {
-    implicit val formats = json.DefaultFormats
-    val snap = json.Serialization.read[KondoSnap](f.slurp)
+    val snap = kip.util.JacksonWrapper.deserialize[KondoSnap](f.slurp)
     time += snap.time
     energy += snap.action
     chiral += calcChirality(snap.spin)

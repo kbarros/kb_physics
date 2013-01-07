@@ -1,6 +1,5 @@
 package kip.projects.quantum
 
-import net.liftweb.json
 import java.io.File
 import scikit.graphics.dim2.Grid
 import kip.math.Vec3
@@ -237,8 +236,7 @@ object KondoViz extends App {
   var i = 0
   for (f <- dumpdir.listFiles()) {
     if (true || i == 22) {
-    implicit val formats = json.DefaultFormats
-    val snap = json.Serialization.read[KondoSnap](f.slurp)
+    val snap = kip.util.JacksonWrapper.deserialize[KondoSnap](f.slurp)
     println("t=%g, action=%g".format(snap.time, snap.action))
 
     val spin = remapSpinField(snap.spin)

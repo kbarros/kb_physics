@@ -189,8 +189,7 @@ object Nano {
   }
   
   def main(args: Array[String]) {
-    import com.twitter.json.Json
-    import kip.util.JsonInspector
+    import kip.util.JacksonWrapper._
     
     val files = {
       if (args.size == 0)
@@ -199,23 +198,23 @@ object Nano {
         args.toList
     }.map(new java.io.File(_))
     
-    var params = JsonInspector(Map[Any,Any]())
+    var params = Map[Any, Any]()
     for (file <- files) {
       if (file.exists) {
         println("Loading configuration file '"+file+"'")
-        params ++= JsonInspector(Json.parse(kip.util.Util.readStringFromFile(file.toString)))
+        params ++= deserialize[Map[Any,Any]](kip.util.Util.readStringFromFile(file.toString))
       }
     }
     if (params.isEmpty) {
       println("Empty configuration")
       System.exit(1)
     }
-    
-    go(tmin=params("tmin").toInt,
-       tmax=params("tmax").toInt,
-       dr=params("dr").toDouble,
-       rmax=params("rmax").toDouble,
-       dtheta=params("dtheta").toDouble,
-       readEvery=params("readEvery").toInt)
+
+    go(tmin=params("tmin").asInstanceOf[Int],
+       tmax=params("tmax").asInstanceOf[Int],
+       dr=params("dr").asInstanceOf[Double],
+       rmax=params("rmax").asInstanceOf[Double],
+       dtheta=params("dtheta").asInstanceOf[Double],
+       readEvery=params("readEvery").asInstanceOf[Int])
   }
 }
