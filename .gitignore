@@ -9,6 +9,7 @@ lib_managed/
 .history
 .project
 .settings
+.worksheet/
 
 # Other
 .DS_Store
