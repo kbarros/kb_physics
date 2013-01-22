@@ -4,6 +4,7 @@ import net.liftweb.json
 import java.io.File
 import kip.enrich._
 import kip.math.Vec3
+import kip.util.Statistics._
 
 
 object KondoStats extends App {
@@ -84,25 +85,59 @@ object KondoStats extends App {
     a3 += as._3
   }
   
-  val i = time.indexWhere(_ > (time.last / 2)) // skip first 1/5=20%
+  val i = time.indexWhere(_ > (time.last / 4)) // skip first 1/4=25%
   val data = new scikit.dataset.PointSet(time.drop(i).toArray, chiral.drop(i).toArray)
   scikit.util.Commands.plot(data)
   
   val ba1 = new kip.util.BlockAnalysis(energy.drop(i).toArray)
   val ba2 = new kip.util.BlockAnalysis(chiral.drop(i).toArray)
   
-  println("T energy +- chirality +- %n%f %.8g %.8g %.8g %.8g".format(conf.T, ba1.mean, ba1.error, ba2.mean, ba2.error)) // conf.dt_per_rand/10
+  // printf("T energy +- chirality +-\n%f %.8g %.8g %.8g %.8g\n\n",conf.T, ba1.mean, ba1.error, ba2.mean, ba2.error)
+  printf("T energy +- chirality +-\n%f %.8g %.8g %.8g %.8g\n\n",conf.T, ba1.mean, ba1.error, mean(chiral.drop(i)),stddev(chiral.drop(i)))
   
+  val groupSize = 1 // 13 // 50
+  val tFilter = 2e5 // 4e6 
+  
+  val a1_avg = a1.grouped(groupSize).map(mean(_)).toArray
+  val a2_avg = a2.grouped(groupSize).map(mean(_)).toArray
+  val a3_avg = a3.grouped(groupSize).map(mean(_)).toArray
+  val t_avg = time.grouped(groupSize).map(mean(_)).toArray
+  
+  val a1_stddev = a1.grouped(groupSize).map(stddev(_)).toArray
+  val a2_stddev = a2.grouped(groupSize).map(stddev(_)).toArray
+  val a3_stddev = a3.grouped(groupSize).map(stddev(_)).toArray
+  
+  
+  val (b1, b2, b3) = (for (i <- t_avg.indices;
+                      if t_avg(i) > tFilter) yield {
+    val vs = List((a1_avg(i), a1_stddev(i)), (a2_avg(i), a2_stddev(i)), (a3_avg(i), a3_stddev(i)))
+    val vs_sorted = vs.sortWith { case ((avg1, _), (avg2, _)) => avg1 < avg2 }
+    val List(b1, b2, b3) = vs_sorted
+    (b1, b2, b3)
+  }).unzip3
+  
+  val t_avg2 = t_avg.filter(_ > tFilter) 
+    
   scikit.util.Commands.plot(new scikit.dataset.PointSet(time.toArray, a1.toArray))
   scikit.util.Commands.replot(new scikit.dataset.PointSet(time.toArray, a2.toArray))
   scikit.util.Commands.replot(new scikit.dataset.PointSet(time.toArray, a3.toArray))
-
-    println("%g %g %g".format(a1.sum / a1.size, a2.sum / a2.size, a3.sum / a3.size))
   
-  if (!ba1.isDecorrelated) {
-    println("not decorrelated!")
-    ba1.blocks.foreach(b => println(b))
-  }
+  scikit.util.Commands.plot(new scikit.dataset.PointSet(t_avg2, b1.map(_._1).toArray))
+  scikit.util.Commands.replot(new scikit.dataset.PointSet(t_avg2, b2.map(_._1).toArray))
+  scikit.util.Commands.replot(new scikit.dataset.PointSet(t_avg2, b3.map(_._1).toArray))
+  
+  printf("T b1 +- b2 +- b3 +-\n")
+  printf("%f %g %g %g %g %g %g",
+      conf.T,
+      mean(b1.map(_._1)), mean(b1.map(_._2)),
+      mean(b2.map(_._1)), mean(b2.map(_._2)),
+      mean(b3.map(_._1)), mean(b3.map(_._2)))
+//  printf(" # tFilter=%g, groupSize=%dx%g\n", tFilter, groupSize, time(1)-time(0))
+  
+//  if (!ba1.isDecorrelated) {
+//    println("not decorrelated!")
+//    ba1.blocks.foreach(b => println(b))
+//  }
 
   // println("normalize chirality by %g = 4 / 3^(3/2)".format(4 / math.pow(3, 1.5)))
 }
