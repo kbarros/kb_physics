@@ -148,11 +148,8 @@ class CGModel(val Lp: Int, val neighborDist: Double = 2.0, val maxPower: Int = 5
 
 
 
-object Ising2DApp {
-  
-  def main(args: Array[String]) {
-    new Control(new Ising2DApp(), "Ising Model");
-  }  
+object Ising2DApp extends App {
+  new Control(new Ising2DApp(), "Ising Model")
 }
 
 class Ising2DApp extends Simulation {

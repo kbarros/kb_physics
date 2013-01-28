@@ -76,12 +76,12 @@ class Skirmions3dApp extends Simulation {
   def spinYZCrossSection(field: Array[Double], x: Int) {
     var cnt = 0
     val L = sim.L
-    for (y <- 0 until L;
-         z <- 0 until L) {
+    for (z <- 0 until L;
+         y <- 0 until L) {
       val i = z*L*L + y*L + x
-      field(0 + 3*cnt) = sim.sx(i)
-      field(1 + 3*cnt) = sim.sy(i)
-      field(2 + 3*cnt) = sim.sz(i)
+      field(0 + 3*cnt) = sim.sy(i)
+      field(1 + 3*cnt) = sim.sz(i)
+      field(2 + 3*cnt) = sim.sx(i)
       cnt += 1
     }
   }
@@ -179,7 +179,7 @@ class Skirmions3dApp extends Simulation {
     val len = params.fget("Len")
     sim = new SkirmionsSim(d=3, L=L, len=len, T=params.fget("T"), H=params.fget("H"), anisotropy=params.fget("anisotropy"), dt=params.fget("dt"))
     // donutSpins()
-    ballSpins(2)
+//    ballSpins(2)
 
     val printEnergy = false
     if (printEnergy) {

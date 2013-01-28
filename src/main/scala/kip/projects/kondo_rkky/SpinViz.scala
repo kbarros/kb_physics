@@ -50,7 +50,15 @@ class SpinViz(w: Int, h: Int) {
 
     val sd = spinDir(field)
     
-    val arrows = for (i <- 0 until w*w) yield {
+    def omitSpin(i: Int) = {
+      val x = i % w
+      val y = i / w
+      val frac = 0.25
+      (x < frac*w || x+1 > (1-frac)*w || y < frac*w || y+1 > (1-frac)*w)
+      false
+    }
+    
+    val arrows = for (i <- 0 until w*w; if !omitSpin(i)) yield {
       val pos = spinPos(i) + Vec3(0, 0, 1)
       val spin = sd(i)
       val delta = spin*1.5
