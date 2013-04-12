@@ -28,7 +28,8 @@ class SkirmionsSim(val d: Int, val L: Int, val len: Double, var T: Double, var H
       val k = fft.fourierVector(i)
       val k2 = k.map(sqr(_)).sum
       
-      val q0 = 2*Pi / 8
+      val ratio = 8 // lambda/L, ratio of skyrmion diameter to system length
+      val q0 = 2*Pi / ratio
       val q1 = 2*q0
       val modulation = 1 / (1 + sqr(k2 / sqr(q1)))
       
@@ -41,6 +42,15 @@ class SkirmionsSim(val d: Int, val L: Int, val len: Double, var T: Double, var H
   }
   
   val kernel2 = fft.allocFourierArray()
+  
+  def ferromagetizeSpins() {
+    for (i <- 0 until N) {
+      sx(i) = 0
+      sy(i) = 0
+      sz(i) = 1
+    }
+    normalizeSpins()
+  }
   
   def randomizeSpins() {
     for (i <- 0 until N) {
@@ -60,7 +70,7 @@ class SkirmionsSim(val d: Int, val L: Int, val len: Double, var T: Double, var H
     }
   }
   
-  // sum_q chi_q |S(q)|^2
+  // extensive energy
   def energy(): Double = {
     var ret = 0.0
     for (si <- Seq(sx, sy, sz)) {
@@ -72,7 +82,7 @@ class SkirmionsSim(val d: Int, val L: Int, val len: Double, var T: Double, var H
     for (i <- 0 until N) {
       ret += - H * sz(i) - 0.5 * anisotropy * sz(i)*sz(i)
     }
-    ret / N
+    ret * dx*dx*dx
   }
   
   def implicitStep() {
