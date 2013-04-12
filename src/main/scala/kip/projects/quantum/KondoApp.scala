@@ -55,6 +55,8 @@ object KondoApp extends App {
     case "ferro"    => q.setFieldFerro(q.field)
     case "allout"   => q.setFieldAllOut(q.field)
     case "threeout" => q.setFieldThreeOut(q.field)
+    case "1q"       => q.setField1q(q.field)
+    case "2q"       => q.setField2q(q.field)
     case s => {
       val lastDump = s.toInt
       val f = new File(dumpFilename(lastDump))
