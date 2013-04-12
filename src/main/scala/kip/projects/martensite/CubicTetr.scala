@@ -31,9 +31,9 @@ class CubicTetrSim(params: Parameters) {
   val uz = new Array[Double](N)
   
   // time derivative of u
-  val uxdt = new Array[Double](N)
-  val uydt = new Array[Double](N)
-  val uzdt = new Array[Double](N)
+  val ux_t = new Array[Double](N)
+  val uy_t = new Array[Double](N)
+  val uz_t = new Array[Double](N)
   
   // symmetrized strains
   val e1 = new Array[Double](N)
@@ -55,7 +55,7 @@ class CubicTetrSim(params: Parameters) {
   val a_b = 60d
   val a_s = 120d
   val K0 = 1d
-  val eta0 = 0.2d
+  val eta0 = 10d // 0.2d
   
   init()
   
@@ -68,9 +68,9 @@ class CubicTetrSim(params: Parameters) {
       ux(i) = 0.5*random.nextGaussian()
       uy(i) = 0.5*random.nextGaussian()
       uz(i) = 0.5*random.nextGaussian()
-      uxdt(i) = 0
-      uydt(i) = 0
-      uzdt(i) = 0
+      ux_t(i) = 0
+      uy_t(i) = 0
+      uz_t(i) = 0
     }
   }
   
@@ -82,23 +82,23 @@ class CubicTetrSim(params: Parameters) {
     energy = 0
     
     for (i <- 0 until N) {
-      val uxx = dX(ux, i)
-      val uxy = dY(ux, i)
-      val uxz = dZ(ux, i)
-      val uyx = dX(uy, i)
-      val uyy = dY(uy, i)
-      val uyz = dZ(uy, i)
-      val uzx = dX(uz, i)
-      val uzy = dY(uz, i)
-      val uzz = dZ(uz, i)
-
+      val ux_x = dX(ux, i)
+      val ux_y = dY(ux, i)
+      val ux_z = dZ(ux, i)
+      val uy_x = dX(uy, i)
+      val uy_y = dY(uy, i)
+      val uy_z = dZ(uy, i)
+      val uz_x = dX(uz, i)
+      val uz_y = dY(uz, i)
+      val uz_z = dZ(uz, i)
+      
       // Symmetry adapted strains
-      e1(i) = (uxx+uyy+uzz)/sqrt(3)
-      e2(i) = (uxx-uyy)/(sqrt(2))
-      e3(i) = (uxx+uyy-2*uzz)/(sqrt(6))
-      e6(i) = (uxy+uyx)/2
-      e5(i) = (uxz+uzx)/2
-      e4(i) = (uyz+uzy)/2
+      e1(i) = (ux_x+uy_y+uz_z)/sqrt(3)
+      e2(i) = (ux_x-uy_y)/(sqrt(2))
+      e3(i) = (ux_x+uy_y-2*uz_z)/(sqrt(6))
+      e6(i) = (ux_y+uy_x)/2
+      e5(i) = (ux_z+uz_x)/2
+      e4(i) = (uy_z+uz_y)/2
     }
     
     for (i <- 0 until N) {
@@ -140,30 +140,30 @@ class CubicTetrSim(params: Parameters) {
     }
     
     for (i <- 0 until N) {
-      val sxxx = dX(sxx, i) 
-      val syyy = dY(syy, i)
-      val szzz = dZ(szz, i)
-      val sxyx = dX(sxy, i)
-      val sxyy = dY(sxy, i)
-      val sxzx = dX(sxz, i)
-      val sxzz = dZ(sxz, i)
-      val syzz = dZ(syz, i)
-      val syzy = dY(syz, i)
+      val sxx_x = dX(sxx, i) 
+      val syy_y = dY(syy, i)
+      val szz_z = dZ(szz, i)
+      val sxy_x = dX(sxy, i)
+      val sxy_y = dY(sxy, i)
+      val sxz_x = dX(sxz, i)
+      val sxz_z = dZ(sxz, i)
+      val syz_z = dZ(syz, i)
+      val syz_y = dY(syz, i)
       
       // divergence of sigma', for the drag
-      val lpx = laplacian(uxdt, i)
-      val lpy = laplacian(uydt, i)
-      val lpz = laplacian(uzdt, i)
+      val lp_ux_t = laplacian(ux_t, i)
+      val lp_uy_t = laplacian(uy_t, i)
+      val lp_uz_t = laplacian(uz_t, i)
       
       // update velocity field
-      uxdt(i) += dt*(sxxx+sxyy+sxzz+eta0*lpx)
-      uydt(i) += dt*(sxyx+syyy+syzz+eta0*lpy)
-      uzdt(i) += dt*(sxzx+syzy+szzz+eta0*lpz)
+      ux_t(i) += dt*(sxx_x+sxy_y+sxz_z+eta0*lp_ux_t)
+      uy_t(i) += dt*(sxy_x+syy_y+syz_z+eta0*lp_uy_t)
+      uz_t(i) += dt*(sxz_x+syz_y+szz_z+eta0*lp_uz_t)
       
       // update displacements
-      ux(i) += dt*uxdt(i)
-      uy(i) += dt*uydt(i)
-      uz(i) += dt*uzdt(i)
+      ux(i) += dt*ux_t(i)
+      uy(i) += dt*uy_t(i)
+      uz(i) += dt*uz_t(i)
       
 //      println("del " + dt*uxdt(i))
     }
