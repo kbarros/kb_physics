@@ -32,7 +32,7 @@ object Statistics {
     def population_variance = m2 / n
     def sample_variance = m2 / (n-1) // sample variance; an unbiased estimator of true variance
     def stddev = math.sqrt(sample_variance) // sample standard deviation
-    def skewness = (m3/n) / math.pow(m2/n, 3./2.)
+    def skewness = (m3/n) / math.pow(m2/n, 3.0/2.0)
     def kurtosis = (n*m4) / (m2*m2) - 3
     
     def accum(x: Double) = {

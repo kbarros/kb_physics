@@ -87,7 +87,7 @@ class SpherePatches(val patches: Array[Patch], val errorFraction: Double) {
    * Find an appriximate "center" of an arbitrary voronoi cell, and the distance to nearest patch
    */
   def findHoleCenter(ntrials: Int): (Vec3, Double) = {
-    var maxDist2 = 0.
+    var maxDist2 = 0.0
     var maxPt    = Vec3(0,0,0)
     for (iter <- 0 until ntrials) {
       val p1 = randomPointOnSphere()

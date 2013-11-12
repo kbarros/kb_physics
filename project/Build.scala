@@ -15,7 +15,7 @@ object HelloBuild extends Build {
     val launchString = """
 CLASSPATH="%s"
 LIBRARY_PATH="%s"
-scala -J-Xmx1g -usejavacp -Djava.class.path="${CLASSPATH}" -Djava.library.path="${LIBRARY_PATH}" "$@"
+scala -J-Xmx1g -classpath "${CLASSPATH}" -Djava.library.path="${LIBRARY_PATH}" "$@"
 """.format(cpString, libString)
     val targetFile = (target / "sbt-launcher").asFile
     val writer = new java.io.PrintWriter(targetFile)

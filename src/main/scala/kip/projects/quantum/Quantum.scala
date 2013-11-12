@@ -249,6 +249,38 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
     normalizeField(field)
   }
   
+  def setField1q(field: Array[R]) {
+    for (x <- 0 until w;
+         y <- 0 until h) {
+      val s = (x%2, y%2) match {
+        case (0, 0) => Seq(-1, 0, 0)
+        case (0, 1) => Seq(-1, 0, 0)
+        case (1, 0) => Seq(+1, 0, 0)
+        case (1, 1) => Seq(+1, 0, 0)
+      }
+      for (d <- 0 until vectorDim) { 
+        field(fieldIndex(d, x, y)) = s(d)
+      }
+    }
+    normalizeField(field)
+  }
+  
+  def setField2q(field: Array[R]) {
+    for (x <- 0 until w;
+         y <- 0 until h) {
+      val s = (x%2, y%2) match {
+        case (0, 0) => Seq(-1, -1, 0)
+        case (0, 1) => Seq(-1, +1, 0)
+        case (1, 0) => Seq(+1, -1, 0)
+        case (1, 1) => Seq(+1, +1, 0)
+      }
+      for (d <- 0 until vectorDim) { 
+        field(fieldIndex(d, x, y)) = s(d)
+      }
+    }
+    normalizeField(field)
+  }
+
   def setFieldThreeOut(field: Array[R]) {
     for (x <- 0 until w;
          y <- 0 until h) {

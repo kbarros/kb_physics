@@ -24,7 +24,7 @@ object RetainedScene {
     def draw(gfx: GfxGL) {
       val a0 = delta.normalize 
       val a1 = {
-        val alignedz = a0.z > (1 - 1e-6) 
+        val alignedz = math.abs(a0.z) > (1 - 1e-6) 
         ((if (alignedz) Vec3(0, 1, 0) else Vec3(0, 0, 1)) cross a0).normalize    
       }
       val a2 = (a0 cross a1).normalize

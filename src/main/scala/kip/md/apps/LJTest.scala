@@ -3,8 +3,10 @@ package kip.md.apps
 import java.awt._
 import kip.md._
 import kip.math.{Vec3, mutable}
+import kip.util.JacksonWrapper._
 import scala.collection.mutable.ArrayBuffer
 import scala.math._
+
 
 object LJTest {
 
@@ -16,21 +18,20 @@ object LJTest {
 "sizeAsymmetry": 1.0
 }
 */
-  
+  case class Params(layers: Int, rows1: Int, cols1: Int, sizeAsymmetry: Double)
+
   def main(args: Array[String]) {
-    import com.twitter.json.Json
-    import kip.util.JsonInspector
-    
     require(args.size == 1, "Must pass configuration json file")
     val cfg = new java.io.File(args(0))
     
     val source = scala.io.Source.fromFile(args(0))
-    val params = JsonInspector(Json.parse(source.getLines().mkString))
     
-    test3(layers=params("layers").toInt,
-          rows1=params("rows1").toInt,
-          cols1=params("cols1").toInt,
-          sizeAsymmetry=params("sizeAsymmetry").toDouble)
+    val params = deserialize[Params](source.getLines().mkString)
+    
+    test3(layers=params.layers,
+          rows1=params.rows1,
+          cols1=params.cols1,
+          sizeAsymmetry=params.sizeAsymmetry)
   }
 
   
@@ -124,7 +125,7 @@ object LJTest {
     val integrator = new Verlet(dt=0.02, thermostat=thermoDamp)
     
 
-    val r1 = pow(2, 1./6) / 2 // radius of smaller atom
+    val r1 = pow(2, 1.0/6) / 2 // radius of smaller atom
     val r2 = r1 * sizeAsymmetry
 
     val rows2 = rows1

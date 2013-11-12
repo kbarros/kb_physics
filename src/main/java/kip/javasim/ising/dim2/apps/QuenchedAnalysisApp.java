@@ -43,6 +43,7 @@ public class QuenchedAnalysisApp {
 				int w = sc.nextInt();
 				int h = sc.nextInt();
 				assert(!sc.hasNextInt());
+				sc.close();
 				
 				int[] spin = new int[w*h];
 				PercolationSite2d nz = new PercolationSite2d(w, h, false); // periodic boundary conditions

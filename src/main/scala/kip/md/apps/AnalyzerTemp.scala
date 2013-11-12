@@ -34,7 +34,7 @@ object AnalyzerTemp extends App {
   val cols1: Int = 200
   val sizeAsymmetry: Double = 1.0
   
-  val r1 = math.pow(2, 1./6) / 2 // radius of smaller atom
+  val r1 = math.pow(2, 1.0/6) / 2 // radius of smaller atom
   val r2 = r1 * sizeAsymmetry
   val rows2 = rows1
   val cols2 = (cols1/sizeAsymmetry).toInt

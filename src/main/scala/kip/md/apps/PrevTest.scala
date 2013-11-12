@@ -76,7 +76,7 @@ object PrevTest {
     val cols2 = (cols1/sizeAsymmetryInit).toInt
     val natoms2 = rows2*cols2
     
-    val r1 = pow(2, 1./6) / 2
+    val r1 = pow(2, 1.0/6) / 2
     val r2 = r1 * sizeAsymmetryInit
     val off = 10
     

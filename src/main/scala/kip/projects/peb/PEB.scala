@@ -58,9 +58,9 @@ object PEB {
   }
 
   def centerOfMass(s: Snapshot, elems: Seq[Int]) = {
-    var xAcc = 0.
-    var yAcc = 0.
-    var zAcc = 0.
+    var xAcc = 0.0
+    var yAcc = 0.0
+    var zAcc = 0.0
     for (i <- elems) {
       xAcc += s.x(i)
       yAcc += s.y(i)
@@ -73,9 +73,9 @@ object PEB {
   def radiusOfGyrationSquared(s: Snapshot, elems: Seq[Int]) = {
     val cm = centerOfMass(s, elems)
 
-    var x2Acc = 0.
-    var y2Acc = 0.
-    var z2Acc = 0.
+    var x2Acc = 0.0
+    var y2Acc = 0.0
+    var z2Acc = 0.0
     for (i <- elems) {
       x2Acc += sqr(s.x(i)-cm.x) 
       y2Acc += sqr(s.y(i)-cm.y) 
