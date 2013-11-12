@@ -247,7 +247,7 @@ class Skirmions3dApp extends Simulation {
         (sigma, sim.energy() - e0)
       }
       val (xs, ys) = pts.unzip
-      scikit.util.Commands.plot(xs.toArray, ys.toArray)
+      scikit.util.Commands.plot(new scikit.dataset.PointSet(xs.toArray, ys.toArray))
     }
     
     while (true) {

@@ -10,7 +10,8 @@ import kip.math.Vec3
 
 
 class SpinViz(w: Int, h: Int) {
-  val latDel1 = Vec3(0, 1, 0)
+//  val latDel1 = Vec3(0, 1, 0)
+  val latDel1 = Vec3(0.5, 0.5*math.sqrt(3), 0)
   val latDel3 = Vec3(1, 0, 0)
 
   val lat0 = Vec3(0, 0.5*math.sqrt(3)*(h-1), 0)
@@ -56,6 +57,7 @@ class SpinViz(w: Int, h: Int) {
       val frac = 0.25
       (x < frac*w || x+1 > (1-frac)*w || y < frac*w || y+1 > (1-frac)*w)
       false
+      // ! ((x % 2 == 0) && (y % 2 == 0))
     }
     
     val arrows = for (i <- 0 until w*w; if !omitSpin(i)) yield {
@@ -63,6 +65,8 @@ class SpinViz(w: Int, h: Int) {
       val spin = sd(i)
       val delta = spin*1.5
       val width = 0.3
+      // val delta = spin*0.8
+      // val width = 0.2
       
       import java.awt.Color._
       val gray = new java.awt.Color(0, 0, 0, 50)
