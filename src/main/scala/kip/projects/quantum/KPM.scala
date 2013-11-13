@@ -20,8 +20,8 @@ object KPM {
     }
   }
   
-  def chebyshevArray(x: Double, m: Int): Array[Double] = {
-    val ret = Array.fill[Double](m)(0d)
+  def chebyshevArray(x: Double, order: Int): Array[Double] = {
+    val ret = Array.fill[Double](order)(0d)
     chebyshevFillArray(x, ret)
     ret
   }
@@ -36,21 +36,46 @@ object KPM {
   
   // Coefficients c_m of linear combination of moments for weight calculation
   //   F = \sum mu_m c_m = \int rho(e) fn(e) de
-  def expansionCoefficients(order: Int, de: R, fn: R => R): Array[R] = {
-    import math._
-    val kernel = jacksonKernel(order)
-    val ret = Array.fill[R](order)(0)
-    for (e <- -1.0+de to 1.0-de by de) {
-      val t = KPM.chebyshevArray(e, order)
-      val f = fn(e) / (Pi * sqrt(1 - e*e))
+  // Explicitly,
+  //   c_m = \int_{-1}^1 T_m g_m (2 - delta_m0) fn(e) / (pi sqrt(1 - e^2))
+  //
+  // Use Chebyshev-Gauss quadrature, as explained in methods paper.
+
+//  def expansionCoefficients(order: Int, de: R, fn: R => R): Array[R] = {
+//    import math._
+//    val kernel = jacksonKernel(order)
+//    val ret = Array.fill[R](order)(0)
+//    for (e <- -1.0+de to 1.0-de by de) {
+//      val t = KPM.chebyshevArray(e, order)
+//      val f = fn(e) / (Pi * sqrt(1 - e*e))
+//      for (m <- 0 until order) {
+//        ret(m) += (if (m == 0) 1 else 2) * kernel(m) * t(m) * f * de
+//      }
+//    }
+//    // for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
+//    ret
+//  }
+
+  def expansionCoefficients2(order: Int, quadPts: Int, f: R => R): Array[R] = {
+    // DCT-II, f -> fp
+    var fp = Array.fill[Double](quadPts)(0d)
+    val T = Array.fill[Double](order)(0d)
+    for (i <- 0 until quadPts) {
+      val x_i = math.cos(math.Pi * (i+0.5) / quadPts)
+      chebyshevFillArray(x_i, T)
       for (m <- 0 until order) {
-        ret(m) += (if (m == 0) 1 else 2) * kernel(m) * t(m) * f * de
+        fp(m) += T(m) * f(x_i)
       }
     }
-    // for ((f, i) <- ret.zipWithIndex) println("Coeff %d = %g".format(i, f))
+    
+    val kernel = jacksonKernel(order)
+    var ret = Array.fill[R](order)(0)
+    for (m <- 0 until order) {
+      ret(m) = (if (m == 0) 1 else 2) * kernel(m) * fp(m) / quadPts 
+    }
     ret
   }
-
+  
   // --- Plotting stuff ---
     
   // converts moments into a density of states
@@ -111,7 +136,7 @@ object KPM {
     ret
   }
   
-
+  // range of scaled energies between -1 and 1
   def range(npts: Int): Array[R] = {
     Array.tabulate[R](npts) { i =>
       2.0 * (i+0.5) / npts - 1.0

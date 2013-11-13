@@ -32,7 +32,7 @@ object CuKPM extends App {
   val nrand = 1
   val kpm = new KPM(H, nrand)
   val r = kpm.randomVector()
-  val c = KPM.expansionCoefficients(order, de=1e-4, e => e)
+  val c = KPM.expansionCoefficients2(order, quadPts=10*order, e => e)
   val ckpm = new CuKPM(cworld, H, nrand)
   
   val dH = H.duplicate

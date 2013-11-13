@@ -7,9 +7,22 @@ import ctor._
 object Quantum extends App {
   import kip.util.Util.{time}
   
-  testEffectiveEnergy()
+//  testExpansionCoeffs()
+  testEffectiveTemperature()
 //  time("eigenvalues")(testEigenvalues())
 //  testIntegratedDensity()
+  
+  
+  def testExpansionCoeffs() {
+    val order = 10
+    for (qp <- Seq(1*order, 10*order, 100*order, 1000*order)) {
+      val c = KPM.expansionCoefficients2(order, quadPts=qp, e => if (e < 0.12) e else 0)
+      println("new %d %s".format(qp, c.take(10).toSeq))
+    }
+    println("mathematica            " +
+            Seq(-0.31601, 0.4801, -0.185462, -0.000775683, 0.0255405, 0.000683006,
+                -0.00536911, -0.000313801, 0.000758494, 0.0000425209))	
+  }
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
@@ -50,7 +63,7 @@ object Quantum extends App {
     val kpm = new KPM(H, nrand=1)
     val order = 100
     val r = kpm.randomVector()
-    val c = KPM.expansionCoefficients(order, de=1e-4, e => e)
+    val c = KPM.expansionCoefficients2(order, quadPts=10*order, e => e)
  
     val dH = H.duplicate
     for (i <- 0 until 10) {
@@ -69,7 +82,7 @@ object Quantum extends App {
     require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
     println("N = "+H.numRows)
     val order = 100
-    val kpm = new KPM(H, nrand=1)
+    val kpm = new KPM(H, nrand=1, seed=0)
     val range = KPM.range(npts=5*order)
     
     val plot = KPM.mkPlot("Integrated density of states")
@@ -84,7 +97,7 @@ object Quantum extends App {
     val order = 100
     val kpm = new KPM(H, nrand=1)
     val r = kpm.randomVector()
-    val c = KPM.expansionCoefficients(order, de=1e-4, e => e*e)
+    val c = KPM.expansionCoefficients2(order, quadPts=10*order, e => e*e)
     val f0 = kpm.functionAndGradient(r, c, dH)
     println("H = "+H)
     println("dH = "+dH)
@@ -106,13 +119,12 @@ object Quantum extends App {
     println("error1: (f1 - f0)/del - dH = "+((f1 - f0)/del - deriv))
   }
   
-  
   // Estimate effective temperature as a function of dt_per_rand and J_H
   // (Other parameters shouldn't have much effect)
   // Note: for small J, we observe (T_eff ~ (0.03 J)^2 dt_per_rand) in scaled units.
   // In unscaled units: T => 10 T, dt => 0.1 dt, so that (T_eff ~ (0.3 J)^2 dt)
   // 
-  def testEffectiveEnergy() {
+  def testEffectiveTemperature() {
     val dt_per_rand = 0.1
     val nrand = 4
     val dt = dt_per_rand * nrand
@@ -129,7 +141,7 @@ object Quantum extends App {
     val kpm = new KPM(H, nrand, seed=2)
     
     val mup = q.scaleEnergy(mu)
-    val c = KPM.expansionCoefficients(order, de=1e-4, (e => if (e < mup) (e - mup) else 0))
+    val c = KPM.expansionCoefficients2(order, quadPts=10*order, (e => if (e < mup) (e - mup) else 0))
     kpm.gradientExactDense(c, dH1)
     val r = kpm.randomGaussianVector()
     kpm.functionAndGradient(r, c, dH2)
@@ -152,6 +164,11 @@ object Quantum extends App {
     println("Standard deviation of energy gradient = " + sigma)
     println("Effective (scaled) temperature = " + (dt * sigma2 / 2))
     
+    println("""Expected output
+Standard deviation of energy gradient = 0.035804445341441234
+Effective (scaled) temperature = 2.563916612416506E-4
+""")
+
     if (false) {
       // plot histogram of error, and compare to gaussian
       import math._
