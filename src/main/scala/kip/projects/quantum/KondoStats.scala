@@ -5,6 +5,7 @@ import kip.enrich._
 import kip.math.Vec3
 import kip.util.Statistics._
 
+// For generation of phase diagram in PRB
 
 object KondoStats extends App {
   val dir = args(0)

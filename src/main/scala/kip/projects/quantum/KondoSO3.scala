@@ -4,6 +4,7 @@ import kip.graphics._
 import kip.math.Vec3
 import scala.collection.mutable.ArrayBuffer
 
+// For visualization of Z2 vortices
 
 class KondoSO3() {
   

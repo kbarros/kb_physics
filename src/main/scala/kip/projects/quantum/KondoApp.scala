@@ -92,9 +92,9 @@ object KondoApp extends App {
   
   val fn_filling: (R => R) = e => if (e < mup) (1.0 / q.matrix.numRows) else 0
   
-  val c_action   = KPM.expansionCoefficients(order, de, fn_action)
-  val c2_action  = KPM.expansionCoefficients(order_exact, de, fn_action)
-  val c2_filling = KPM.expansionCoefficients(order_exact, de, fn_filling)
+  val c_action   = KPM.expansionCoefficients2(order, quadPts=10*order, fn_action)
+  val c2_action  = KPM.expansionCoefficients2(order_exact, quadPts=10*order, fn_action)
+  val c2_filling = KPM.expansionCoefficients2(order_exact, quadPts=10*order, fn_filling)
   
   println("N=%d matrix, %d moments".format(q.matrix.numRows, order))
   
