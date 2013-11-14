@@ -10,6 +10,7 @@ lib_managed/
 .project
 .settings
 .worksheet/
+Worksheet.sc
 
 # Other
 .DS_Store
