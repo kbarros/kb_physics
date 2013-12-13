@@ -5,7 +5,8 @@ import ctor._
 
 
 object KagomeLattice extends App {
-  testIntegratedDensity()
+  import kip.util.Util.{time}
+  time("integrated density")(testIntegratedDensity())
   
 //  time("eigenvalues")(testEigenvalues())
   
@@ -29,77 +30,20 @@ object KagomeLattice extends App {
 }
 
 
-//class KondoHamiltonian {
-//}
-
-
 // Notation:
 //  d    = vector component (3 dimensional)
 //  sp   = Dirac spin index
-//  v    = [0,1,2] coordinate on sublattice
-//  x, y = coordinates on triangular lattice
+//  v    = [0,1,2] coordinate of sub-lattice
+//  x, y = coordinates on triangular super-lattice
+//  nn   = [0,1,2,3] nearest neighbor index (oriented clockwise, starting at 3 o'clock)
 //
-//  nn   = [0,1,2,3] nearest neighbor index on lattice 
-//
-class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_min: R, val e_max: R) {
+class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_min: R, val e_max: R) extends KondoHamiltonian {
   require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
-  val vectorDim = 3
-  
-  val e_avg   = (e_max + e_min)/2
-  val e_scale = (e_max - e_min)/2
-  
-  def matrixIndex(sp: Int, v: Int, x: Int, y: Int): Int = {
-    sp + v*(2) + x*(2*3) + y*(2*3*w)
-  }
-  
-  def fieldIndex(d: Int, v: Int, x: Int, y: Int): Int = {
-    d + v*(3) + x*(3*3) + y*(3*3*w)
-  }
 
-  def pauliIndex(sp1: Int, sp2: Int, d: Int): Int = {
-    sp1 + sp2*(2) + d*(2*2)
-  }
-  def pauli = Array[S#A] (
-    0, 1,
-    1, 0,
-    
-    0, I, // visually transposed, due to row major ordering
-   -I, 0,
-    
-    1, 0,
-    0, -1
-  )
+  val numLatticeSites = 3*w*h
   
-  val field: Array[R] = {
-    val ret = new Array[R](3*3*w*h)
-    setFieldFerro(ret)
-    ret
-  }
-  val delField: Array[R] = Array.fill(3*3*w*h)(0)
-  
-  val hoppingMatrix: PackedSparse[S] = {
-    val ret = sparse(2*3*w*h, 2*3*w*h)
-    fillHoppingMatrix(ret)
-    ret.toPacked
-  }
-
-  val matrix = {
-    val ret = sparse(2*3*w*h, 2*3*w*h): HashSparse[S]
-    fillMatrix(ret)
-    ret.toPacked
-  }
-  val delMatrix: PackedSparse[S] = {
-    matrix.duplicate.clear
-  }
-  
-  def setFieldFerro(field: Array[R]) { 
-    field.transform(_ => 1.0)
-    normalizeField(field)
-  }
-  
-  def setFieldRandom(field: Array[R], rand: util.Random) {
-    field.transform(_ => rand.nextGaussian())
-    normalizeField(field)
+  def latticeIndex(v: Int, x: Int, y: Int): Int = {
+    v + x*(3) + y*(3*w)
   }
   
   def setFieldQZeroOrthogonal(field: Array[R]) {
@@ -111,48 +55,11 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, 
         case 1 => Seq(0, 1, 0)
         case 2 => Seq(0, 0, 1)
       }
-      for (d <- 0 until vectorDim) { 
-        field(fieldIndex(d, v, x, y)) = s(d)
+      for (d <- 0 until 3) { 
+        field(fieldIndex(d, latticeIndex(v, x, y))) = s(d)
       }
     }
     normalizeField(field)
-  }
-  
-  def normalizeField(field: Array[R], validate: Boolean = false) {
-    for (y <- 0 until h;
-         x <- 0 until w;
-         v <- 0 until 3) {
-      var acc = 0d
-      for (d <- 0 until 3) {
-        acc += field(fieldIndex(d, v, x, y)).abs2
-      }
-      acc = math.sqrt(acc)
-      if (validate && !(acc > 0.95 && acc < 1.05))
-        println("Vector magnitude %g deviates too far from normalization".format(acc))
-      for (d <- 0 until 3) {
-        field(fieldIndex(d, v, x, y)) /= acc
-      }
-    }
-  }
-  
-  // remove component of dS that is parallel to field S
-  def projectTangentField(S: Array[R], dS: Array[R]) {
-    for (y <- 0 until h;
-         x <- 0 until w;
-         v <- 0 until 3) {
-      var s_dot_s = 0d
-      var s_dot_ds = 0d
-      for (d <- 0 until 3) {
-        val i = fieldIndex(d, v, x, y)
-        s_dot_s  += S(i)*S(i)
-        s_dot_ds += S(i)*dS(i)
-      }
-      val alpha = s_dot_ds / s_dot_s
-      for (d <- 0 until 3) {
-        val i = fieldIndex(d, v, x, y)
-        dS(i) -= alpha * S(i)
-      }
-    }
   }
 
   //
@@ -221,8 +128,10 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, 
     (x1-x0, y1-y0)
   }
   
-  def fillHoppingMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
-    m.clear()
+  // in *unscaled* (physical) energy units 
+  val hoppingMatrix: PackedSparse[S] = {
+    val ret = sparse(2*numLatticeSites, 2*numLatticeSites)
+    ret.clear()
     
     // val B = 8*math.Pi*B_n / (math.sqrt(3)*w)
     require(w == h) // necessary for B quantization
@@ -233,83 +142,16 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, 
          nn <- 0 until 4;
          sp <- 0 until 2) {
       val (nv, nx, ny) = neighbors(v, x, y, nn);
-      val i = matrixIndex(sp, v, x, y)
-      val j = matrixIndex(sp, nv, nx, ny)
+      val i = matrixIndex(sp, latticeIndex(v, x, y))
+      val j = matrixIndex(sp, latticeIndex(nv, nx, ny))
       
       // val (px, py) = position(v, x, y);
       // val (dx, dy) = displacement(v, x, y, nn);
       // val theta = (B/2) * (px*dy - py*dx)
       // m(i, j) = (theta*I).exp * (-t)
-      m(i, j) = -t
+      ret(i, j) = -t
     }
-  }
-  
-  def fillMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
-    m.clear()
-    
-    for ((i, j) <- hoppingMatrix.definedIndices) {
-      m(i, j) += hoppingMatrix(i, j)
-    }
-    
-    // loop over all lattice sites
-    for (y <- 0 until h;
-         x <- 0 until w;
-         v <- 0 until 3) {
-      
-      // hund coupling 
-      for (sp1 <- 0 until 2;
-           sp2 <- 0 until 2) {
-        
-        var coupling = 0: S#A
-        for (d <- 0 until 3) {
-          coupling += pauli(pauliIndex(sp1, sp2, d)) * field(fieldIndex(d, v, x, y))
-        }
-        val i = matrixIndex(sp1, v, x, y)
-        val j = matrixIndex(sp2, v, x, y)
-        m(i, j) = -J_H * coupling
-      }
-    }
-    
-    // scale matrix appropriately so that eigenvalues lie between -1 and +1
-    for (i <- 0 until m.numRows) { m(i,i) -= e_avg }
-    m /= e_scale
-
-//    // Make sure hamiltonian is hermitian
-//    val H = m.toDense
-//    require((H - H.dag).norm2.abs < 1e-6, "Found non-hermitian hamiltonian!")
-  }
-
-  // convert from physical energy units to scaled energy units
-  def scaleEnergy(x: R): R = {
-    (x - e_avg) / e_scale
-  }
-  
-  // Use chain rule to transform derivative wrt matrix elements dF/dH, into derivative wrt spin indices
-  //   dF/dS = dF/dH dH/dS
-  // In both factors, H is assumed to be dimensionless (scaled energy). If F is also dimensionless, then it
-  // may be desired to multiply the final result by the energy scale.
-  def fieldDerivative(dFdH: PackedSparse[S], dFdS: Array[R]) {
-    // loop over all lattice sites and vector indices
-    for (y <- 0 until h;
-         x <- 0 until w;
-         v <- 0 until 3;
-         d <- 0 until 3) {
-      
-      var dCoupling: S#A = 0
-      for (sp1 <- 0 until 2;
-           sp2 <- 0 until 2) {
-        val i = matrixIndex(sp1, v, x, y)
-        val j = matrixIndex(sp2, v, x, y)
-        dCoupling += dFdH(i, j) * pauli(pauliIndex(sp1, sp2, d))
-      }
-      require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero: " + dCoupling.im)
-      dFdS(fieldIndex(d, v, x, y)) = -J_H * dCoupling.re
-    }
-    
-    // the derivative is perpendicular to the direction of S, due to constraint |S|=1 
-    projectTangentField(field, dFdS)
-    
-    // properly scale the factor dH/dS, corresponding to scaled H
-    dFdS.transform(_ / e_scale)
+    ret.toPacked
   }
 }
+

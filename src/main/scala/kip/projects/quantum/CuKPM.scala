@@ -1,4 +1,4 @@
-package kip.projects.cuda
+package kip.projects.quantum
 
 import jcuda.cuComplex
 import jcuda.Pointer
@@ -12,10 +12,15 @@ import jcuda.jcusparse.cusparseMatrixType.CUSPARSE_MATRIX_TYPE_GENERAL
 import jcuda.jcusparse.cusparseOperation.CUSPARSE_OPERATION_NON_TRANSPOSE
 import jcuda.jcusparse.cusparseHandle
 import jcuda.jcusparse.cusparseMatDescr
+
 import kip.projects.quantum._
+import kip.projects.cuda.CuPreparePtx
+import kip.projects.cuda.JCudaWorld
+
 import smatrix._
-import Constructors.complexFlt._
-import Scalar.ComplexFlt
+import smatrix.Constructors.complexFlt._
+import smatrix.Scalar.ComplexFlt
+
 import scala.collection.mutable.ArrayBuffer
 
 

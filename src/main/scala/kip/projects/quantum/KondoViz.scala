@@ -8,6 +8,7 @@ import kip.math.fft.FFTComplex
 import kip.math.fft.FFTReal
 import scala.collection.mutable.ArrayBuffer
 import kip.graphics._
+import kip.projects.quantum.prb13.KondoSO3
 
 
 object KondoViz extends App {
