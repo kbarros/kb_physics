@@ -7,19 +7,17 @@ import ctor._
 object KagomeLattice extends App {
   import kip.util.Util.{time}
   time("integrated density")(testIntegratedDensity())
-  
-//  time("eigenvalues")(testEigenvalues())
-  
+    
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0, B_n=0, e_min= -10, e_max= 10)
+    val q = new KagomeLattice(w=24, h=24, t=1, J_H=0.2, B_n=0, e_min= -6, e_max= 4)
     q.setFieldQZeroOrthogonal(q.field)
     q.fillMatrix(q.matrix)
     
     val H = q.matrix
     require((H - H.dag).norm2.abs < 1e-10, "Found non-hermitian hamiltonian!")
     println("N = "+H.numRows)
-    val order = 500
+    val order = 1000
     val kpm = new KPM(H, nrand=1, seed=0)
     val range = KPM.range(npts=5*order)
     

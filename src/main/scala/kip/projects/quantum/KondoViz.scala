@@ -110,20 +110,21 @@ object KondoViz extends App {
     val sd = spinDir(field)
     
     val arrows = for (i <- 0 until w*h) yield {
-      val pos = spinPos(i) + Vec3(0, 0, 1)
       val spin = sd(i)
-      val delta = spin*2
-      val width = 0.2
+      val pos = spinPos(i) - spin*0.3 + Vec3(0, 0, 1)
+      val delta = spin
+      val width = 0.1
       
       val red = java.awt.Color.RED
       val green = java.awt.Color.GREEN
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
 
-      if (spinSubLattice(i) == 0)
-        new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
-      else
-        new RetainedScene.Arrow(pos, delta, width*0, color1=gray, color2=gray)
+//      if (spinSubLattice(i) == 0)
+//        new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
+//      else
+//        new RetainedScene.Arrow(pos, delta, width*0, color1=gray, color2=gray)
+      new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
     }
     viz.drawables ++= arrows
   }
@@ -243,7 +244,7 @@ object KondoViz extends App {
     val spin = remapSpinField(snap.spin)
     
     viz.drawables = Vector() // Vector(new RetainedScene.Cuboid(bds))
-//    drawSpins(spin)
+    drawSpins(spin)
     drawPlaquettes(spin)
     viz.display()
 
