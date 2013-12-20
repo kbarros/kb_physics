@@ -2,6 +2,7 @@ package kip.projects.quantum
 
 import smatrix._
 import ctor._
+import kip.math.Vec3
 
 object KondoHamiltonian {
   def fromMap(model: Map[String, String]): KondoHamiltonian = {
@@ -30,6 +31,8 @@ trait KondoHamiltonian {
   val J_H: R // Hund coupling
   
   def setField(s: String)
+  
+  def latticePositions: Array[Vec3]
   
   val e_avg   = (e_max + e_min)/2
   val e_scale = (e_max - e_min)/2

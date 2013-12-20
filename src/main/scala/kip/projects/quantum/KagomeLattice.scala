@@ -2,15 +2,16 @@ package kip.projects.quantum
 
 import smatrix._
 import ctor._
+import kip.math.Vec3
 
 
 object KagomeLattice extends App {
   import kip.util.Util.{time}
   time("integrated density")(testIntegratedDensity())
-    
+  
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=24, h=24, t=1, J_H=0.2, e_min= -6, e_max= 4)
+    val q = new KagomeLattice(w=12, h=12, t=1, J_H=0.2, e_min= -6, e_max= 4)
     q.setFieldZeroQOrthogonal(q.field)
     q.fillMatrix(q.matrix)
     
@@ -40,8 +41,12 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
 
   val numLatticeSites = 3*w*h
   
-  def latticeIndex(v: Int, x: Int, y: Int): Int = {
+  def coord2idx(v: Int, x: Int, y: Int): Int = {
     v + x*(3) + y*(3*w)
+  }
+  
+  def idx2coord(i: Int) = {
+    (i%3, (i/3)%w, (i/(3*w))%h)
   }
   
   def setField(desc: String) {
@@ -61,7 +66,7 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
         case 2 => Seq(0, 0, 1)
       }
       for (d <- 0 until 3) { 
-        field(fieldIndex(d, latticeIndex(v, x, y))) = s(d)
+        field(fieldIndex(d, coord2idx(v, x, y))) = s(d)
       }
     }
     normalizeField(field)
@@ -77,16 +82,19 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
   //  2 - 0 --- 2 - 0 --- 2 - 0 ---
   //        \ /       \ /       \ /
   //
-  def position(v: Int, x: Int, y: Int): (Double, Double) = {
-    val a = 1                                   // horizontal distance between letters (A <-> B)
-    val b = 0.5*math.sqrt(3.0)*a                // vertical distance between letters   (A <-> D)
-	val r = 1 / (2*math.sqrt(3))*a              // distance between letter and number  (A <-> 0)
-	val theta = -math.Pi/6 + (2*math.Pi/3)*v    // angle from letter to number
-	(a*x + 0.5*a*y + r*math.cos(theta), b*y + r*math.sin(theta))
+  lazy val latticePositions: Array[Vec3] = {
+    (for (i <- 0 until numLatticeSites) yield { 
+      val (v, x, y) = idx2coord(i)
+      val a = 1                                   // horizontal distance between letters (A <-> B)
+      val b = 0.5*math.sqrt(3.0)*a                // vertical distance between letters   (A <-> D)
+      val r = 1 / (2*math.sqrt(3))*a              // distance between letter and number  (A <-> 0)
+      val theta = -math.Pi/6 + (2*math.Pi/3)*v    // angle from letter to number
+      Vec3(a*x + 0.5*a*y + r*math.cos(theta), b*y + r*math.sin(theta), 0)
+    }).toArray
   }
-    
+  
   // returns (v, x, y) indices for the `nn`th neighbor site
-  def neighbors(v: Int, x: Int, y: Int, nn: Int): (Int, Int, Int) = {
+  def neighbor(v: Int, x: Int, y: Int, nn: Int): (Int, Int, Int) = {
 	val (nv, xdel, ydel) = (v, nn) match {
 
     //     1        
@@ -124,14 +132,6 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
 	}
 	(nv, (x+xdel+w)%w, (y+ydel+h)%h)
   }
-    
-  // returns (dx, dy) positions
-  def displacement(v: Int, x: Int, y: Int, nn: Int): (Double, Double) = {
-    val (x0, y0) = position(v, x, y)
-    val (nv, nx, ny) = neighbors(v, x, y, nn)
-    val (x1, y1) = position(nv, nx, ny)
-    (x1-x0, y1-y0)
-  }
   
   // in *unscaled* (physical) energy units 
   val hoppingMatrix: PackedSparse[S] = {
@@ -143,9 +143,9 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
          v <- 0 until 3;
          nn <- 0 until 4;
          sp <- 0 until 2) {
-      val (nv, nx, ny) = neighbors(v, x, y, nn);
-      val i = matrixIndex(sp, latticeIndex(v, x, y))
-      val j = matrixIndex(sp, latticeIndex(nv, nx, ny))
+      val (nv, nx, ny) = neighbor(v, x, y, nn);
+      val i = matrixIndex(sp, coord2idx(v, x, y))
+      val j = matrixIndex(sp, coord2idx(nv, nx, ny))
       ret(i, j) = -t
     }
     ret.toPacked

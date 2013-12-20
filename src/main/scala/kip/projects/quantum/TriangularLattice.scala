@@ -2,6 +2,7 @@ package kip.projects.quantum
 
 import smatrix._
 import ctor._
+import kip.math.Vec3
 
 
 object TriangularLattice extends App {
@@ -185,10 +186,14 @@ class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: I
 
   val numLatticeSites = w*h
   
-  def latticeIndex(x: Int, y: Int): Int = {
+  def coord2idx(x: Int, y: Int): Int = {
     x + y*(w)
   }
-  
+
+  def idx2coord(i: Int): (Int, Int) = {
+    (i%w, i/w)
+  }
+
   def setField(desc: String) {
     desc match {
       case "ferro"    => setFieldFerro(field)
@@ -209,7 +214,7 @@ class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: I
         case (1, 1) => Seq(-1, -1, +1)
       }
       for (d <- 0 until 3) { 
-        field(fieldIndex(d, latticeIndex(x, y))) = s(d)
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
@@ -225,7 +230,7 @@ class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: I
         case (1, 1) => Seq(+1, 0, 0)
       }
       for (d <- 0 until 3) { 
-        field(fieldIndex(d, latticeIndex(x, y))) = s(d)
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
@@ -241,7 +246,7 @@ class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: I
         case (1, 1) => Seq(+1, +1, 0)
       }
       for (d <- 0 until 3) { 
-        field(fieldIndex(d, latticeIndex(x, y))) = s(d)
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
@@ -257,23 +262,26 @@ class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: I
         case (1, 1) => Seq(-1, -1, +1)
       }
       for (d <- 0 until 3) { 
-        field(fieldIndex(d, latticeIndex(x, y))) = s(d)
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
   }
 
-    //
-    //  o - o - o
-    //   \ / \ / \    y
-    //    o - o - o    ^
-    //     \ / \ / \    \
-    //      o - o - o    ----> x
-    //
-   def position(x: Int, y: Int): (Double, Double) = {
-    val a = 1                                   // horizontal distance between columns
-    val b = 0.5*math.sqrt(3.0)*a                // vertical distance between rows
-	(a*x - 0.5*a*y, b*y)
+  //
+  //  o - o - o
+  //   \ / \ / \    y
+  //    o - o - o    ^
+  //     \ / \ / \    \
+  //      o - o - o    ----> x
+  //
+  lazy val latticePositions: Array[Vec3] = {
+    (for (i <- 0 until numLatticeSites) yield {
+      val (x, y) = idx2coord(i)
+      val a = 1                                   // horizontal distance between columns
+      val b = 0.5*math.sqrt(3.0)*a                // vertical distance between rows
+	  Vec3(a*x - 0.5*a*y, b*y, 0)
+    }).toArray
   }
   
   // returns (x, y) indices for the `nn`th neighbor site
@@ -309,12 +317,12 @@ class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: I
          nn <- 0 until 6;
          (nx, ny) = neighbors(x, y, nn);
          sp <- 0 until 2) {
-      val i = matrixIndex(sp, latticeIndex(x, y))
-      val j = matrixIndex(sp, latticeIndex(nx, ny))
+      val i = matrixIndex(sp, coord2idx(x, y))
+      val j = matrixIndex(sp, coord2idx(nx, ny))
       
-      val (px, py) = position(x, y);
-      val (dx, dy) = displacement(x, y, nn);
-      val theta = (B/2) * (px*dy - py*dx)
+      val p = latticePositions(coord2idx(x, y))
+      val (dx, dy) = displacement(x, y, nn)
+      val theta = (B/2) * (p.x*dy - p.y*dx)
       ret(i, j) = (theta*I).exp * (-t)
     }
     ret.toPacked
