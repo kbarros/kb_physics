@@ -2,7 +2,7 @@ name := "KB"
 
 version := "1.0"
 
-scalaVersion := "2.10.0"
+scalaVersion := "2.10.3"
 
 // search subdirectories recursively for unmanaged libraries
 unmanagedJars in Compile <++= unmanagedBase map { ub =>
@@ -14,10 +14,10 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.1.3",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.3.0",
   "net.java.dev.jna" % "jna" % "3.3.0",
-  "org.scala-lang" % "scala-compiler" % "2.10.0",
-  "org.scala-lang" % "jline" % "2.10.0",
+  "org.scala-lang" % "scala-compiler" % "2.10.3",
+  "org.scala-lang" % "jline" % "2.10.3",
   "com.googlecode.matrix-toolkits-java" % "mtj" % "0.9.14"
 )
 
