@@ -7,21 +7,26 @@ import kip.enrich._
 import ctor._
 import scala.math._
 
-case class KondoConf(w: Int, h: Int, t: Double, J_H: Double, B_n: Int, T: Double, mu: Double,
-                     order: Int, order_exact: Int, de: Double, dt_per_rand: Double,
-                     nrand: Int, dumpPeriod: Int, initConf: String)
+
+case class KondoConf(T: Double, mu: Double,
+		             order: Int, order_exact: Int, dt_per_rand: Double,
+                     nrand: Int, dumpPeriod: Int, initSpin: String, model: Map[String, String])
+
 case class KondoSnap(time: Double, action: Double, filling: Double, eig: Array[Double],
                      moments: Array[Float], spin: Array[Float])
 
 
 object KondoApp extends App {
-  def readConfig(f: File): KondoConf = {
-    val confStripped = f.slurp.split("\n") map { _.split("""//""")(0) } mkString("\n")
-    deserialize[KondoConf](confStripped)
-  }
   
   def dumpFilename(iter: Int) = dumpdir+"/%04d.json".format(iter)
-  
+
+  def loadKondoConf(filename: String): KondoConf = {
+    import kip.util.JacksonWrapper._
+    val s = (new File(filename)).slurp
+    val s2 = s.split("\n") map { _.split("""//""")(0) } mkString("\n")
+    deserialize[KondoConf](s2)
+  }
+
   if (args.size != 2) {
     println("KondoApp requires <dir> and <device> parameters")
     sys.exit
@@ -29,16 +34,17 @@ object KondoApp extends App {
   val dir = args(0)
   val deviceIndex = args(1).toInt
   
-  val conf = readConfig(new File(dir+"/cfg.json"))
-  import conf._
-  val seed = System.currentTimeMillis().toInt
+  val seed = 0 // System.currentTimeMillis().toInt
   
   // create output directory for spin configurations
   val dumpdir = new java.io.File(dir+"/dump")
   Util.createEmptyDir(dumpdir)
   
-  val q = new Quantum(w=w, h=h, t=t, J_H=J_H, B_n=B_n, e_min= -10, e_max= 10)
-
+  val conf = loadKondoConf(dir+"/cfg.json")
+  import conf._
+  
+  val q = KondoHamiltonian.fromMap(model)
+  
   val kpm = try {
     import kip.projects.cuda._
     new CuKPM(new JCudaWorld(deviceIndex), q.matrix, nrand, seed)
@@ -48,25 +54,26 @@ object KondoApp extends App {
       new KPM(q.matrix, nrand, seed)
     }
   }
-  
+   
   var iter = 0
-  initConf match {
-    case "random"   => q.setFieldRandom(q.field, kpm.rand)
-    case "ferro"    => q.setFieldFerro(q.field)
-    case "allout"   => q.setFieldAllOut(q.field)
-    case "threeout" => q.setFieldThreeOut(q.field)
-    case "1q"       => q.setField1q(q.field)
-    case "2q"       => q.setField2q(q.field)
-    case s => {
-      val lastDump = s.toInt
+  
+  initSpin match {
+    case "random" => {
+      q.setFieldRandom(q.field, kpm.rand)
+    }
+    case s if s.startsWith("dump") => {
+      val lastDump = s.replace("dump", "").toInt
       val f = new File(dumpFilename(lastDump))
       println("Reading initial configuration from file: "+f)
       val snap = deserialize[KondoSnap](f.slurp)
       snap.spin.copyToArray(q.field)
       iter = lastDump+1
     }
+    case s => {
+      q.setField(s)
+    }
   }
-  
+
   // don't overwrite any existing data
   require(!(new File(dumpFilename(iter))).exists, "Refuse to overwrite dump file %s".format(dumpFilename(iter)))
   

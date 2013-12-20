@@ -3,6 +3,23 @@ package kip.projects.quantum
 import smatrix._
 import ctor._
 
+object KondoHamiltonian {
+  def fromMap(model: Map[String, String]): KondoHamiltonian = {
+    val w = model("w").toInt
+    val h = model("h").toInt
+    val t = model("t").toDouble
+    val J_H = model("J_H").toDouble
+    model("type") match {
+      case "triangular" => {
+        val B_n = model("B_n").toInt
+        new TriangularLattice(w=w, h=h, t=t, J_H=J_H, B_n=B_n, e_min= -10, e_max= 10)
+      }
+      case "kagome" => {
+        new KagomeLattice(w=w, h=h, t=t, J_H=J_H, e_min= -10, e_max= 10)
+      }
+    }
+  }
+}
 
 
 trait KondoHamiltonian {
@@ -11,6 +28,8 @@ trait KondoHamiltonian {
   val e_max: R
   val e_min: R
   val J_H: R // Hund coupling
+  
+  def setField(s: String)
   
   val e_avg   = (e_max + e_min)/2
   val e_scale = (e_max - e_min)/2

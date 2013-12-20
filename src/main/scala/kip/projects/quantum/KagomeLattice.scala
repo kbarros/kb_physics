@@ -10,8 +10,8 @@ object KagomeLattice extends App {
     
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=24, h=24, t=1, J_H=0.2, B_n=0, e_min= -6, e_max= 4)
-    q.setFieldQZeroOrthogonal(q.field)
+    val q = new KagomeLattice(w=24, h=24, t=1, J_H=0.2, e_min= -6, e_max= 4)
+    q.setFieldZeroQOrthogonal(q.field)
     q.fillMatrix(q.matrix)
     
     val H = q.matrix
@@ -35,7 +35,7 @@ object KagomeLattice extends App {
 //  x, y = coordinates on triangular super-lattice
 //  nn   = [0,1,2,3] nearest neighbor index (oriented clockwise, starting at 3 o'clock)
 //
-class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_min: R, val e_max: R) extends KondoHamiltonian {
+class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, val e_max: R) extends KondoHamiltonian {
   require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
 
   val numLatticeSites = 3*w*h
@@ -44,7 +44,14 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, 
     v + x*(3) + y*(3*w)
   }
   
-  def setFieldQZeroOrthogonal(field: Array[R]) {
+  def setField(desc: String) {
+    desc match {
+      case "ferro"    => setFieldFerro(field)
+      case "0q_ortho" => setFieldZeroQOrthogonal(field)
+    }
+  }
+  
+  def setFieldZeroQOrthogonal(field: Array[R]) {
     for (y <- 0 until h;
          x <- 0 until w;
          v <- 0 until 3) {
@@ -130,10 +137,7 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, 
   val hoppingMatrix: PackedSparse[S] = {
     val ret = sparse(2*numLatticeSites, 2*numLatticeSites)
     ret.clear()
-    
-    // val B = 8*math.Pi*B_n / (math.sqrt(3)*w)
-    require(w == h) // necessary for B quantization
-    
+        
     for (y <- 0 until h;
          x <- 0 until w;
          v <- 0 until 3;
@@ -142,11 +146,6 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, 
       val (nv, nx, ny) = neighbors(v, x, y, nn);
       val i = matrixIndex(sp, latticeIndex(v, x, y))
       val j = matrixIndex(sp, latticeIndex(nv, nx, ny))
-      
-      // val (px, py) = position(v, x, y);
-      // val (dx, dy) = displacement(v, x, y, nn);
-      // val theta = (B/2) * (px*dy - py*dx)
-      // m(i, j) = (theta*I).exp * (-t)
       ret(i, j) = -t
     }
     ret.toPacked

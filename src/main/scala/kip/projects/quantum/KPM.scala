@@ -181,6 +181,9 @@ abstract class GenKPM(val H: PackedSparse[S], val nrand: Int, val seed: Int) {
   def momentsStochastic(order: Int, r: Dense[S]): Array[R]
   def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R
   
+  // Calculate KPM moments exactly by choosing a sequence of 'r' matrices
+  // deterministically. The call to 'momentStochastic' is a misnomer;
+  // nothing is stochastic here.
   def momentsExact(order: Int): Array[R] = {
     val ret = Array.fill[R](order)(0)
     val r = dense(n, nrand)

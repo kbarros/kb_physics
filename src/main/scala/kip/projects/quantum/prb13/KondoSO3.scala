@@ -7,7 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 import java.awt.Color.GRAY
 import java.awt.Color.RED
 
-
+/*
 // For visualization of Z2 vortices
 
 class KondoSO3() {
@@ -160,3 +160,4 @@ class KondoSO3() {
     viz.display()
   }
 }
+*/

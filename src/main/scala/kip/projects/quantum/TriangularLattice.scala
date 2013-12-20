@@ -189,6 +189,16 @@ class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: I
     x + y*(w)
   }
   
+  def setField(desc: String) {
+    desc match {
+      case "ferro"    => setFieldFerro(field)
+      case "allout"   => setFieldAllOut(field)
+      case "threeout" => setFieldThreeOut(field)
+      case "1q"       => setField1q(field)
+      case "2q"       => setField2q(field)
+    }
+  }
+  
   def setFieldAllOut(field: Array[R]) {
     for (x <- 0 until w;
          y <- 0 until h) {
