@@ -1,9 +1,13 @@
-package kip.projects.quantum
+package kip.projects.quantum.prb13
 
+import kip.projects.quantum._
 import kip.graphics._
 import kip.math.Vec3
 import scala.collection.mutable.ArrayBuffer
+import java.awt.Color.GRAY
+import java.awt.Color.RED
 
+/*
 // For visualization of Z2 vortices
 
 class KondoSO3() {
@@ -156,3 +160,4 @@ class KondoSO3() {
     viz.display()
   }
 }
+*/

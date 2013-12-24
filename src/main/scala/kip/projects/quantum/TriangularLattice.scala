@@ -2,34 +2,23 @@ package kip.projects.quantum
 
 import smatrix._
 import ctor._
+import kip.math.Vec3
 
 
-object Quantum extends App {
-  import kip.util.Util.{time}
-  
+object TriangularLattice extends App {
+  import kip.util.Util.time
+
 //  time("eigenvalues")(testEigenvalues())
 //  time("speed")(testSpeed())
 //  time("integrated density")(testIntegratedDensity())
 //  time("derivative")(testDerivative())
   testEffectiveTemperature()
-
   
-//  testExpansionCoeffs()  
-  def testExpansionCoeffs() {
-    val order = 10
-    for (qp <- Seq(1*order, 10*order, 100*order, 1000*order)) {
-      val c = KPM.expansionCoefficients2(order, quadPts=qp, e => if (e < 0.12) e else 0)
-      println("new %d %s".format(qp, c.take(10).toSeq))
-    }
-    println("mathematica            " +
-            Seq(-0.31601, 0.4801, -0.185462, -0.000775683, 0.0255405, 0.000683006,
-                -0.00536911, -0.000313801, 0.000758494, 0.0000425209))	
-  }
   
   // Calculates effective action at given filling fraction for various configurations
   def testEigenvalues() {
-//    val q = new Quantum(w=8, h=8, t=1, J_H=2.0, B_n= 0, e_min= -10, e_max=10)
-    val q = new Quantum(w=20, h=20, t=1, J_H=3, B_n= 1, e_min= -10, e_max=10)
+//    val q = new TriangularLattice(w=8, h=8, t=1, J_H=2.0, B_n= 0, e_min= -10, e_max=10)
+    val q = new TriangularLattice(w=20, h=20, t=1, J_H=3, B_n= 1, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
@@ -60,7 +49,7 @@ object Quantum extends App {
   }
   
   def testSpeed {
-    val q = new Quantum(w=10, h=10, t=1, J_H=2, B_n=0, e_min= -10, e_max= 10)
+    val q = new TriangularLattice(w=10, h=10, t=1, J_H=2, B_n=0, e_min= -10, e_max= 10)
     val H = q.matrix
     val kpm = new KPM(H, nrand=1)
     val order = 100
@@ -76,7 +65,7 @@ object Quantum extends App {
 
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new Quantum(w=20, h=20, t=1, J_H=3, B_n= 1, e_min= -10, e_max= 10)
+    val q = new TriangularLattice(w=20, h=20, t=1, J_H=3, B_n= 1, e_min= -10, e_max= 10)
     q.setFieldAllOut(q.field)
     q.fillMatrix(q.matrix)
     
@@ -93,7 +82,7 @@ object Quantum extends App {
   }
   
   def testDerivative() {
-    val q = new Quantum(w=10, h=10, t=1, J_H=2, B_n=0 ,e_min= -10, e_max= 10)
+    val q = new TriangularLattice(w=10, h=10, t=1, J_H=2, B_n=0 ,e_min= -10, e_max= 10)
     val H = q.matrix
     val dH = q.delMatrix
     val order = 100
@@ -131,7 +120,7 @@ object Quantum extends App {
     val nrand = 4
     val dt = dt_per_rand * nrand
     val mu = 0 // -2.56
-    val q = new Quantum(w=16, h=16, t=1, J_H=2.0, B_n=0, e_min= -10, e_max= 10)
+    val q = new TriangularLattice(w=16, h=16, t=1, J_H=2.0, B_n=0, e_min= -10, e_max= 10)
     q.setFieldRandom(q.field, new util.Random(seed=0))
 //    q.setFieldFerro(q.field)
     q.fillMatrix(q.matrix)
@@ -150,7 +139,7 @@ object Quantum extends App {
     
     val dS1 = q.delField
     val dS2 = dS1.clone()
-
+    
     println("exact  dH = "+dH1)
     println("approx dH = "+dH2)
 
@@ -185,71 +174,34 @@ Effective (scaled) temperature = 2.6010761503130196E-4
 }
 
 
+
 // Notation:
 //  d    = vector component (3 dimensional)
 //  sp   = Dirac spin index
 //  x, y = coordinates on triangular lattice
-//  n    = nearest neighbor index on lattice 
+//  nn   = [0,1,...5] nearest neighbor index (oriented clockwise, starting at 3 o'clock)
 //
-class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_min: R, val e_max: R) {
+class TriangularLattice(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_min: R, val e_max: R) extends KondoHamiltonian {
   require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
-  val vectorDim = 3
+
+  val numLatticeSites = w*h
   
-  val e_avg   = (e_max + e_min)/2
-  val e_scale = (e_max - e_min)/2
-  
-  def matrixIndex(sp: Int, x: Int, y: Int): Int = {
-    sp + x*(2) + y*(2*w)
-  }
-  
-  def fieldIndex(d: Int, x: Int, y: Int): Int = {
-    d + x*(3) + y*(3*w)
+  def coord2idx(x: Int, y: Int): Int = {
+    x + y*(w)
   }
 
-  def pauliIndex(sp1: Int, sp2: Int, d: Int): Int = {
-    sp1 + sp2*(2) + d*(2*2)
-  }
-  def pauli = Array[S#A] (
-    0, 1,
-    1, 0,
-    
-    0, I, // visually transposed, due to row major ordering
-   -I, 0,
-    
-    1, 0,
-    0, -1
-  )
-  
-  val field: Array[R] = {
-    val ret = new Array[R](vectorDim*w*h)
-    setFieldFerro(ret)
-    ret
-  }
-  val delField: Array[R] = Array.fill(vectorDim*w*h)(0)
-  
-  val hoppingMatrix: PackedSparse[S] = {
-    val ret = sparse(2*h*w, 2*h*w)
-    fillHoppingMatrix(ret)
-    ret.toPacked
+  def idx2coord(i: Int): (Int, Int) = {
+    (i%w, i/w)
   }
 
-  val matrix = {
-    val ret = sparse(2*h*w, 2*h*w): HashSparse[S]
-    fillMatrix(ret)
-    ret.toPacked
-  }
-  val delMatrix: PackedSparse[S] = {
-    matrix.duplicate.clear
-  }
-  
-  def setFieldFerro(field: Array[R]) { 
-    field.transform(_ => 1.0)
-    normalizeField(field)
-  }
-  
-  def setFieldRandom(field: Array[R], rand: util.Random) {
-    field.transform(_ => rand.nextGaussian())
-    normalizeField(field)
+  def setField(desc: String) {
+    desc match {
+      case "ferro"    => setFieldFerro(field)
+      case "allout"   => setFieldAllOut(field)
+      case "threeout" => setFieldThreeOut(field)
+      case "1q"       => setField1q(field)
+      case "2q"       => setField2q(field)
+    }
   }
   
   def setFieldAllOut(field: Array[R]) {
@@ -261,8 +213,8 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
         case (1, 0) => Seq(-1, +1, -1)
         case (1, 1) => Seq(-1, -1, +1)
       }
-      for (d <- 0 until vectorDim) { 
-        field(fieldIndex(d, x, y)) = s(d)
+      for (d <- 0 until 3) { 
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
@@ -277,8 +229,8 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
         case (1, 0) => Seq(+1, 0, 0)
         case (1, 1) => Seq(+1, 0, 0)
       }
-      for (d <- 0 until vectorDim) { 
-        field(fieldIndex(d, x, y)) = s(d)
+      for (d <- 0 until 3) { 
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
@@ -293,8 +245,8 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
         case (1, 0) => Seq(+1, -1, 0)
         case (1, 1) => Seq(+1, +1, 0)
       }
-      for (d <- 0 until vectorDim) { 
-        field(fieldIndex(d, x, y)) = s(d)
+      for (d <- 0 until 3) { 
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
@@ -309,171 +261,70 @@ class Quantum(val w: Int, val h: Int, val t: R, val J_H: R, val B_n: Int, val e_
         case (1, 0) => Seq(-1, +1, -1)
         case (1, 1) => Seq(-1, -1, +1)
       }
-      for (d <- 0 until vectorDim) { 
-        field(fieldIndex(d, x, y)) = s(d)
+      for (d <- 0 until 3) { 
+        field(fieldIndex(d, coord2idx(x, y))) = s(d)
       }
     }
     normalizeField(field)
   }
-  
-  def normalizeField(field: Array[R], validate: Boolean = false) {
-    for (y <- 0 until h;
-         x <- 0 until w) {
-      var acc = 0d
-      for (d <- 0 until 3) {
-        acc += field(fieldIndex(d, x, y)).abs2
-      }
-      acc = math.sqrt(acc)
-      if (validate && !(acc > 0.95 && acc < 1.05))
-        println("Vector magnitude %g deviates too far from normalization".format(acc))
-      for (d <- 0 until 3) {
-        field(fieldIndex(d, x, y)) /= acc
-      }
-    }
-  }
-  
-  // remove component of dS that is parallel to field S
-  def projectTangentField(S: Array[R], dS: Array[R]) {
-    for (y <- 0 until h;
-         x <- 0 until w) {
-      var s_dot_s = 0d
-      var s_dot_ds = 0d
-      for (d <- 0 until 3) {
-        val i = fieldIndex(d, x, y)
-        s_dot_s  += S(i)*S(i)
-        s_dot_ds += S(i)*dS(i)
-      }
-      val alpha = s_dot_ds / s_dot_s
-      for (d <- 0 until 3) {
-        val i = fieldIndex(d, x, y)
-        dS(i) -= alpha * S(i)
-      }
-    }
-  }
 
-  trait Lattice {
-    def neighbors(x: Int, y: Int, d: Int): (Int, Int)
-    def displacement(x: Int, y: Int, d: Int): (Double, Double)
-    def position(x: Int, y: Int): (Double, Double)
+  //
+  //  o - o - o
+  //   \ / \ / \    y
+  //    o - o - o    ^
+  //     \ / \ / \    \
+  //      o - o - o    ----> x
+  //
+  lazy val latticePositions: Array[Vec3] = {
+    (for (i <- 0 until numLatticeSites) yield {
+      val (x, y) = idx2coord(i)
+      val a = 1                                   // horizontal distance between columns
+      val b = 0.5*math.sqrt(3.0)*a                // vertical distance between rows
+	  Vec3(a*x - 0.5*a*y, b*y, 0)
+    }).toArray
   }
   
-  object Lattice extends Lattice {
-    //
-    //  o - o - o
-    //   \ / \ / \    y
-    //    o - o - o    ^
-    //     \ / \ / \    \
-    //      o - o - o    ----> x
-    //
-    
-    def position(x: Int, y: Int): (Double, Double) = {
-      val a = 0.5*math.sqrt(3.0)
-      (x-0.5*y, a*y)
-    }
-
-    def neighbors(x: Int, y: Int, d: Int): (Int, Int) = {
-      //      2   1
-      //      | /
-      //  3 - o - 0
-      //    / |
-      //  4   5
-      val xdel = Seq(1, 1, 0, -1, -1, 0)
-      val ydel = Seq(0, 1, 1, 0, -1, -1)
-      ((x+xdel(d)+w)%w, (y+ydel(d)+h)%h)
-    }
-    
-    def displacement(x: Int, y: Int, d: Int): (Double, Double) = {
-      val a = 0.5*math.sqrt(3.0)
-      val xdisp = Seq(1, 0.5, -0.5, -1, -0.5, 0.5)
-      val ydisp = Seq(0, a, a, 0, -a, -a)
-      (xdisp(d), ydisp(d))
-    }
+  // returns (x, y) indices for the `nn`th neighbor site
+  def neighbors(x: Int, y: Int, nn: Int): (Int, Int) = {
+    //      2   1
+    //      | /
+    //  3 - o - 0
+    //    / |
+    //  4   5
+    val xdel = Seq(1, 1, 0, -1, -1, 0)
+    val ydel = Seq(0, 1, 1, 0, -1, -1)
+    ((x+xdel(nn)+w)%w, (y+ydel(nn)+h)%h)
   }
   
-  def fillHoppingMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
-    m.clear()
+  // returns (dx, dy) positions
+  def displacement(x: Int, y: Int, nn: Int): (Double, Double) = {
+    val a = 0.5*math.sqrt(3.0)
+    val xdisp = Seq(1, 0.5, -0.5, -1, -0.5, 0.5)
+    val ydisp = Seq(0, a, a, 0, -a, -a)
+    (xdisp(nn), ydisp(nn))
+  }
+  
+  // in *unscaled* (physical) energy units 
+  val hoppingMatrix: PackedSparse[S] = {
+    val ret = sparse(2*numLatticeSites, 2*numLatticeSites)
+    ret.clear()
     
     val B = 8*math.Pi*B_n / (math.sqrt(3)*w)
     require(w == h) // necessary for B quantization
     
     for (y <- 0 until h;
          x <- 0 until w;
-         (px, py) = Lattice.position(x, y);
-         d <- 0 until 6;
-         (nx, ny) = Lattice.neighbors(x, y, d);
-         (dx, dy) = Lattice.displacement(x, y, d);
+         nn <- 0 until 6;
+         (nx, ny) = neighbors(x, y, nn);
          sp <- 0 until 2) {
-      val i = matrixIndex(sp, x, y)
-      val j = matrixIndex(sp, nx, ny)
+      val i = matrixIndex(sp, coord2idx(x, y))
+      val j = matrixIndex(sp, coord2idx(nx, ny))
       
-      val theta = (B/2) * (px*dy - py*dx)
-      m(i, j) = (theta*I).exp * (-t)
+      val p = latticePositions(coord2idx(x, y))
+      val (dx, dy) = displacement(x, y, nn)
+      val theta = (B/2) * (p.x*dy - p.y*dx)
+      ret(i, j) = (theta*I).exp * (-t)
     }
-  }
-  
-  def fillMatrix[M[s <: Scalar] <: Sparse[s, M]](m: M[S]) {
-    m.clear()
-    
-    for ((i, j) <- hoppingMatrix.definedIndices) {
-      m(i, j) += hoppingMatrix(i, j)
-    }
-    
-    // loop over all lattice sites
-    for (y <- 0 until h;
-         x <- 0 until w) {
-      
-      // hund coupling 
-      for (sp1 <- 0 until 2;
-           sp2 <- 0 until 2) {
-        
-        var coupling = 0: S#A
-        for (d <- 0 until 3) {
-          coupling += pauli(pauliIndex(sp1, sp2, d)) * field(fieldIndex(d, x, y))
-        }
-        val i = matrixIndex(sp1, x, y)
-        val j = matrixIndex(sp2, x, y)
-        m(i, j) = -J_H * coupling
-      }
-    }
-    
-    // scale matrix appropriately so that eigenvalues lie beween -1 and +1
-    for (i <- 0 until m.numRows) { m(i,i) -= e_avg }
-    m /= e_scale
-
-//    // Make sure hamiltonian is hermitian
-//    val H = m.toDense
-//    require((H - H.dag).norm2.abs < 1e-6, "Found non-hermitian hamiltonian!")
-  }
-
-  def scaleEnergy(x: R): R = {
-    (x - e_avg) / e_scale
-  }
-  
-  // Use chain rule to transform derivative wrt matrix elements dF/dH, into derivative wrt spin indices
-  //   dF/dS = dF/dH dH/dS
-  // In both factors, H is assumed to be dimensionless (scaled energy). If F is also dimensionless, then it
-  // may be desired to multiply the final result by the energy scale.
-  def fieldDerivative(dFdH: PackedSparse[S], dFdS: Array[R]) {
-    // loop over all lattice sites and vector indices
-    for (y <- 0 until h;
-         x <- 0 until w;
-         d <- 0 until 3) {
-      
-      var dCoupling: S#A = 0
-      for (sp1 <- 0 until 2;
-           sp2 <- 0 until 2) {
-        val i = matrixIndex(sp1, x, y)
-        val j = matrixIndex(sp2, x, y)
-        dCoupling += dFdH(i, j) * pauli(pauliIndex(sp1, sp2, d))
-      }
-      require(math.abs(dCoupling.im) < 1e-5, "Imaginary part of field derivative non-zero: " + dCoupling.im)
-      dFdS(fieldIndex(d, x, y)) = -J_H * dCoupling.re
-    }
-    
-    // the derivative is perpendicular to the direction of S, due to constraint |S|=1 
-    projectTangentField(field, dFdS)
-    
-    // properly scale the factor dH/dS, corresponding to scaled H
-    dFdS.transform(_ / e_scale)
+    ret.toPacked
   }
 }

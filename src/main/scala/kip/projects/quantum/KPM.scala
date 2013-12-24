@@ -76,6 +76,17 @@ object KPM {
     ret
   }
   
+  def testExpansionCoeffs() {
+    val order = 10
+    for (qp <- Seq(1*order, 10*order, 100*order, 1000*order)) {
+      val c = KPM.expansionCoefficients2(order, quadPts=qp, e => if (e < 0.12) e else 0)
+      println("new %d %s".format(qp, c.take(10).toSeq))
+    }
+    println("mathematica            " +
+            Seq(-0.31601, 0.4801, -0.185462, -0.000775683, 0.0255405, 0.000683006,
+                -0.00536911, -0.000313801, 0.000758494, 0.0000425209))	
+  }
+
   // --- Plotting stuff ---
     
   // converts moments into a density of states
@@ -170,6 +181,9 @@ abstract class GenKPM(val H: PackedSparse[S], val nrand: Int, val seed: Int) {
   def momentsStochastic(order: Int, r: Dense[S]): Array[R]
   def functionAndGradient(r: Dense[S], c: Array[R], grad: PackedSparse[S]): R
   
+  // Calculate KPM moments exactly by choosing a sequence of 'r' matrices
+  // deterministically. The call to 'momentStochastic' is a misnomer;
+  // nothing is stochastic here.
   def momentsExact(order: Int): Array[R] = {
     val ret = Array.fill[R](order)(0)
     val r = dense(n, nrand)

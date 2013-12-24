@@ -1,12 +1,15 @@
-package kip.projects.quantum
+package kip.projects.quantum.prb13
 
 import java.io.File
+import scala.Float.float2double
+
+import kip.projects.quantum._
 import kip.enrich._
 import kip.math.Vec3
 import kip.util.Statistics._
 
 // For generation of phase diagram in PRB
-
+/*
 object KondoStats extends App {
   val dir = args(0)
   val conf = KondoApp.readConfig(new File(dir+"/cfg.json"))
@@ -140,3 +143,4 @@ object KondoStats extends App {
 
   // println("normalize chirality by %g = 4 / 3^(3/2)".format(4 / math.pow(3, 1.5)))
 }
+*/

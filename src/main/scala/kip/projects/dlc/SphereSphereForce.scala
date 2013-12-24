@@ -169,3 +169,23 @@ object SphereSphereForce {
     makePlot()
   }
 }
+
+/*
+object DielectricEnergy {
+  import kip.projects.dlc._
+  
+  val c = Constants(
+      L     =  4,
+      ra    =  3,
+      rb    =  0.5,
+      eps0  =  1,
+      epsa  =  100,
+      epsb  =  1,
+      qa    =  1,
+      qb    =  1,
+      order = 40
+    )                                             //> c  : kip.projects.dlc.Constants = Constants(40,4.0,3.0,0.5,1.0,100.0,1.0,1.0
+                                                  //| ,1.0)
+  4 * math.Pi * SphereSphereForce.energy(c)       //> res0: Double = 0.13259728019257483
+}
+*/
