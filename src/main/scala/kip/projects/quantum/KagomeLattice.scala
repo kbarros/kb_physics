@@ -85,7 +85,7 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
   lazy val latticePositions: Array[Vec3] = {
     (for (i <- 0 until numLatticeSites) yield { 
       val (v, x, y) = idx2coord(i)
-      val a = 1                                   // horizontal distance between letters (A <-> B)
+      val a = 2.0                                 // horizontal distance between letters (A <-> B)
       val b = 0.5*math.sqrt(3.0)*a                // vertical distance between letters   (A <-> D)
       val r = 1 / (2*math.sqrt(3))*a              // distance between letter and number  (A <-> 0)
       val theta = -math.Pi/6 + (2*math.Pi/3)*v    // angle from letter to number
