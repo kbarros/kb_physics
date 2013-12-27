@@ -63,6 +63,14 @@ object RetainedScene {
     }
   }
   
+  class Triangles(ps: Array[Vec3], color: Color) extends Drawable {
+    require(ps.size % 3 == 0)
+    def draw(gfx: GfxGL) {
+      gfx.setColor(color)
+      gfx.drawTriangles(ps: _*)
+    }
+  }
+
   class TriangleStrip(ps: Array[Vec3], colors: Array[Color]) extends Drawable {
     require(ps.size == colors.size+2)
     def draw(gfx: GfxGL) {

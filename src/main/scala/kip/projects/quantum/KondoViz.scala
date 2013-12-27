@@ -29,14 +29,14 @@ object KondoViz extends App {
   
   val viz = new RetainedScene(bds, sizew=1200, sizeh=800, cameraDistance=0.9)
   
-  def triangularSubLattice(i: Int) = {
-    val w = q.asInstanceOf[TriangularLattice].w
-    val x = i % w
-    val y = i / w
-    (x%2) + 2*(y%2)
-  }
-  
-  def kagomeSubLattice(i: Int) = i % 3
+//  def triangularSubLattice(i: Int) = {
+//    val w = q.asInstanceOf[TriangularLattice].w
+//    val x = i % w
+//    val y = i / w
+//    (x%2) + 2*(y%2)
+//  }
+//  
+//  def kagomeSubLattice(i: Int) = i % 3
   
   def drawSpins(field: Array[R]) {    
     val arrows = for (i <- 0 until q.numLatticeSites) yield {
@@ -58,44 +58,83 @@ object KondoViz extends App {
     }
     viz.drawables ++= arrows
   }
-
   
-//  def drawPlaquettes(field: Array[R]) {
-//    val plaqs = for (y <- (h-2) to 0 by -1) yield {
-//      val pts  = new ArrayBuffer[Vec3]
-//      val vals = new ArrayBuffer[Double]
-//      
-//      val p1 = readPos(0, (y+0)%h)
-//      val p3 = readPos(0, (y+1)%h)
-//      pts += p3
-//      pts += p1
-//      
-//      for (x <- 0 until w-1) {
-//        //
-//        // s3 - s4
-//        //  \ /  \
-//        //  s1 - s2
-//        //
-//        val p2 = readPos((x+1)%w, (y+0)%h)
-//        val p4 = readPos((x+1)%w, (y+1)%h)
-//        val s1 = readSpin((x+0)%w, (y+0)%h, field)
-//        val s2 = readSpin((x+1)%w, (y+0)%h, field)
-//        val s3 = readSpin((x+0)%w, (y+1)%h, field)
-//        val s4 = readSpin((x+1)%w, (y+1)%h, field)
-//        
-//        pts += p4
-//        pts += p2
-//        vals += s1 dot (s4 cross s3)
-//        vals += s1 dot (s2 cross s4)
-//      }
-//      
-//      val cg = ColorGradient.blueRed(-0.9, +0.9, alpha=1.0)
-//      val colors = vals.map(cg.interpolate(_))
-//      new RetainedScene.TriangleStrip(pts.toArray, colors.toArray)
-//    }
-//    
-//    viz.drawables ++= plaqs
-//  }
+  
+  def drawChiralPlaquettes(field: Array[R]) {
+    val cg = ColorGradient.blueRed(-0.9, +0.9, alpha=1.0)
+    
+    q match {
+      case q: TriangularLattice => {
+        def pos(x: Int, y: Int): Vec3  = q.latticePositions(q.coord2idx(x%q.w, y%q.h))
+        def spin(x: Int, y: Int): Vec3 = {
+          val i = q.coord2idx(x%q.w, y%q.h)
+          Vec3(field(3*i+0), field(3*i+1), field(3*i+2))
+        }
+        val plaqs = for (y <- (q.h-2) to 0 by -1) yield {
+          val pts  = new ArrayBuffer[Vec3]
+          val vals = new ArrayBuffer[Double]
+          val p1 = pos(0, y+0)
+          val p3 = pos(0, y+1)
+      	  pts += p3
+      	  pts += p1
+    	    for (x <- 0 until q.w-1) {
+    	      //
+      	    // s3 - s4
+      	    //  \ /  \
+      	    //  s1 - s2
+      	    //
+      	    val p2 = pos(x+1, y+0)
+      	    val p4 = pos(x+1, y+1)
+      	    val s1 = spin(x+0, y+0)
+      	    val s2 = spin(x+1, y+0)
+      	    val s3 = spin(x+0 ,y+1)
+      	    val s4 = spin(x+1, y+1)
+      	    pts += p4
+      	    pts += p2
+      	    vals += s1 dot (s4 cross s3)
+      	    vals += s1 dot (s2 cross s4)
+      	  }
+          val colors = vals.map(cg.interpolate(_))
+          new RetainedScene.TriangleStrip(pts.toArray, colors.toArray)
+        }
+        viz.drawables ++= plaqs
+      }
+      
+      case q: KagomeLattice => {
+        def posAndSpin(v: Int, x: Int, y: Int): (Vec3, Vec3) = {
+          val i = q.coord2idx(v, (x+q.w)%q.w, (y+q.h)%q.h)
+          val p = q.latticePositions(i)
+          val s = Vec3(field(3*i+0), field(3*i+1), field(3*i+2))
+          (p, s)
+        }
+        
+        for (y <- 0 until q.h;
+             x <- 0 until q.w) {
+          //     D\       /E
+          //     - 0 --- 2 - 
+          //         \ /  
+          //          1   
+          //         /B\  
+          //     - 2 --- 0 -
+          val (pB0, sB0) = posAndSpin(0, x, y)
+          val (pB1, sB1) = posAndSpin(1, x, y)
+          val (pB2, sB2) = posAndSpin(2, x, y)
+          val (pE2, sE2) = posAndSpin(2, x, y+1)
+          val (pD0, sD0) = posAndSpin(0, x-1, y+1)
+          
+          val chi1 = sB0 dot (sB1 cross sB2)
+          val tri1 = new RetainedScene.Triangles(Array(pB0, pB1, pB2), cg.interpolate(chi1))
+          viz.drawables :+= tri1
+          
+          if (y < q.h-1 && x > 0) {
+            val chi2 = sE2 dot (sD0 cross sB1)
+            val tri2 = new RetainedScene.Triangles(Array(pE2, pD0, pB1), cg.interpolate(chi2))
+            viz.drawables :+= tri2
+          }
+        }
+      }
+    }
+  }
   
 //  val grid = new Grid("Order parameter")
 //  grid.setScale(-0.77, 0.77)
@@ -186,7 +225,7 @@ object KondoViz extends App {
     
     viz.drawables = Vector() // Vector(new RetainedScene.Cuboid(bds))
     drawSpins(snap.spin)
-//    drawPlaquettes(spin)
+    drawChiralPlaquettes(snap.spin)
     viz.display()
 
 //    so3.drawPath(so3.loop((w/4,w/4), w/4-1).toArray, spin)
