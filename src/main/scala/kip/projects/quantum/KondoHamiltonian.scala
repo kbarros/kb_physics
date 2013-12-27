@@ -8,15 +8,21 @@ object KondoHamiltonian {
   def fromMap(model: Map[String, String]): KondoHamiltonian = {
     val w = model("w").toInt
     val h = model("h").toInt
-    val t = model("t").toDouble
     val J_H = model("J_H").toDouble
     model("type") match {
       case "triangular" => {
+        val t = model("t").toDouble
         val B_n = model("B_n").toInt
         new TriangularLattice(w=w, h=h, t=t, J_H=J_H, B_n=B_n, e_min= -10, e_max= 10)
       }
       case "kagome" => {
+        val t = model("t").toDouble
         new KagomeLattice(w=w, h=h, t=t, J_H=J_H, e_min= -10, e_max= 10)
+      }
+      case "square" => {
+        val t1 = model("t1").toDouble
+        val t2 = model("t2").toDouble
+        new SquareLattice(w=w, h=h, t1=t1, t2=t2, J_H=J_H, e_min= -10, e_max= 10)
       }
     }
   }
