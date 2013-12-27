@@ -95,42 +95,39 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
   
   // returns (v, x, y) indices for the `nn`th neighbor site
   def neighbor(v: Int, x: Int, y: Int, nn: Int): (Int, Int, Int) = {
-	val (nv, xdel, ydel) = (v, nn) match {
-
-    //     1        
-    //    /D\       /E
-	//   2 - 0 --- 2 - 
-	//         \ /
-	//          1
-	//         /B\
-	case (0, 0) => (2, 1, 0)
-	case (0, 1) => (1, 0, 0)
-	case (0, 2) => (2, 0, 0)
-	case (0, 3) => (1, 1,-1)
-
-    //     D\       /E
-	//     - 0 --- 2 - 
-	//         \ /  
-	//          1   
-	//         /B\  
-	//     - 0 --- 2 -
-	case (1, 0) => (2, 0, 1)
-	case (1, 1) => (0,-1, 1)
-	case (1, 2) => (0, 0, 0)
-	case (1, 3) => (2, 0, 0)
-
-	//              1   
-	//    D\       /E\  
-	//    - 0 --- 2 - 0 -
-	//        \ /       
-	//         1        
-	//        /B\
-	case (2, 0) => (0, 0, 0)
-	case (2, 1) => (1, 0, 0)
-	case (2, 2) => (0,-1, 0)
-	case (2, 3) => (1, 0,-1)
-	}
-	(nv, (x+xdel+w)%w, (y+ydel+h)%h)
+    val (nv, xdel, ydel) = (v, nn) match {
+      //     1        
+      //    /D\       /E
+      //   2 - 0 --- 2 - 
+      //         \ /
+      //          1
+      //         /B\
+      case (0, 0) => (2, 1, 0)
+      case (0, 1) => (1, 0, 0)
+      case (0, 2) => (2, 0, 0)
+      case (0, 3) => (1, 1,-1)
+      //     D\       /E
+      //     - 0 --- 2 - 
+      //         \ /  
+      //          1   
+      //         /B\  
+      //     - 2 --- 0 -
+      case (1, 0) => (2, 0, 1)
+      case (1, 1) => (0,-1, 1)
+      case (1, 2) => (2, 0, 0)
+      case (1, 3) => (0, 0, 0)
+      //              1   
+      //    D\       /E\  
+      //    - 0 --- 2 - 0 -
+      //        \ /       
+      //         1        
+      //        /B\
+      case (2, 0) => (0, 0, 0)
+      case (2, 1) => (1, 0, 0)
+      case (2, 2) => (0,-1, 0)
+      case (2, 3) => (1, 0,-1)
+    }
+    (nv, (x+xdel+w)%w, (y+ydel+h)%h)
   }
   
   // in *unscaled* (physical) energy units 
