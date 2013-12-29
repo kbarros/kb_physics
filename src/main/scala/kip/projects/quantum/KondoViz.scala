@@ -36,7 +36,11 @@ object KondoViz extends App {
 //    (x%2) + 2*(y%2)
 //  }
 //  
-//  def kagomeSubLattice(i: Int) = i % 3
+  def kagomeSubLattice(i: Int) = {
+    val q2 = q.asInstanceOf[KagomeLattice]
+    val (v, x, y) = q2.idx2coord(i)
+    v // v + ((x%2) + 2*(y%2))
+  }
   
   def drawSpins(field: Array[R]) {    
     val arrows = for (i <- 0 until q.numLatticeSites) yield {
@@ -50,13 +54,10 @@ object KondoViz extends App {
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
 
-//      if (spinSubLattice(i) == 0)
-//        new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
-//      else
-//        new RetainedScene.Arrow(pos, delta, width*0, color1=gray, color2=gray)
-      new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
+      if (kagomeSubLattice(i) == 2)
+        viz.drawables :+= new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
     }
-    viz.drawables ++= arrows
+//    viz.drawables ++= arrows
   }
   
   
@@ -133,76 +134,117 @@ object KondoViz extends App {
           }
         }
       }
+      
+      case q: SquareLattice => {
+        if (true) {
+        for (y <- 0 until q.h;
+             x <- 0 until q.w) {
+          val i = q.coord2idx(x, y)
+          val Sz = field(3*i+1)
+          val a = 1.0
+          val p1 = q.latticePositions(i) + Vec3(-0.5, -0.5, 0)*a
+          val p2 = p1 + Vec3(a, 0, 0)
+          val p3 = p1 + Vec3(0, a, 0)
+          val p4 = p1 + Vec3(a, a, 0)
+          val c = cg.interpolate(Sz)
+          val tris =  new RetainedScene.Triangles(Array(p1, p2, p3, p3, p2, p4), c)
+          viz.drawables :+= tris
+        }
+        }
+        else {
+          def pos(x: Int, y: Int): Vec3  = q.latticePositions(q.coord2idx(x%q.w, y%q.h))
+          def spin(x: Int, y: Int): Vec3 = {
+            val i = q.coord2idx(x%q.w, y%q.h)
+            Vec3(field(3*i+0), field(3*i+1), field(3*i+2))
+          }
+          val plaqs = for (y <- (q.h-2) to 0 by -1) yield {
+            val pts  = new ArrayBuffer[Vec3]
+            val vals = new ArrayBuffer[Double]
+            val p1 = pos(0, y+0)
+            val p3 = pos(0, y+1)
+            pts += p3
+            pts += p1
+            for (x <- 0 until q.w-1) {
+              //
+              // s3 - s4
+              //  \ /  \
+              //  s1 - s2
+              //
+              val p2 = pos(x+1, y+0)
+              val p4 = pos(x+1, y+1)
+              val s1 = spin(x+0, y+0)
+              val s2 = spin(x+1, y+0)
+              val s3 = spin(x+0 ,y+1)
+              val s4 = spin(x+1, y+1)
+              pts += p4
+              pts += p2
+              vals += s1 dot (s4 cross s3)
+              vals += s1 dot (s2 cross s4)
+            }
+            val colors = vals.map(cg.interpolate(_))
+                new RetainedScene.TriangleStrip(pts.toArray, colors.toArray)
+          }
+          viz.drawables ++= plaqs
+        }
+      }
     }
   }
-  
-//  val grid = new Grid("Order parameter")
-//  grid.setScale(-0.77, 0.77)
-//  scikit.util.Utilities.frame(grid.getComponent(), grid.getTitle())
-//  val gridData = new Array[Double]((2*w)*(2*h))
-//  def drawGrid(field: Array[R]) {
-//    for (y <- 0 until h;
-//         x <- 0 until w) yield {
-//      //
-//      // s4 - s3
-//      //  | / |
-//      // s1 - s2
-//      //
-//      val s1 = readSpin((x+0)%w, (y+0)%h, field)
-//      val s2 = readSpin((x+1)%w, (y+0)%h, field)
-//      val s3 = readSpin((x+1)%w, (y+1)%h, field)
-//      val s4 = readSpin((x+0)%w, (y+1)%h, field)
-//      gridData((2*y+0)*(2*w) + 2*x+0) = s1 dot (s2 cross s3)
-//      gridData((2*y+1)*(2*w) + 2*x+0) = s1 dot (s3 cross s4)
-//      gridData((2*y+0)*(2*w) + 2*x+1) = s1 dot (s2 cross s3)
-//      gridData((2*y+1)*(2*w) + 2*x+1) = s1 dot (s3 cross s4)
-//    }
-//    grid.registerData(2*w, 2*h, gridData)
-//  }
 
-//  // Fourier transform
-//  def splitFieldComponents(field: Array[R]): Seq[Array[R]] = {
-//    val x = new Array[R](w*h)
-//    val y = new Array[R](w*h)
-//    val z = new Array[R](w*h)
-//    for (i <- 0 until w*h) {
-//      x(i) = field(3*i+0)
-//      y(i) = field(3*i+1)
-//      z(i) = field(3*i+2)
-//    }
-//    Seq(x, y, z)
-//  }
-//  val gridFft = new Grid("FFT")
-//  scikit.util.Utilities.frame(gridFft.getComponent(), gridFft.getTitle())
-//  val gridFftData = new Array[Double](w*h)
-//  def drawGridFft(field: Array[R]) {
-//    def fftForward(a: Array[R]): Array[Double] = {
-//      val fft = new FFTReal(Array(h, w))
-//      val ap = fft.allocFourierArray()
-//      fft.forwardTransform(a.map(_.toDouble), ap)
-//      fft.uncompressFourierArray(ap)
-//    }
-//    val Seq(sx, sy, sz) = splitFieldComponents(field)
-//    val fx = fftForward(sx)
-//    val fy = fftForward(sy)
-//    val fz = fftForward(sz)
-//    gridFftData.transform(_ => 0)
-//    for (i <- 0 until h*w) {
-//      import kip.math.Math.sqr
-//      for (f <- Seq(fx, fy, fz)) {
-//        gridFftData(i) += sqr(f(2*i+0)) + sqr(f(2*i+1))
-//      }
-//    }
-//    gridFft.registerData(w, h, gridFftData)
-//    
-////    // three-Q vectors
-////    val i1 = 2*(w/2)+0
-////    val i2 = 2*((h/2)*w)+0
-////    val i3 = 2*((h/2)*w+w/2)+0
-////    val sq1 = Vec3(fx(i1), fy(i1), fz(i1)) / (w*h)
-////    val sq2 = Vec3(fx(i2), fy(i2), fz(i2)) / (w*h)
-////    val sq3 = Vec3(fx(i3), fy(i3), fz(i3)) / (w*h)
-//  }
+  // Fourier transform
+  lazy val gridFft = {
+    val ret = new Grid("FFT")
+    ret.setAutoScale()
+    scikit.util.Utilities.frame(ret.getComponent(), "FFT")
+    ret
+  }
+  
+  def drawGridFft(field: Array[Float]) {
+    import kip.math.Math.sqr
+    q match {
+      case q: SquareLattice => {
+        val n = q.numLatticeSites
+        def splitFieldComponents(field: Array[Float]): Seq[Array[Float]] = {
+          val x = new Array[Float](n)
+          val y = new Array[Float](n)
+          val z = new Array[Float](n)
+          for (i <- 0 until n) {
+            x(i) = field(3*i+0)
+            y(i) = field(3*i+1)
+            z(i) = field(3*i+2)
+          }
+          Seq(x, y, z)
+        }
+        val fft = new FFTReal(Array(q.h, q.w))
+        def fftForward(a: Array[Float]): Array[Double] = {
+          val ap = fft.allocFourierArray()
+          fft.forwardTransform(a.map(_.toDouble), ap)
+          fft.uncompressFourierArray(ap)
+        }
+        val Seq(sx, sy, sz) = splitFieldComponents(field)
+        val fx = fftForward(sx)
+        val fy = fftForward(sy)
+        val fz = fftForward(sz)
+        val gridFftData = Array.fill(n)(0.0)
+        for (i <- 0 until n) {
+          for (f <- Seq(fx, fy, fz)) {
+            gridFftData(i) += sqr(f(2*i+0)) + sqr(f(2*i+1))
+          }
+        }
+        
+        val imax = gridFftData.zipWithIndex.maxBy(_._1)._2
+        val kx = math.min(imax%q.w, q.w - imax%q.w).toDouble
+        val ky = math.min(imax/q.w, q.h - imax/q.w).toDouble
+        val lambda_x = q.w / kx
+        val lambda_y = q.h / ky
+        val lambda = 1 / math.sqrt(1.0/sqr(lambda_x) + 1.0/sqr(lambda_y))
+        println(s"kx=$kx ky=$ky lambda=$lambda diagonal=${lambda/math.sqrt(2.0)}")
+        
+        gridFft.registerData(q.w, q.h, gridFftData)
+      }
+      
+      case _ => ()
+    }
+  }
 
   
 //  val plot = KPM.mkPlot("Integrated rho")
@@ -221,7 +263,7 @@ object KondoViz extends App {
   for (f <- dumpdir.listFiles()) {
     if (true || i == 22) {
     val snap = kip.util.JacksonWrapper.deserialize[KondoSnap](f.slurp)
-    println("t=%g, action=%g".format(snap.time, snap.action))
+    println(s"t=${snap.time}, action=${snap.action} filling=${snap.filling}")
     
     viz.drawables = Vector() // Vector(new RetainedScene.Cuboid(bds))
     drawSpins(snap.spin)
@@ -231,7 +273,7 @@ object KondoViz extends App {
 //    so3.drawPath(so3.loop((w/4,w/4), w/4-1).toArray, spin)
 
 //    drawGrid(spin)
-//    drawGridFft(spin)
+    drawGridFft(snap.spin)
 //    drawDensity(snap.moments)
     
 //    Thread.sleep(500)
