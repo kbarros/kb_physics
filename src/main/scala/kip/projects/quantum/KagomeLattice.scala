@@ -7,11 +7,12 @@ import kip.math.Vec3
 
 object KagomeLattice extends App {
   import kip.util.Util.{time}
-  time("integrated density")(testIntegratedDensity())
+  // time("integrated density")(testIntegratedDensity())
+  testEigenvalues()
   
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=12, h=12, t=1, J_H=0.2, e_min= -6, e_max= 4)
+    val q = new KagomeLattice(w=12, h=12, t=1, J_H=0.2, e_min= -10, e_max= 10)
     q.setFieldZeroQOrthogonal(q.field)
     q.fillMatrix(q.matrix)
     
@@ -25,6 +26,24 @@ object KagomeLattice extends App {
     val plot = KPM.mkPlot("Integrated density of states")
     KPM.plotLines(plot, (range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
     KPM.plotLines(plot, (range, KPM.integrate(range, KPM.eigenvaluesApprox(order, range, kpm), moment=0)), "Approx", java.awt.Color.BLACK)
+  }
+  
+  def testEigenvalues() {
+    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.01, e_min= -10, e_max=10)
+    val n = q.matrix.numRows
+    println("Matrix dim = "+n)
+    
+    q.setFieldZeroQOrthogonal(q.field)
+    q.fillMatrix(q.matrix)
+    var eig = KPM.eigenvaluesExact(q.matrix)
+    val i_cut = n * 2 / 3
+    println(s"Gap between: [${eig(i_cut-2)} ${eig(i_cut-1)}, ${eig(i_cut)} ${eig(i_cut+1)}]")
+    println()
+    
+    def weight(eig: Array[Double], cut: Double) = eig.takeWhile(_ <= cut).map(_.re - cut).sum
+    
+    val mu = 0.5 * (eig(i_cut-1) + eig(i_cut))
+    println(s"Action ${weight(eig, mu)} at mu=$mu")
   }
 }
 
@@ -69,7 +88,6 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
         field(fieldIndex(d, coord2idx(v, x, y))) = s(d)
       }
     }
-    normalizeField(field)
   }
 
   //
