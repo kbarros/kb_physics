@@ -7,13 +7,14 @@ import kip.math.Vec3
 
 object KagomeLattice extends App {
   import kip.util.Util.{time}
-  // time("integrated density")(testIntegratedDensity())
-  testEigenvalues()
+  time("integrated density")(testIntegratedDensity())
+  //testEigenvalues()
   
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=12, h=12, t=1, J_H=0.2, e_min= -10, e_max= 10)
-    q.setFieldZeroQOrthogonal(q.field)
+    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.1, e_min= -10, e_max= 10)
+    //q.setFieldChiral(q.field)
+    q.setFieldNoncoplanar2(q.field)
     q.fillMatrix(q.matrix)
     
     val H = q.matrix
@@ -24,17 +25,24 @@ object KagomeLattice extends App {
     val range = KPM.range(npts=5*order)
     
     val plot = KPM.mkPlot("Integrated density of states")
-    KPM.plotLines(plot, (range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0)), "Exact", java.awt.Color.RED)
-    KPM.plotLines(plot, (range, KPM.integrate(range, KPM.eigenvaluesApprox(order, range, kpm), moment=0)), "Approx", java.awt.Color.BLACK)
+    KPM.plotLines(
+        plot,
+        (range, KPM.integrateDeltas(range, KPM.eigenvaluesExact(H), moment=0).map(_ / q.matrix.numRows)),
+        "Exact", java.awt.Color.RED)
+//    KPM.plotLines(plot, (range, KPM.integrate(range, KPM.eigenvaluesApprox(order, range, kpm), moment=0)), "Approx", java.awt.Color.BLACK)
   }
   
   def testEigenvalues() {
-    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.01, e_min= -10, e_max=10)
+    val q = new KagomeLattice(w=16, h=16, t=1, J_H=1.0, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
-    q.setFieldZeroQOrthogonal(q.field)
+    q.setFieldVortexCrystal(q.field)
     q.fillMatrix(q.matrix)
+    
+    //val snap = KondoSnap(time=0, action=0, filling=0, eig=null, spin=q.field, moments=null)
+    //kip.util.Util.writeStringToFile(kip.util.JacksonWrapper.serialize(snap), "dump0000.json")
+    
     var eig = KPM.eigenvaluesExact(q.matrix)
     val i_cut = n * 2 / 3
     println(s"Gap between: [${eig(i_cut-2)} ${eig(i_cut-1)}, ${eig(i_cut)} ${eig(i_cut+1)}]")
@@ -70,26 +78,83 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
   
   def setField(desc: String) {
     desc match {
-      case "ferro"    => setFieldFerro(field)
-      case "0q_ortho" => setFieldZeroQOrthogonal(field)
+      case "ferro"   => setFieldFerro(field)
+      case "chiral" => setFieldChiral(field)
+      case "ncp2" => setFieldNoncoplanar2(field)
     }
   }
-  
-  def setFieldZeroQOrthogonal(field: Array[R]) {
+
+  def setFieldVortexCrystal(field: Array[R]) {
     for (y <- 0 until h;
          x <- 0 until w;
          v <- 0 until 3) {
-      val s = v match {
-        case 0 => Seq(1, 0, 0)
-        case 1 => Seq(0, 1, 0)
-        case 2 => Seq(0, 0, 1)
+      val u  = 1.0/math.sqrt(3.0)
+      val ua = u * math.cos(math.Pi/6) // 0.5
+      val ub = u * math.sin(math.Pi/6) // 0.289
+      val uz = math.sqrt(1 - u*u) // 0.816
+
+      val va = math.cos(math.Pi/3) // 0.5
+      val vb = math.sin(math.Pi/3) // 0.866
+
+      val s: Seq[R] = (x%2, y%2, v) match {
+        case (0, 0, 0) => Seq(-ua, ub, -uz)
+        case (0, 0, 1) => Seq(-1, 0, 0)
+        case (0, 0, 2) => Seq(-va, vb, 0)
+
+        case (1, 0, 0) => Seq(va, vb, 0)
+        case (1, 0, 1) => Seq(1, 0, 0)
+        case (1, 0, 2) => Seq(ua, ub, -uz)
+
+        case (0, 1, 0) => Seq(ua, -ub, uz)
+        case (0, 1, 1) => Seq(0, u, uz)
+        case (0, 1, 2) => Seq(-ua, -ub, uz)
+
+        case (1, 1, 0) => Seq(-va, -vb, 0)
+        case (1, 1, 1) => Seq(0, -u, -uz)
+        case (1, 1, 2) => Seq(va, -vb, 0)
       }
       for (d <- 0 until 3) { 
         field(fieldIndex(d, coord2idx(v, x, y))) = s(d)
       }
     }
   }
-
+  
+  def setField3q(field: Array[R], b: Array[Array[Vec3]]) {
+    for (y <- 0 until h;
+         x <- 0 until w;
+         v <- 0 until 3) {
+      val s = (x%2, y%2) match {
+        case (0, 0) =>  b(0)(v) + b(1)(v) + b(2)(v)
+        case (1, 0) =>  b(0)(v) - b(1)(v) - b(2)(v)
+        case (0, 1) => -b(0)(v) + b(1)(v) - b(2)(v)
+        case (1, 1) => -b(0)(v) - b(1)(v) + b(2)(v)
+      }
+      val i = coord2idx(v, x, y)
+      field(fieldIndex(0, i)) = s.x
+      field(fieldIndex(1, i)) = s.y
+      field(fieldIndex(2, i)) = s.z
+    }
+    normalizeField(field)
+  }
+  
+  def setFieldChiral(field: Array[R]) {
+    setField3q(field, Array(
+        //            v0               v1              v2
+        // b_i
+        Array(Vec3(0, 0,  0), Vec3(-1, 0, 0), Vec3(0,  0, 0)),
+        Array(Vec3(0, 0, -1), Vec3( 0, 0, 0), Vec3(0,  0, 0)),
+        Array(Vec3(0, 0,  0), Vec3( 0, 0, 0), Vec3(0, -1, 0))
+    ))
+  }
+  
+  def setFieldNoncoplanar2(field: Array[R]) {
+    setField3q(field, Array(
+        Array(Vec3(1, 0, 0), Vec3(0,  0, 0), Vec3(-1, 0,  0)),
+        Array(Vec3(0, 1, 0), Vec3(0, -1, 0), Vec3( 0, 0,  0)),
+        Array(Vec3(0, 0, 0), Vec3(0,  0, 1), Vec3( 0, 0, -1))
+    ))
+  }
+  
   //
   //         1         1         1
   //        /D\       /E\       /F\
