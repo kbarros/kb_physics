@@ -66,4 +66,22 @@ case class Quaternion(val w: Double, val x: Double, val y: Double, val z: Double
       0,   0,   0,   1
     )
   }
+  
+  def rotate(r: Vec3): Vec3 = {
+    val m00 = 1.0 - 2.0*y*y - 2.0*z*z
+    val m10 = 2.0*(x*y + w*z)
+    val m20 = 2.0*(x*z - w*y)
+    
+    val m01 = 2.0*(x*y - w*z)
+    val m11 = 1.0 - 2.0*x*x - 2.0*z*z
+    val m21 = 2.0*(y*z + w*x)
+    
+    val m02 = 2.0*(x*z + w*y)
+    val m12 = 2.0*(y*z - w*x)
+    val m22 = 1.0 - 2.0*x*x - 2.0*y*y
+    
+    Vec3(m00*r.x + m01*r.y + m02*r.z,
+         m10*r.x + m11*r.y + m12*r.z,
+         m20*r.x + m21*r.y + m22*r.z)
+  }
 }

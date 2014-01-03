@@ -69,17 +69,17 @@ abstract class Scene {
       def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent) {
         val dpp = 0.003 // dimensionless displacement per pixel
         val rpp = 0.01  // radians per pixel
-        if (e.isShiftDown) {
-          translation += Vec3(dx, -dy, 0) * dpp
-        }
-        else if (e.isMetaDown) {
-          translation += Vec3(0, 0, -dy)*dpp
-          // val q = Quaternion.fromAxisAngle(0, 0, -dx*rpp)
-          // rotation = (q * rotation).normalize
-        }
-        else {
-          val q = Quaternion.fromAxisAngle(dy*rpp, dx*rpp, 0)
-          rotation = (q * rotation).normalize
+        if (!e.isAltDown() && !e.isControlDown()) {
+          if (e.isShiftDown) {
+            translation += Vec3(dx, -dy, 0) * dpp
+          }
+          else if (e.isMetaDown) {
+            translation += Vec3(0, 0, -dy)*dpp
+          }
+          else {
+            val q = Quaternion.fromAxisAngle(dy*rpp, dx*rpp, 0)
+            rotation = (q * rotation).normalize
+          }
         }
         canvas.repaint()
       }

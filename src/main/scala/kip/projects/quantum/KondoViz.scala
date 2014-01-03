@@ -8,6 +8,8 @@ import kip.math.fft.FFTComplex
 import kip.math.fft.FFTReal
 import scala.collection.mutable.ArrayBuffer
 import kip.graphics._
+import java.awt.event.MouseEvent
+import kip.math.Quaternion
 
 // import kip.projects.quantum.prb13.KondoSO3
 
@@ -29,6 +31,22 @@ object KondoViz extends App {
   
   val viz = new RetainedScene(bds, sizew=1200, sizeh=800, cameraDistance=0.9)
   
+  // independently rotation spins
+  var spinRotation = Quaternion.fromAxisAngle(0, 0, 0)
+  val mouseHandler = new DragHandler {
+    def mouseDraggedDelta(dx: Int, dy: Int, e: MouseEvent) {
+      if (e.isAltDown()) {
+        val dpp = 0.003 // dimensionless displacement per pixel
+        val rpp = 0.01  // radians per pixel
+        val q = Quaternion.fromAxisAngle(dy*rpp, dx*rpp, 0)
+        spinRotation = (q * spinRotation).normalize
+        drawScene()
+      }
+    }
+  }
+  viz.scene.canvas.addMouseListener(mouseHandler)
+  viz.scene.canvas.addMouseMotionListener(mouseHandler)
+  
 //  def triangularSubLattice(i: Int) = {
 //    val w = q.asInstanceOf[TriangularLattice].w
 //    val x = i % w
@@ -44,7 +62,7 @@ object KondoViz extends App {
   
   def drawSpins(field: Array[R]) {    
     val arrows = for (i <- 0 until q.numLatticeSites) yield {
-      val spin = Vec3(field(3*i+0), field(3*i+1), field(3*i+2))
+      val spin = spinRotation.rotate(Vec3(field(3*i+0), field(3*i+1), field(3*i+2)))
       val pos = q.latticePositions(i) - spin*0.3
       val delta = spin
       val width = 0.1
@@ -54,7 +72,7 @@ object KondoViz extends App {
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
 
-      if (kagomeSubLattice(i) == 2)
+//      if (kagomeSubLattice(i) == 2)
         viz.drawables :+= new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
     }
 //    viz.drawables ++= arrows
@@ -136,11 +154,12 @@ object KondoViz extends App {
       }
       
       case q: SquareLattice => {
-        if (true) {
+        if (false) {
         for (y <- 0 until q.h;
              x <- 0 until q.w) {
           val i = q.coord2idx(x, y)
-          val Sz = field(3*i+1)
+          // val Sz = field(3*i+1)
+          val Sz = spinRotation.rotate(Vec3(field(3*i+0), field(3*i+1), field(3*i+2))).z
           val a = 1.0
           val p1 = q.latticePositions(i) + Vec3(-0.5, -0.5, 0)*a
           val p2 = p1 + Vec3(a, 0, 0)
@@ -247,34 +266,44 @@ object KondoViz extends App {
   }
 
   
-//  val plot = KPM.mkPlot("Integrated rho")
-//  def drawDensity(moments: Array[R]) {
-//    val order = moments.size
-//    val range = KPM.range(5*order)
-//    val kernel = KPM.jacksonKernel(order)
-//    val rho = range.map(e => KPM.densityOfStates(moments, kernel, e))
-//    KPM.plotLines(plot, (range, KPM.integrate(range, rho, moment=1)), "Approx", java.awt.Color.BLACK)
-//  }
+  lazy val plot = KPM.mkPlot("Integrated rho")
+  def drawDensity(moments: Array[R]) {
+    val order = moments.size
+    val range = KPM.range(5*order)
+    val kernel = KPM.jacksonKernel(order)
+    val rho = range.map(e => KPM.densityOfStates(moments, kernel, e) / (2*q.numLatticeSites))
+    KPM.plotLines(plot, (range, KPM.integrate(range, rho, moment=0)), "Approx", java.awt.Color.BLACK)
+  }
   
   //scala.tools.nsc.interpreter.ILoop.break(Nil)
   
-
+  var snap: KondoSnap = null
+  
+  def drawScene() {
+    if (snap != null) {
+      viz.drawables = Vector() // Vector(new RetainedScene.Cuboid(bds))
+      val field = if (true) {
+        snap.spin
+      } else {
+        q.asInstanceOf[KagomeLattice].setFieldNoncoplanar2(q.field)
+        q.field
+      }
+      drawSpins(field)
+      drawChiralPlaquettes(field)
+      viz.display()
+    }
+  }
+  
   var i = 0
   for (f <- dumpdir.listFiles()) {
     if (true || i == 22) {
-    val snap = kip.util.JacksonWrapper.deserialize[KondoSnap](f.slurp)
+    snap = kip.util.JacksonWrapper.deserialize[KondoSnap](f.slurp)
     println(s"t=${snap.time}, action=${snap.action} filling=${snap.filling}")
     
-    viz.drawables = Vector() // Vector(new RetainedScene.Cuboid(bds))
-    drawSpins(snap.spin)
-    drawChiralPlaquettes(snap.spin)
-    viz.display()
-
-//    so3.drawPath(so3.loop((w/4,w/4), w/4-1).toArray, spin)
-
-//    drawGrid(spin)
+    drawScene()
+    
     drawGridFft(snap.spin)
-//    drawDensity(snap.moments)
+    drawDensity(snap.moments)
     
 //    Thread.sleep(500)
 //    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(imgdir+"/%03d.png".format(i)))
