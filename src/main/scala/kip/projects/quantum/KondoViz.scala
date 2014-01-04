@@ -285,7 +285,7 @@ object KondoViz extends App {
       val field = if (true) {
         snap.spin
       } else {
-        q.asInstanceOf[KagomeLattice].setFieldNoncoplanar2(q.field)
+        q.asInstanceOf[KagomeLattice].setFieldCoplanar2(q.field)
         q.field
       }
       drawSpins(field)

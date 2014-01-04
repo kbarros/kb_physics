@@ -88,6 +88,18 @@ trait KondoHamiltonian {
     sp + li*(2)
   }
   
+  def getSpin(field: Array[R], li: Int) = {
+    Vec3(field(fieldIndex(0, li)),
+         field(fieldIndex(1, li)),
+         field(fieldIndex(2, li)))
+  }
+  
+  def setSpin(field: Array[R], li: Int, s: Vec3) {
+    field(fieldIndex(0, li)) = s.x
+    field(fieldIndex(1, li)) = s.y
+    field(fieldIndex(2, li)) = s.z
+  }
+  
   def setFieldFerro(field: Array[R]) { 
     field.transform(_ => 1.0)
     normalizeField(field)

@@ -7,14 +7,15 @@ import kip.math.Vec3
 
 object KagomeLattice extends App {
   import kip.util.Util.{time}
-  time("integrated density")(testIntegratedDensity())
-  //testEigenvalues()
+  // time("integrated density")(testIntegratedDensity())
+  // testEigenvalues()
+  testFiveTwelfths()
   
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.1, e_min= -10, e_max= 10)
+    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.5, e_min= -10, e_max= 10)
     //q.setFieldChiral(q.field)
-    q.setFieldNoncoplanar2(q.field)
+    q.setFieldNoncoplanar3(q.field)
     q.fillMatrix(q.matrix)
     
     val H = q.matrix
@@ -33,25 +34,47 @@ object KagomeLattice extends App {
   }
   
   def testEigenvalues() {
-    val q = new KagomeLattice(w=16, h=16, t=1, J_H=1.0, e_min= -10, e_max=10)
+    val q = new KagomeLattice(w=12, h=12, t=1, J_H=1.0, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
-    q.setFieldVortexCrystal(q.field)
+    q.setFieldCoplanar1(q.field)
     q.fillMatrix(q.matrix)
     
     //val snap = KondoSnap(time=0, action=0, filling=0, eig=null, spin=q.field, moments=null)
     //kip.util.Util.writeStringToFile(kip.util.JacksonWrapper.serialize(snap), "dump0000.json")
     
     var eig = KPM.eigenvaluesExact(q.matrix)
-    val i_cut = n * 2 / 3
+    val i_cut = n * 5 / 12
     println(s"Gap between: [${eig(i_cut-2)} ${eig(i_cut-1)}, ${eig(i_cut)} ${eig(i_cut+1)}]")
     println()
     
-    def weight(eig: Array[Double], cut: Double) = eig.takeWhile(_ <= cut).map(_.re - cut).sum
+    def weight(eig: Array[Double], cut: Double) = eig.takeWhile(_ <= cut).map(_.re - cut).sum / q.numLatticeSites
     
     val mu = 0.5 * (eig(i_cut-1) + eig(i_cut))
     println(s"Action ${weight(eig, mu)} at mu=$mu")
+  }
+  
+  def testFiveTwelfths() {
+    val w = 16
+    val mu = 0
+    println(s"Testing energy at w=$w, mu=$mu")
+    
+    val q = new KagomeLattice(w=w, h=w, t=1, J_H=1.0, e_min= -10, e_max=10)
+    
+    def weight(eig: Array[Double]) = eig.takeWhile(_ <= mu).map(_.re - mu).sum / q.numLatticeSites
+    
+    q.setFieldCoplanar1(q.field)
+    q.fillMatrix(q.matrix)
+    println(s"Coplanar1 : ${weight(KPM.eigenvaluesExact(q.matrix))}")
+
+    q.setFieldCoplanar2(q.field)
+    q.fillMatrix(q.matrix)
+    println(s"Coplanar2 : ${weight(KPM.eigenvaluesExact(q.matrix))}")
+    
+    q.setFieldNoncoplanar2(q.field)
+    q.fillMatrix(q.matrix)
+    println(s"Noncoplanar2 : ${weight(KPM.eigenvaluesExact(q.matrix))}")
   }
 }
 
@@ -79,8 +102,11 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
   def setField(desc: String) {
     desc match {
       case "ferro"   => setFieldFerro(field)
-      case "chiral" => setFieldChiral(field)
-      case "ncp2" => setFieldNoncoplanar2(field)
+      case "ncp1"    => setFieldNoncoplanar1(field)
+      case "ncp2"    => setFieldNoncoplanar2(field)
+      case "ncp3"    => setFieldNoncoplanar3(field)
+      case "cp1"     => setFieldCoplanar1(field)
+      case "cp2"     => setFieldCoplanar2(field)
     }
   }
 
@@ -96,29 +122,64 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
       val va = math.cos(math.Pi/3) // 0.5
       val vb = math.sin(math.Pi/3) // 0.866
 
-      val s: Seq[R] = (x%2, y%2, v) match {
-        case (0, 0, 0) => Seq(-ua, ub, -uz)
-        case (0, 0, 1) => Seq(-1, 0, 0)
-        case (0, 0, 2) => Seq(-va, vb, 0)
+      val s = (x%2, y%2, v) match {
+        case (0, 0, 0) => Vec3(-ua, ub, -uz)
+        case (0, 0, 1) => Vec3(-1, 0, 0)
+        case (0, 0, 2) => Vec3(-va, vb, 0)
 
-        case (1, 0, 0) => Seq(va, vb, 0)
-        case (1, 0, 1) => Seq(1, 0, 0)
-        case (1, 0, 2) => Seq(ua, ub, -uz)
+        case (1, 0, 0) => Vec3(va, vb, 0)
+        case (1, 0, 1) => Vec3(1, 0, 0)
+        case (1, 0, 2) => Vec3(ua, ub, -uz)
 
-        case (0, 1, 0) => Seq(ua, -ub, uz)
-        case (0, 1, 1) => Seq(0, u, uz)
-        case (0, 1, 2) => Seq(-ua, -ub, uz)
+        case (0, 1, 0) => Vec3(ua, -ub, uz)
+        case (0, 1, 1) => Vec3(0, u, uz)
+        case (0, 1, 2) => Vec3(-ua, -ub, uz)
 
-        case (1, 1, 0) => Seq(-va, -vb, 0)
-        case (1, 1, 1) => Seq(0, -u, -uz)
-        case (1, 1, 2) => Seq(va, -vb, 0)
+        case (1, 1, 0) => Vec3(-va, -vb, 0)
+        case (1, 1, 1) => Vec3(0, -u, -uz)
+        case (1, 1, 2) => Vec3(va, -vb, 0)
       }
-      for (d <- 0 until 3) { 
-        field(fieldIndex(d, coord2idx(v, x, y))) = s(d)
-      }
+      setSpin(field, coord2idx(v, x, y), s)
     }
   }
   
+  // 0q 120 degree structure
+  def setFieldCoplanar1(field: Array[R]) {
+    val va = math.cos(math.Pi/3)
+    val vb = math.sin(math.Pi/3)
+    for (y <- 0 until h;
+         x <- 0 until w;
+         v <- 0 until 3) {
+      val s = v match {
+        case 0 => Vec3(va, vb, 0)
+        case 1 => Vec3(-1, 0, 0)
+        case 2 => Vec3(va, -vb, 0)
+      }
+      setSpin(field, coord2idx(v, x, y), s)
+    }
+  }
+  
+  // multi-q 120 degree structure
+  def setFieldCoplanar2(field: Array[R]) {
+    val va = math.cos(math.Pi/3)
+    val vb = math.sin(math.Pi/3)
+    for (y <- 0 until h;
+         x <- 0 until w;
+         v <- 0 until 3) {
+      val s = (v, (x+y)%2) match {
+        // even parity
+        case (0, 0) => Vec3(va, vb, 0)
+        case (1, 0) => Vec3(-1, 0, 0)
+        case (2, 0) => Vec3(va, -vb, 0)
+        // odd parity
+        case (0, 1) => Vec3(-1, 0, 0)
+        case (1, 1) => Vec3(va, vb, 0)
+        case (2, 1) => Vec3(va, -vb, 0)
+      }
+      setSpin(field, coord2idx(v, x, y), s)
+    }
+  }
+
   def setField3q(field: Array[R], b: Array[Array[Vec3]]) {
     for (y <- 0 until h;
          x <- 0 until w;
@@ -129,15 +190,13 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
         case (0, 1) => -b(0)(v) + b(1)(v) - b(2)(v)
         case (1, 1) => -b(0)(v) - b(1)(v) + b(2)(v)
       }
-      val i = coord2idx(v, x, y)
-      field(fieldIndex(0, i)) = s.x
-      field(fieldIndex(1, i)) = s.y
-      field(fieldIndex(2, i)) = s.z
+      setSpin(field, coord2idx(v, x, y), s)
     }
     normalizeField(field)
   }
   
-  def setFieldChiral(field: Array[R]) {
+  // Orthogonal sublattice vectors
+  def setFieldNoncoplanar1(field: Array[R]) {
     setField3q(field, Array(
         //            v0               v1              v2
         // b_i
@@ -147,6 +206,8 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
     ))
   }
   
+  // Zero chirality on triangles
+  // 5/12 filling
   def setFieldNoncoplanar2(field: Array[R]) {
     setField3q(field, Array(
         Array(Vec3(1, 0, 0), Vec3(0,  0, 0), Vec3(-1, 0,  0)),
@@ -154,7 +215,16 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
         Array(Vec3(0, 0, 0), Vec3(0,  0, 1), Vec3( 0, 0, -1))
     ))
   }
-  
+
+  // Chiral, 1/12 filling
+  def setFieldNoncoplanar3(field: Array[R]) {
+    setField3q(field, Array(
+        Array(Vec3(1, 0, 0), Vec3(0, 0, 0), Vec3(1, 0, 0)),
+        Array(Vec3(0, 1, 0), Vec3(0, 1, 0), Vec3(0, 0, 0)),
+        Array(Vec3(0, 0, 0), Vec3(0, 0, 1), Vec3(0, 0, 1))
+    ))
+  }
+
   //
   //         1         1         1
   //        /D\       /E\       /F\
