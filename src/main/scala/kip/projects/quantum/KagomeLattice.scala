@@ -7,15 +7,16 @@ import kip.math.Vec3
 
 object KagomeLattice extends App {
   import kip.util.Util.{time}
-  // time("integrated density")(testIntegratedDensity())
-  // testEigenvalues()
-  testFiveTwelfths()
+  time("integrated density")(testIntegratedDensity())
+  //testEigenvalues()
+  //testFiveTwelfths()
   
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.5, e_min= -10, e_max= 10)
+    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.1, e_min= -10, e_max= 10)
     //q.setFieldChiral(q.field)
-    q.setFieldNoncoplanar3(q.field)
+    q.setFieldNoncoplanar2(q.field)
+    //q.setFieldVortexCrystal(q.field)
     q.fillMatrix(q.matrix)
     
     val H = q.matrix
@@ -56,13 +57,23 @@ object KagomeLattice extends App {
   }
   
   def testFiveTwelfths() {
-    val w = 16
+    val w = 10
     val mu = 0
     println(s"Testing energy at w=$w, mu=$mu")
     
-    val q = new KagomeLattice(w=w, h=w, t=1, J_H=1.0, e_min= -10, e_max=10)
+    val q = new KagomeLattice(w=w, h=w, t=1, J_H=0.1, e_min= -10, e_max=10)
     
     def weight(eig: Array[Double]) = eig.takeWhile(_ <= mu).map(_.re - mu).sum / q.numLatticeSites
+    
+//    q.setFieldNoncoplanar3(q.field)
+//    q.fillMatrix(q.matrix)
+//    println(s"Noncoplanar3 : ${weight(KPM.eigenvaluesExact(q.matrix))}")
+//    q.exportFieldGiaWei()
+//    
+//    q.setFieldVortexCrystal(q.field)
+//    q.fillMatrix(q.matrix)
+//    println(s"Vortex crystal : ${weight(KPM.eigenvaluesExact(q.matrix))}")
+//    q.exportFieldGiaWei()
     
     q.setFieldCoplanar1(q.field)
     q.fillMatrix(q.matrix)
@@ -97,6 +108,17 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
   
   def idx2coord(i: Int) = {
     (i%3, (i/3)%w, (i/(3*w))%h)
+  }
+  
+  def exportFieldGiaWei() {
+    var k = 0
+    for (y <- 0 until 2;
+         x <- 0 until 2;
+         v <- Seq(2, 1, 0)) {
+      val s = getSpin(field, coord2idx(v, x, y))
+      println(s"setSpinAtIndex($k, ${s.x}, ${s.y}, ${s.z}) // x=$x, y=$y")
+      k += 1
+    }
   }
   
   def setField(desc: String) {
@@ -210,18 +232,18 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
   // 5/12 filling
   def setFieldNoncoplanar2(field: Array[R]) {
     setField3q(field, Array(
-        Array(Vec3(1, 0, 0), Vec3(0,  0, 0), Vec3(-1, 0,  0)),
-        Array(Vec3(0, 1, 0), Vec3(0, -1, 0), Vec3( 0, 0,  0)),
-        Array(Vec3(0, 0, 0), Vec3(0,  0, 1), Vec3( 0, 0, -1))
+        Array(Vec3(-1, 0,  0), Vec3(0,  0, 0), Vec3(1, 0, 0)),
+        Array(Vec3( 0, 0,  0), Vec3(0, -1, 0), Vec3(0, 1, 0)),
+        Array(Vec3( 0, 0, -1), Vec3(0,  0, 1), Vec3(0, 0, 0))
     ))
   }
 
-  // Chiral, 1/12 filling
+  // Vortex crystal, 1/12, 8/12 fillings
   def setFieldNoncoplanar3(field: Array[R]) {
     setField3q(field, Array(
         Array(Vec3(1, 0, 0), Vec3(0, 0, 0), Vec3(1, 0, 0)),
-        Array(Vec3(0, 1, 0), Vec3(0, 1, 0), Vec3(0, 0, 0)),
-        Array(Vec3(0, 0, 0), Vec3(0, 0, 1), Vec3(0, 0, 1))
+        Array(Vec3(0, 0, 0), Vec3(0, 1, 0), Vec3(0, 1, 0)),
+        Array(Vec3(0, 0, 1), Vec3(0, 0, 1), Vec3(0, 0, 0))
     ))
   }
 
