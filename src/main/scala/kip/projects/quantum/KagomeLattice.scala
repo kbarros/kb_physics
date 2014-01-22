@@ -7,15 +7,15 @@ import kip.math.Vec3
 
 object KagomeLattice extends App {
   import kip.util.Util.{time}
-  time("integrated density")(testIntegratedDensity())
+  //time("integrated density")(testIntegratedDensity())
   //testEigenvalues()
-  //testFiveTwelfths()
+  testFiveTwelfths()
   
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.1, e_min= -10, e_max= 10)
+    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.5, e_min= -10, e_max= 10)
     //q.setFieldChiral(q.field)
-    q.setFieldNoncoplanar2(q.field)
+    q.setFieldNoncoplanar3(q.field)
     //q.setFieldVortexCrystal(q.field)
     q.fillMatrix(q.matrix)
     
@@ -57,23 +57,13 @@ object KagomeLattice extends App {
   }
   
   def testFiveTwelfths() {
-    val w = 10
-    val mu = 0
+    val w = 6
+    val mu = -0.1
     println(s"Testing energy at w=$w, mu=$mu")
     
     val q = new KagomeLattice(w=w, h=w, t=1, J_H=0.1, e_min= -10, e_max=10)
     
     def weight(eig: Array[Double]) = eig.takeWhile(_ <= mu).map(_.re - mu).sum / q.numLatticeSites
-    
-//    q.setFieldNoncoplanar3(q.field)
-//    q.fillMatrix(q.matrix)
-//    println(s"Noncoplanar3 : ${weight(KPM.eigenvaluesExact(q.matrix))}")
-//    q.exportFieldGiaWei()
-//    
-//    q.setFieldVortexCrystal(q.field)
-//    q.fillMatrix(q.matrix)
-//    println(s"Vortex crystal : ${weight(KPM.eigenvaluesExact(q.matrix))}")
-//    q.exportFieldGiaWei()
     
     q.setFieldCoplanar1(q.field)
     q.fillMatrix(q.matrix)
@@ -82,6 +72,10 @@ object KagomeLattice extends App {
     q.setFieldCoplanar2(q.field)
     q.fillMatrix(q.matrix)
     println(s"Coplanar2 : ${weight(KPM.eigenvaluesExact(q.matrix))}")
+    
+    q.setFieldCoplanar3(q.field)
+    q.fillMatrix(q.matrix)
+    println(s"Coplanar3 : ${weight(KPM.eigenvaluesExact(q.matrix))}")
     
     q.setFieldNoncoplanar2(q.field)
     q.fillMatrix(q.matrix)
@@ -132,6 +126,7 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
     }
   }
 
+  // Same as Noncoplanar3
   def setFieldVortexCrystal(field: Array[R]) {
     for (y <- 0 until h;
          x <- 0 until w;
@@ -164,44 +159,46 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
       setSpin(field, coord2idx(v, x, y), s)
     }
   }
+
+  val coplanarBasis = {
+    val c = math.cos(math.Pi/3)
+    val s = math.sin(math.Pi/3)
+    Seq(Vec3(-s, c, 0), Vec3(0, -1, 0), Vec3(s, c, 0))
+  }
   
-  // 0q 120 degree structure
+  // 0q 120 degree structure (candidate at n=5/12)
   def setFieldCoplanar1(field: Array[R]) {
-    val va = math.cos(math.Pi/3)
-    val vb = math.sin(math.Pi/3)
     for (y <- 0 until h;
          x <- 0 until w;
          v <- 0 until 3) {
-      val s = v match {
-        case 0 => Vec3(va, vb, 0)
-        case 1 => Vec3(-1, 0, 0)
-        case 2 => Vec3(va, -vb, 0)
-      }
-      setSpin(field, coord2idx(v, x, y), s)
+      setSpin(field, coord2idx(v, x, y), coplanarBasis(v))
     }
   }
   
-  // multi-q 120 degree structure
+  // multi-q 120 degree structure (candidate at n=5/12)
   def setFieldCoplanar2(field: Array[R]) {
-    val va = math.cos(math.Pi/3)
-    val vb = math.sin(math.Pi/3)
+    require(w % 2 == 0 && h % 2 == 0)
     for (y <- 0 until h;
          x <- 0 until w;
          v <- 0 until 3) {
-      val s = (v, (x+y)%2) match {
-        // even parity
-        case (0, 0) => Vec3(va, vb, 0)
-        case (1, 0) => Vec3(-1, 0, 0)
-        case (2, 0) => Vec3(va, -vb, 0)
-        // odd parity
-        case (0, 1) => Vec3(-1, 0, 0)
-        case (1, 1) => Vec3(va, vb, 0)
-        case (2, 1) => Vec3(va, -vb, 0)
-      }
-      setSpin(field, coord2idx(v, x, y), s)
+      val group = (x+y)%2
+      val j = Seq(Seq(0, 1, 2), Seq(1, 0, 2))(group)(v)
+      setSpin(field, coord2idx(v, x, y), coplanarBasis(j))
     }
   }
 
+  // ground state at n=4/12
+  def setFieldCoplanar3(field: Array[R]) {
+    //require(w % 3 == 0 && h % 3 == 0)
+    for (y <- 0 until h;
+         x <- 0 until w;
+         v <- 0 until 3) {
+      val group = (x+2*y)%3
+      val j = Seq(Seq(0, 1, 2), Seq(2, 0, 1), Seq(1, 2, 0))(group)(v)
+      setSpin(field, coord2idx(v, x, y), coplanarBasis(j))
+    }
+  }
+  
   def setField3q(field: Array[R], b: Array[Array[Vec3]]) {
     for (y <- 0 until h;
          x <- 0 until w;

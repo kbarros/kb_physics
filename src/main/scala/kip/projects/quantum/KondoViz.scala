@@ -64,14 +64,14 @@ object KondoViz extends App {
     val arrows = for (i <- 0 until q.numLatticeSites) yield {
       val spin = spinRotation.rotate(Vec3(field(3*i+0), field(3*i+1), field(3*i+2)))
       val pos = q.latticePositions(i) - spin*0.3
-      val delta = spin
+      val delta = spin*0.85
       val width = 0.1
       
       val red = java.awt.Color.RED
       val green = java.awt.Color.GREEN
       val black = java.awt.Color.BLACK
       val gray = new java.awt.Color(0, 0, 0, 50)
-
+      
 //      if (kagomeSubLattice(i) == 2)
         viz.drawables :+= new RetainedScene.Arrow(pos, delta, width, color1=black, color2=green)
     }
@@ -80,7 +80,7 @@ object KondoViz extends App {
   
   
   def drawChiralPlaquettes(field: Array[R]) {
-    val cg = ColorGradient.blueRed(-0.9, +0.9, alpha=1.0)
+    val cg = ColorGradient.blueRed(-1.0, +1.0, alpha=0.9)
     
     q match {
       case q: TriangularLattice => {
@@ -126,6 +126,7 @@ object KondoViz extends App {
           val s = Vec3(field(3*i+0), field(3*i+1), field(3*i+2))
           (p, s)
         }
+        val blue = Array.fill(3)(new java.awt.Color(0.8f, 0.8f, 1.0f))
         
         for (y <- 0 until q.h;
              x <- 0 until q.w) {
@@ -143,11 +144,16 @@ object KondoViz extends App {
           
           val chi1 = sB0 dot (sB1 cross sB2)
           val tri1 = new RetainedScene.Triangles(Array(pB0, pB1, pB2), cg.interpolate(chi1))
-          viz.drawables :+= tri1
+          val ls1 = new RetainedScene.LineStrip(Array(pB0, pB1, pB2, pB0), blue)
+          // Weird bug: adding these lines affects the color of chiral plaquettes
+          // viz.drawables :+= ls1
+          viz.drawables :+= tri1          
           
           if (y < q.h-1 && x > 0) {
             val chi2 = sE2 dot (sD0 cross sB1)
             val tri2 = new RetainedScene.Triangles(Array(pE2, pD0, pB1), cg.interpolate(chi2))
+            val ls2 = new RetainedScene.LineStrip(Array(pE2, pD0, pB1, pE2), blue)
+            // viz.drawables :+= ls2
             viz.drawables :+= tri2
           }
         }
@@ -285,7 +291,7 @@ object KondoViz extends App {
       val field = if (true) {
         snap.spin
       } else {
-        q.asInstanceOf[KagomeLattice].setFieldCoplanar2(q.field)
+        q.asInstanceOf[KagomeLattice].setFieldCoplanar3(q.field)
         q.field
       }
       drawSpins(field)
