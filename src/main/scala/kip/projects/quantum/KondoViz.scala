@@ -145,7 +145,6 @@ object KondoViz extends App {
           val chi1 = sB0 dot (sB1 cross sB2)
           val tri1 = new RetainedScene.Triangles(Array(pB0, pB1, pB2), cg.interpolate(chi1))
           val ls1 = new RetainedScene.LineStrip(Array(pB0, pB1, pB2, pB0), blue)
-          // Weird bug: adding these lines affects the color of chiral plaquettes
           // viz.drawables :+= ls1
           viz.drawables :+= tri1          
           

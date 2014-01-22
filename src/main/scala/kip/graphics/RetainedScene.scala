@@ -74,7 +74,6 @@ object RetainedScene {
   class TriangleStrip(ps: Array[Vec3], colors: Array[Color]) extends Drawable {
     require(ps.size == colors.size+2)
     def draw(gfx: GfxGL) {
-      gfx.setSmoothShading(false)
       gfx.drawTriangleStrip(ps, colors)
     }
   }
@@ -82,7 +81,6 @@ object RetainedScene {
   class LineStrip(ps: Array[Vec3], colors: Array[Color]) extends Drawable {
     require(ps.size == colors.size+1)
     def draw(gfx: GfxGL) {
-      gfx.setSmoothShading(false)
       gfx.drawLineStrip(ps, colors)
     }
   }
@@ -101,6 +99,7 @@ class RetainedScene(var bds: Bounds3d, cameraDistance: Double = 1.5, sizew: Int 
     def drawContent(gfx: GfxGL) {
       gfx.perspective3d(bds, rotation, translation*((bds.hi-bds.lo).norm), cameraDistance)
       
+      gfx.setSmoothShading(false)
       // gfx.setMultisampling(true)
       for (d <- drawables) {
         d.draw(gfx)
