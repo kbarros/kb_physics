@@ -142,6 +142,7 @@ object KondoViz extends App {
           val (pE2, sE2) = posAndSpin(2, x, y+1)
           val (pD0, sD0) = posAndSpin(0, x-1, y+1)
           
+          // val chi1 = ((sB0 cross sB1) + (sB1 cross sB2) + (sB2 cross sB0)).z / 3.0
           val chi1 = sB0 dot (sB1 cross sB2)
           val tri1 = new RetainedScene.Triangles(Array(pB0, pB1, pB2), cg.interpolate(chi1))
           val ls1 = new RetainedScene.LineStrip(Array(pB0, pB1, pB2, pB0), blue)
@@ -149,6 +150,7 @@ object KondoViz extends App {
           viz.drawables :+= tri1          
           
           if (y < q.h-1 && x > 0) {
+            // val chi2 = ((sE2 cross sD0) + (sD0 cross sB1) + (sB1 cross sE2)).z / 3.0
             val chi2 = sE2 dot (sD0 cross sB1)
             val tri2 = new RetainedScene.Triangles(Array(pE2, pD0, pB1), cg.interpolate(chi2))
             val ls2 = new RetainedScene.LineStrip(Array(pE2, pD0, pB1, pE2), blue)
@@ -301,7 +303,6 @@ object KondoViz extends App {
   
   var i = 0
   for (f <- dumpdir.listFiles()) {
-    if (true || i == 22) {
     snap = kip.util.JacksonWrapper.deserialize[KondoSnap](f.slurp)
     println(s"t=${snap.time}, action=${snap.action} filling=${snap.filling}")
     
@@ -312,8 +313,6 @@ object KondoViz extends App {
     
 //    Thread.sleep(500)
 //    javax.imageio.ImageIO.write(viz.scene.captureImage(), "PNG", new java.io.File(imgdir+"/%03d.png".format(i)))
-    //javax.imageio.ImageIO.write(grid.getImage(), "PNG", new java.io.File("imgs2/%03d.png".format(i)))    
-    }
     i += 1
   }
 }
