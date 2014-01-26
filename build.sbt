@@ -18,7 +18,8 @@ libraryDependencies ++= Seq(
   "net.java.dev.jna" % "jna" % "3.3.0",
   "org.scala-lang" % "scala-compiler" % "2.10.3",
   "org.scala-lang" % "jline" % "2.10.3",
-  "com.googlecode.matrix-toolkits-java" % "mtj" % "0.9.14"
+  "com.googlecode.matrix-toolkits-java" % "mtj" % "1.0.1" // "0.9.14"
+  // "com.github.fommil.netlib" % "all" % 1.1.2
 )
 
 scalacOptions ++= Seq(
