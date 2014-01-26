@@ -6,26 +6,30 @@ import scikit.jobs.Job
 import scikit.jobs.Simulation
 import scikit.jobs.params.DoubleValue
 import scikit.jobs.params.Parameters
-import scikit.numerics.Math2;
+import scikit.numerics.Math2
 import scala.util.Random
 import scala.math.sqrt
 import kip.{graphics => gfx}
+import scikit.graphics.dim3.Grid3D
+import java.awt.Color
 
 class CubicTetrSim(params: Parameters) {
   
+  val random = new Random(params.iget("Random seed", 0))
   val L = params.fget("L")
   val dx = params.fget("dx")
+  val dt = params.fget("dt")
+  val tau = params.fget("tau")
+  val a_b = params.fget("a_b")
+  val a_s = params.fget("a_s")
+  val K0 = params.fget("K0")
+  val eta0 = params.fget("eta0")
+
   val lp = (L / dx).toInt
   val lattice = new PeriodicLattice(lp, lp, lp, dx)
   import lattice._
-  val random = new Random(params.iget("Random seed", 0))
   
-  var dt = params.fget("dt")
-  readParams()
-  
-  var energy = 0.0
-  
-  // x/y/z components of displacement vector u
+  // displacement vector u
   val ux = new Array[Double](N)
   val uy = new Array[Double](N)
   val uz = new Array[Double](N)
@@ -51,35 +55,35 @@ class CubicTetrSim(params: Parameters) {
   val sxz = new Array[Double](N)
   val syz = new Array[Double](N)
   
-  val tau = -1d
-  val a_b = 60d
-  val a_s = 120d
-  val K0 = 1d
-  val eta0 = 10d // 0.2d
+  // elastic + GL energy
+  val energy = new Array[Double](N) 
   
+  def sqr(x: Double) = x*x
+  def cube(x: Double) = x*x*x
+  def hypot(x: Double, y: Double) = math.sqrt(x*x + y*y)
+  def hypot(x: Double, y: Double, z: Double) = math.sqrt(x*x + y*y + z*z)
+
   init()
-  
-  def readParams() {
-    dt = params.fget("dt")
-  }
 
   def init() {
     for (i <- 0 until N) {
-      ux(i) = 0.5*random.nextGaussian()
-      uy(i) = 0.5*random.nextGaussian()
-      uz(i) = 0.5*random.nextGaussian()
+      val (x,y,z) = lattice.index2coord(i)
+      val r = hypot(x-lp/2, y-lp/2, z-lp/2) * dx
+      val sigma = 2.0
+      val amp = 0*math.exp(-r*r / (2*sigma*sigma))
+ 
+      val c = 0.5
+      ux(i) = c*random.nextGaussian() + amp
+      uy(i) = c*random.nextGaussian()
+      uz(i) = c*random.nextGaussian()
       ux_t(i) = 0
       uy_t(i) = 0
       uz_t(i) = 0
-    }
+   }
   }
   
   def step() {
-    def sqr(x: Double) = x*x
-    def cube(x: Double) = x*x*x
     def grad2(a: Array[Double], i: Int) = sqr(dX(a, i)) + sqr(dY(a, i)) + sqr(dZ(a, i))
-
-    energy = 0
     
     for (i <- 0 until N) {
       val ux_x = dX(ux, i)
@@ -116,8 +120,7 @@ class CubicTetrSim(params: Parameters) {
       //     + (a_b/2) e1^2 + (a_s/2) (e4^2 + e5^2 + e6^2)
       //     + (K0/2) ( (grad e2)^2 + (grad e3)^2 )
       //
-      
-      energy += (dx*dx*dx) * (
+      energy(i) = (dx*dx*dx) * (
           tau * (sqr(E2) + sqr(E3)) +
           2 * (cube(E2) - 3*E2*sqr(E3)) +
           sqr(sqr(E2) + sqr(E3)) +
@@ -176,32 +179,76 @@ object CubicTetr extends App {
 }
 
 class CubicTetr extends Simulation {
-  val grid = new gfx.GridView()
-  gfx.Utilities.frame(grid.canvas, w=300, h=300, title="e3")
   
+  class MartensiteGrid3D(title: String) extends Grid3D(title) {
+    override def getColor(x: Int, y: Int, z: Int): Color = {
+      val Array(w, h, d) = super.getDimensions()
+      if (x < 0 || x >= w || y < 0 || y >= h || z < 0 || z >= d)
+        new Color(0,0,0,0)
+      else {
+        val i = w*h*z+w*y+x
+        val theta = math.atan2(sim.e2(i), sim.e3(i)) + math.Pi
+        val r = math.hypot(sim.e2(i), sim.e3(i))
+        
+        val color = java.awt.Color.HSBtoRGB((theta/(2*math.Pi)).toFloat, 1f, math.min(1, r.toFloat))
+        
+        // new Color(0,0,sim.e2(i).toInt*255)
+        new Color(color)
+      }
+    }
+  }
+
+  val gridMart = new MartensiteGrid3D("variants")
+  
+  // nval grid = new gfx.GridView()
+  // gfx.Utilities.frame(grid.canvas, w=300, h=300, title="e3")
+  val gridE1 = new Grid("e1")
+  val gridE2 = new Grid("e2")
+  val gridE3 = new Grid("e3")
+  val gridEnergy = new Grid("energy")
+    
   var sim: CubicTetrSim = _
 
   def load(c: Control) {
-    params.add("L", 20.0)
-    params.add("dx", 1)
-    params.add("Random seed", 0)
-
-    params.addm("dt", 0.02)
-    params.addm("slice", 0)
+    c.frameTogether("Elasticities", gridE1, gridE2, gridE3, gridEnergy)
+    c.frame(gridMart)
     
-    params.add("energy")
+    params.add("Random seed", 0)
+    params.add("L", 20.0)
+    params.add("dx", 1.0)
+    params.add("dt", 0.02)
+    params.add("tau", -1.0)
+    params.add("a_b", 60d)
+    params.add("a_s", 120d)
+    params.add("K0", 1.0d)
+    params.add("eta0", 0.5d)
+
+    params.addm("slice", new DoubleValue(0, 0, 1).withSlider)
+     
+    params.add("energy density")
   }
 
   def animate() {
-    sim.readParams()
-    val data = {
-      val i = params.iget("slice")
-      val n = sim.lp*sim.lp
-      val a = sim.e3.slice(i*n, (i+1)*n)
-      new gfx.GridView.ArrayData(sim.lp, sim.lp, a, gfx.ColorGradient.blueRed(lo= -1.5, hi=1.5))
+    val sliceIdx = math.min((params.fget("slice") * sim.lp).toInt, sim.lp-1)
+    def slice(a: Array[Double]) = {
+      a.slice(sliceIdx*sim.lp*sim.lp, (sliceIdx+1)*sim.lp*sim.lp)
     }
-    grid.display(data)
-    params.set("energy", sim.energy)
+
+//    val data = {
+//      val i = params.iget("slice")
+//      val n = sim.lp*sim.lp
+//      val a = sim.e3.slice(i*n, (i+1)*n)
+//      new gfx.GridView.ArrayData(sim.lp, sim.lp, a, gfx.ColorGradient.blueRed(lo= -1.5, hi=1.5))
+//    }
+//    grid.display(data)
+    gridE1.registerData(sim.lp, sim.lp, slice(sim.e1))
+    gridE2.registerData(sim.lp, sim.lp, slice(sim.e2))
+    gridE3.registerData(sim.lp, sim.lp, slice(sim.e3))
+    gridEnergy.registerData(sim.lp, sim.lp, slice(sim.energy))
+    
+    gridMart.registerData(sim.lp, sim.lp, sim.lp, sim.e2)
+    
+    params.set("energy density", sim.energy.sum/(sim.L*sim.L*sim.L))
 //    println("max " + sim.e3.max)
   }
 
