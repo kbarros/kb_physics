@@ -116,27 +116,33 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
   
   def drawPoints(ps: Vec3*) {
+    gl.glDisable(GL_LIGHTING)
     gl.glBegin(GL_POINTS)
     for (p <- ps) {
       gl.glVertex3d(p.x, p.y, p.z)
     }
     gl.glEnd()
+    gl.glEnable(GL_LIGHTING)
   }
   
   def drawLines(ps: Vec3*) {
+    gl.glDisable(GL_LIGHTING)
     gl.glBegin(GL_LINES)
     for (p <- ps) {
       gl.glVertex3d(p.x, p.y, p.z)
     }
     gl.glEnd();
+    gl.glEnable(GL_LIGHTING)
   }
   
   def drawLineStrip(ps: Vec3*) {
+    gl.glDisable(GL_LIGHTING)
     gl.glBegin(GL_LINE_STRIP)
     for (p <- ps) {
       gl.glVertex3d(p.x, p.y, p.z)
     }
     gl.glEnd();
+    gl.glEnable(GL_LIGHTING)
   }
       
   def drawLineStrip(ps: IndexedSeq[Vec3], colors: IndexedSeq[Color]) {
@@ -149,6 +155,7 @@ class GfxGL(glDrawable: GLAutoDrawable) {
       gl.glVertex3d(ps(i+1).x, ps(i+1).y, ps(i+1).z)
     }
     gl.glEnd()
+    gl.glEnable(GL_LIGHTING)
   }
 
   def drawTriangles(ps: Vec3*) {
