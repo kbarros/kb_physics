@@ -275,6 +275,14 @@ abstract class GenKPM(val H: PackedSparse[S], val nrand: Int, val seed: Int) {
 //    println(r(::,0).norm2.re)
     r
   }
+  
+  def correlatedVectors(grouping: (Int, Int) => Int): Dense[S] = {
+    val r  = dense(n, nrand)
+    val a = Array[S#A](1, I, -1, -I).map(_ * math.sqrt(nrand))
+    r.tabulate { (i, j) =>
+      if (grouping(i, nrand) == j) a(rand.nextInt(4)) else 0
+    }
+  }
 }
 
 

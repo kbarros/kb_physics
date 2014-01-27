@@ -17,7 +17,6 @@ import kip.math.Vec3
 
 object Hamiltonian {
   def main(args: Array[String]) {
-    println("hello world")
     testEigenvalues()
   }
   
@@ -37,10 +36,50 @@ object Hamiltonian {
     mp
   }
   
+  def estimateErrors(h: PackedSparse[S], kpm: KPM, genRand: () => Dense[S]) {
+    val order = 1000
+    val mu = 0.3
+    val fn_energy:  (R => R) = e => if (e < mu) (e - mu) else 0
+    val fn_filling: (R => R) = e => if (e < mu) 1.0 else 0
+    val c_energy  = KPM.expansionCoefficients2(order, quadPts=10*order, fn_energy)
+    val c_filling = KPM.expansionCoefficients2(order, quadPts=10*order, fn_filling)
+    
+    val iters = 200
+    val (es, ns) = (for (i <- 0 until iters) yield {
+      val r = genRand()
+      val moments = kpm.momentsStochastic(order, r)
+      val energy  = (c_energy,  moments).zipped.map(_*_).sum
+      val filling = (c_filling, moments).zipped.map(_*_).sum
+      (energy.toDouble, filling.toDouble)
+    }).unzip
+    
+    import kip.util.Statistics._
+    println(s"energy  ${mean(es)}+-${stddev(es)}")
+    println(s"filling ${mean(ns)}+-${stddev(ns)}")
+    
+//    val densityMatrix = mapMatrix(h.toDense, fn_filling)
+//    val r = genRand()
+//    val q = (r * r.dag) / kpm.nrand
+//    var acc = 0.0
+//    for ((i, j) <- densityMatrix.definedIndices) {
+//      if (i < j) {
+//        acc += (densityMatrix(i,j) * /*q(i, j)*/ (1.0/sqrt(kpm.nrand))).abs2
+//      }
+//    }
+//    println("stddev_filling "+sqrt(acc))
+  }
+  
   def testEigenvalues() {
     val n = 50
     
-    val h = (new Hamiltonian(numAtoms=n, decay=2, cutoff=4.0, rand=new util.Random(0))).matrix()
+    val hamiltonian = new Hamiltonian(numAtoms=n, decay=2, cutoff=4.0, rand=new util.Random(0))
+    val h = hamiltonian.matrix()
+    val kpm = new KPM(h, nrand=10, seed=0)
+
+    println("correlated vectors")
+    estimateErrors(h, kpm, () => kpm.correlatedVectors(hamiltonian.grouping))
+    println("uncorrelated")
+    estimateErrors(h, kpm, () => kpm.randomVector())
     
     val mu = 0.3
     val fn_energy:  (R => R) = e => if (e < mu) (e - mu) else 0
@@ -56,11 +95,12 @@ object Hamiltonian {
     val eig = KPM.eigenvaluesExact(h)
     val exactDensity = KPM.integrateDeltas(range, eig, moment=0).map(_ / n)
     
-    val kpm = new KPM(h, nrand=10, seed=0)
-    val r = kpm.randomVector()
+    //val r = kpm.randomVector()
+    val r = kpm.correlatedVectors(hamiltonian.grouping)
+    drawMatrix(r * r.dag)
     val moments = kpm.momentsStochastic(order, r)
     val kpmEigenvalues = range.map(KPM.densityOfStates(moments, KPM.jacksonKernel(order), _))
-    val kpmDensity = KPM.integrate(range, kpmEigenvalues, moment=0).map(_ / n)
+    val kpmDensity = KPM.integrate(range, kpmEigenvalues, moment=0).map(_ / n)    
     
     val plot = KPM.mkPlot("Integrated density of states")
     KPM.plotLines(plot, (range, exactDensity), "Exact", java.awt.Color.RED)
@@ -89,7 +129,7 @@ class Hamiltonian(val numAtoms: Int, val decay: Double, val cutoff: Double, val 
   }
   
   def grouping(i: Int, s: Int): Int = {
-    require(numAtoms / s == 0)
+    require(numAtoms % s == 0)
     i % s
   }
   
