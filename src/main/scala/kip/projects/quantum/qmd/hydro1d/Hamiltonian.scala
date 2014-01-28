@@ -6,14 +6,8 @@ import kip.projects.quantum.ctor._
 import math._
 import kip.math.Vec3
 
-
 // TODO:
-//  - refactor; KPM gets own directory
-//  - move random out of KPM
-//  - implement Arpack, and move all energy scaling into KPM routines
 //  - check energy derivatives
-//  - try fourier transformation (figure out FFT mapping for BZ of non-square lattice)
-
 
 object Hamiltonian {
   def main(args: Array[String]) {
@@ -35,96 +29,110 @@ object Hamiltonian {
     val mp = v * diag(w.map(x => f(x.re): Complexf)) * v.tran
     mp
   }
-  
-  def estimateErrors(h: PackedSparse[S], kpm: KPM, genRand: () => Dense[S]) {
-    val order = 1000
-    val mu = 0.3
-    val fn_energy:  (R => R) = e => if (e < mu) (e - mu) else 0
-    val fn_filling: (R => R) = e => if (e < mu) 1.0 else 0
-    val c_energy  = KPM.expansionCoefficients2(order, quadPts=10*order, fn_energy)
-    val c_filling = KPM.expansionCoefficients2(order, quadPts=10*order, fn_filling)
-    
-    val iters = 200
-    val (es, ns) = (for (i <- 0 until iters) yield {
-      val r = genRand()
-      val moments = kpm.momentsStochastic(order, r)
-      val energy  = (c_energy,  moments).zipped.map(_*_).sum
-      val filling = (c_filling, moments).zipped.map(_*_).sum
-      (energy.toDouble, filling.toDouble)
-    }).unzip
-    
-    import kip.util.Statistics._
-    println(s"energy  ${mean(es)}+-${stddev(es)}")
-    println(s"filling ${mean(ns)}+-${stddev(ns)}")
-    
-//    val densityMatrix = mapMatrix(h.toDense, fn_filling)
-//    val r = genRand()
-//    val q = (r * r.dag) / kpm.nrand
-//    var acc = 0.0
-//    for ((i, j) <- densityMatrix.definedIndices) {
-//      if (i < j) {
-//        acc += (densityMatrix(i,j) * /*q(i, j)*/ (1.0/sqrt(kpm.nrand))).abs2
-//      }
-//    }
-//    println("stddev_filling "+sqrt(acc))
+
+  def fourierMatrix(n: Int): Dense[S] = {
+    val ret = dense(n, n)
+    ret.tabulate { (i, j) =>
+      ((I*2*Pi*i*j)/n).exp / sqrt(n)
+    } 
+    ret
   }
   
   def testEigenvalues() {
-    val n = 50
-    
-    val hamiltonian = new Hamiltonian(numAtoms=n, decay=2, cutoff=4.0, rand=new util.Random(0))
-    val h = hamiltonian.matrix()
-    val kpm = new KPM(h, nrand=10, seed=0)
-
-    println("correlated vectors")
-    estimateErrors(h, kpm, () => kpm.correlatedVectors(hamiltonian.grouping))
-    println("uncorrelated")
-    estimateErrors(h, kpm, () => kpm.randomVector())
-    
+    val lx = 50
+    val ly = 1
+    val n = lx*ly
+    val order = 1000
+    val decay = 2.0
+    val cutoff = 4.0
+    val spacing = 1.0
+    val disorder = 1.0
     val mu = 0.3
+    val nrand = 10
+    
+    val hamiltonian = new Hamiltonian(lx=lx, ly=ly, decay=decay, cutoff=cutoff, rand=new util.Random(0))
+    hamiltonian.randomizePositions(spacing=spacing, disorder=disorder)
+    val h = hamiltonian.matrix()
+    
     val fn_energy:  (R => R) = e => if (e < mu) (e - mu) else 0
     val fn_filling: (R => R) = e => if (e < mu) 1.0 else 0
     
+    val energyMatrix = mapMatrix(h.toDense, fn_energy)
+    val densityMatrix = mapMatrix(h.toDense, fn_filling)
+    val exactEnergy  = energyMatrix.trace
+    val exactFilling = densityMatrix.trace
+    
     drawMatrix(h.toDense)
-    drawMatrix(mapMatrix(h.toDense, fn_filling))
-    drawMatrix(mapMatrix(h.toDense, fn_energy))
-    
-    val order = 1000
-    val range = KPM.range(npts=5*order)
-    
-    val eig = KPM.eigenvaluesExact(h)
-    val exactDensity = KPM.integrateDeltas(range, eig, moment=0).map(_ / n)
-    
-    //val r = kpm.randomVector()
-    val r = kpm.correlatedVectors(hamiltonian.grouping)
-    drawMatrix(r * r.dag)
-    val moments = kpm.momentsStochastic(order, r)
-    val kpmEigenvalues = range.map(KPM.densityOfStates(moments, KPM.jacksonKernel(order), _))
-    val kpmDensity = KPM.integrate(range, kpmEigenvalues, moment=0).map(_ / n)    
-    
-    val plot = KPM.mkPlot("Integrated density of states")
-    KPM.plotLines(plot, (range, exactDensity), "Exact", java.awt.Color.RED)
-    KPM.plotLines(plot, (range, kpmDensity), "Approx", java.awt.Color.BLACK)
-    
-    val exactEnergy  = eig.map(fn_energy(_)).sum
-    val exactFilling = eig.map(fn_filling(_)).sum
+    drawMatrix(densityMatrix)
+    drawMatrix(energyMatrix)
+
+    val kpm = new KPM(h, nrand=nrand, seed=2)
     val c_energy  = KPM.expansionCoefficients2(order, quadPts=10*order, fn_energy)
     val c_filling = KPM.expansionCoefficients2(order, quadPts=10*order, fn_filling)
-    val kpmEnergy  = (c_energy,  moments).zipped.map(_*_).sum
-    val kpmFilling = (c_filling, moments).zipped.map(_*_).sum
-    println(s"kpmEnergy  = $kpmEnergy ($exactEnergy)")
-    println(s"kpmFilling = $kpmFilling ($exactFilling)")
+    
+    def estimateErrorsEmpirical(genRand: () => Dense[S]) {
+      val iters = 1000
+      val (es, ns) = (for (i <- 0 until iters) yield {
+        val r = genRand()
+        val moments = kpm.momentsStochastic(order, r)
+        val energy  = (c_energy,  moments).zipped.map(_*_).sum
+        val filling = (c_filling, moments).zipped.map(_*_).sum
+        (energy.toDouble, filling.toDouble)
+      }).unzip
+      import kip.util.Statistics._
+      println(s"energy  ${mean(es)}+-${stddev(es)} ($exactEnergy)")
+      println(s"filling ${mean(ns)}+-${stddev(ns)} ($exactFilling)")
+    }
+//    println("correlated vectors")
+//    estimateErrorsEmpirical(() => kpm.correlatedVectors(hamiltonian.grouping))
+//    println("uncorrelated")
+//    estimateErrorsEmpirical(() => kpm.randomVector())
+    
+    def estimateErrorsDeterministic() {
+      // val densityMatrix = mapMatrix(h.toDense, fn_filling)
+      val r = kpm.correlatedVectors(hamiltonian.grouping)
+      val q = (r * r.dag) / kpm.nrand
+      
+      var acc_e_c = 0.0
+      var acc_e_uc = 0.0
+      var acc_n_c = 0.0
+      var acc_n_uc = 0.0
+      for ((i, j) <- densityMatrix.definedIndices) {
+        if (i != j) {
+          acc_e_c  += (energyMatrix(i,j) * q(i, j)).abs2
+          acc_e_uc += (energyMatrix(i,j) / sqrt(kpm.nrand)).abs2
+          acc_n_c  += (densityMatrix(i,j) * q(i, j)).abs2
+          acc_n_uc += (densityMatrix(i,j) / sqrt(kpm.nrand)).abs2
+        }
+      }
+      println(s"e = $exactEnergy +- (c ${sqrt(acc_e_c)}) (uc ${sqrt(acc_e_uc)})")
+      println(s"n = $exactFilling +- (c ${sqrt(acc_n_c)}) (uc ${sqrt(acc_n_uc)})")
+    }
+    estimateErrorsDeterministic()
+    
+    val r = kpm.correlatedVectors(hamiltonian.grouping)
+    drawMatrix(r * r.dag)
+    
+//    val eig = KPM.eigenvaluesExact(h)
+//    val moments = kpm.momentsStochastic(order, r)
+//    val range = KPM.range(npts=5*order)
+//    val kpmEigenvalues = range.map(KPM.densityOfStates(moments, KPM.jacksonKernel(order), _))
+//    val kpmDensity = KPM.integrate(range, kpmEigenvalues, moment=0).map(_ / n)        
+//    val exactDensity = KPM.integrateDeltas(range, eig, moment=0).map(_ / n)
+//    val plot = KPM.mkPlot("Integrated density of states")
+//    KPM.plotLines(plot, (range, exactDensity), "Exact", java.awt.Color.RED)
+//    KPM.plotLines(plot, (range, kpmDensity), "Approx", java.awt.Color.BLACK)
   }
 }
 
-class Hamiltonian(val numAtoms: Int, val decay: Double, val cutoff: Double, val rand: util.Random) {
-  val pos = new Array[Double](numAtoms)
-  
-  randomizePositions(spacing=1.0, disorder=0.0)
+class Hamiltonian(val lx: Int, val ly: Int, val decay: Double, val cutoff: Double, val rand: util.Random) {
+  val numAtoms = lx*ly
+  val pos = new Array[Vec3](numAtoms)
   
   def randomizePositions(spacing: Double, disorder: Double) {
     for (i <- 0 until numAtoms) yield {
-      pos(i) = spacing*i + disorder*rand.nextGaussian()
+      val x = spacing*i + disorder*rand.nextGaussian()
+      pos(i) = Vec3(x, 0, 0)
     }
   }
   
@@ -137,7 +145,7 @@ class Hamiltonian(val numAtoms: Int, val decay: Double, val cutoff: Double, val 
     val ret = sparse(numAtoms, numAtoms): HashSparse[S]
     for (i <- 0 until numAtoms;
          j <- 0 until numAtoms) {
-      val r = abs(pos(i) - pos(j))
+      val r = (pos(i) - pos(j)).norm
       if (r < cutoff) {
         val t_ij = exp(-r/decay)
         ret(i, j) = t_ij

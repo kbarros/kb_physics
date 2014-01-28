@@ -6,6 +6,12 @@ import kip.enrich._
 import smatrix._
 import ctor._
 
+// TODO:
+//  - refactor KPM code into own directory
+//  - scale nrand into random vector matrix
+//  - pass Random object instead of just seed
+//  - implement Arpack, and move all energy scaling into KPM routines
+//  - generalize to calculating individual diagonal elements 
 
 object KPM {
   import scikit.graphics.dim2._
