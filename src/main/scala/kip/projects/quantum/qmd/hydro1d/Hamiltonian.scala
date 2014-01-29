@@ -14,14 +14,15 @@ object Hamiltonian {
     testEigenvalues()
   }
   
-  def drawMatrix(m: Dense[S]) {
-    val n = m.numRows
-    val data = Array.tabulate[Double](n*n) { k =>
-      val i = (n-1) - k / n
-      val j = k % n
-      m(i, j).abs
+  def drawMatrix(mat: Dense[S]) {
+    val n = mat.numRows
+    val m = mat.numCols
+    val data = Array.tabulate[Double](n*m) { k =>
+      val i = (n-1) - k / m
+      val j = k % m
+      mat(i, j).abs
     }
-    scikit.util.Commands.grid(n, n, data)
+    scikit.util.Commands.grid(m, n, data)
   }
   
   def mapMatrix(m: Dense[S], f: R => R): Dense[S] = {
@@ -39,16 +40,16 @@ object Hamiltonian {
   }
   
   def testEigenvalues() {
-    val lx = 50
-    val ly = 1
+    val lx = 36
+    val ly = 36
     val n = lx*ly
     val order = 1000
     val decay = 2.0
     val cutoff = 4.0
     val spacing = 1.0
-    val disorder = 1.0
+    val disorder = 0.2
     val mu = 0.3
-    val nrand = 10
+    val nrand = 64
     
     val hamiltonian = new Hamiltonian(lx=lx, ly=ly, decay=decay, cutoff=cutoff, rand=new util.Random(0))
     hamiltonian.randomizePositions(spacing=spacing, disorder=disorder)
@@ -65,7 +66,7 @@ object Hamiltonian {
     drawMatrix(h.toDense)
     drawMatrix(densityMatrix)
     drawMatrix(energyMatrix)
-
+    
     val kpm = new KPM(h, nrand=nrand, seed=2)
     val c_energy  = KPM.expansionCoefficients2(order, quadPts=10*order, fn_energy)
     val c_filling = KPM.expansionCoefficients2(order, quadPts=10*order, fn_filling)
@@ -88,10 +89,15 @@ object Hamiltonian {
 //    println("uncorrelated")
 //    estimateErrorsEmpirical(() => kpm.randomVector())
     
-    def estimateErrorsDeterministic() {
-      // val densityMatrix = mapMatrix(h.toDense, fn_filling)
-      val r = kpm.correlatedVectors(hamiltonian.grouping)
-      val q = (r * r.dag) / kpm.nrand
+    def estimateErrorsDeterministic(nr: Int) {
+      val r  = dense(n, nr)
+      val a = Array[S#A](1, I, -1, -I).map(_ * math.sqrt(nr))
+      r.tabulate { (i, j) =>
+        if (hamiltonian.grouping(i, nr) == j) a(kpm.rand.nextInt(4)) else 0
+      }
+      // val r = kpm.correlatedVectors(hamiltonian.grouping)
+      
+      val q = (r * r.dag) / nr
       
       var acc_e_c = 0.0
       var acc_e_uc = 0.0
@@ -100,15 +106,19 @@ object Hamiltonian {
       for ((i, j) <- densityMatrix.definedIndices) {
         if (i != j) {
           acc_e_c  += (energyMatrix(i,j) * q(i, j)).abs2
-          acc_e_uc += (energyMatrix(i,j) / sqrt(kpm.nrand)).abs2
+          acc_e_uc += (energyMatrix(i,j) / sqrt(nr)).abs2
           acc_n_c  += (densityMatrix(i,j) * q(i, j)).abs2
-          acc_n_uc += (densityMatrix(i,j) / sqrt(kpm.nrand)).abs2
+          acc_n_uc += (densityMatrix(i,j) / sqrt(nr)).abs2
         }
       }
-      println(s"e = $exactEnergy +- (c ${sqrt(acc_e_c)}) (uc ${sqrt(acc_e_uc)})")
-      println(s"n = $exactFilling +- (c ${sqrt(acc_n_c)}) (uc ${sqrt(acc_n_uc)})")
+      // println(s"e = $exactEnergy +- (c ${sqrt(acc_e_c)}) (uc ${sqrt(acc_e_uc)})")
+      // println(s"n = $exactFilling +- (c ${sqrt(acc_n_c)}) (uc ${sqrt(acc_n_uc)})")
+      println(s"$nr ${sqrt(acc_e_c)} ${sqrt(acc_e_uc)} ${sqrt(acc_n_c)} ${sqrt(acc_n_uc)}")
     }
-    estimateErrorsDeterministic()
+    println("# nrand sig_e_c sig_e_uc sig_n_c sig_n_uc")
+    for (nr <- Seq(1, 4, 9, 16, 36, 81, 144, 324)) {
+      estimateErrorsDeterministic(nr)
+    }
     
     val r = kpm.correlatedVectors(hamiltonian.grouping)
     drawMatrix(r * r.dag)
@@ -129,23 +139,41 @@ class Hamiltonian(val lx: Int, val ly: Int, val decay: Double, val cutoff: Doubl
   val numAtoms = lx*ly
   val pos = new Array[Vec3](numAtoms)
   
+  def latticeCoords(i: Int) = (i%lx, i/lx)
+  
   def randomizePositions(spacing: Double, disorder: Double) {
-    for (i <- 0 until numAtoms) yield {
-      val x = spacing*i + disorder*rand.nextGaussian()
-      pos(i) = Vec3(x, 0, 0)
+    for (i <- 0 until numAtoms) {
+      val (x, y) = latticeCoords(i)
+      val dx = disorder*rand.nextGaussian()
+      val dy = if (ly == 1) 0 else disorder*rand.nextGaussian()
+      pos(i) = Vec3(x+0.5*y+dx, y*sqrt(3.0)/2.0+dy, 0)*spacing
     }
   }
   
   def grouping(i: Int, s: Int): Int = {
-    require(numAtoms % s == 0)
-    i % s
+    if (ly == 1) {
+      require(numAtoms % s == 0)
+      i % s
+    }
+    else {
+      val len = sqrt(s).toInt
+      require(len*len == s)
+      val (x, y) = latticeCoords(i)
+      val xp = x % len
+      val yp = y % len
+      xp + yp*len
+    }
   }
   
   def matrix(): PackedSparse[S] = {
     val ret = sparse(numAtoms, numAtoms): HashSparse[S]
     for (i <- 0 until numAtoms;
          j <- 0 until numAtoms) {
-      val r = (pos(i) - pos(j)).norm
+      val delta = pos(i) - pos(j)
+      val dx = min(abs(delta.x), abs(lx-delta.x))
+      val dy = min(abs(delta.y), abs(ly*sqrt(3.0)/2.0-delta.y))
+      val r = sqrt(dx*dx + dy*dy)
+      // val r = (pos(i) - pos(j)).norm
       if (r < cutoff) {
         val t_ij = exp(-r/decay)
         ret(i, j) = t_ij
