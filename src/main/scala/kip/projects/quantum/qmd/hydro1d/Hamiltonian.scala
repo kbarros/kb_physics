@@ -5,6 +5,7 @@ import kip.projects.quantum._
 import kip.projects.quantum.ctor._
 import math._
 import kip.math.Vec3
+import scikit.dataset.PointSet
 
 // TODO:
 //  - check energy derivatives
@@ -23,6 +24,10 @@ object Hamiltonian {
       mat(i, j).abs
     }
     scikit.util.Commands.grid(m, n, data)
+    
+    val ys = data.slice((n/2)*n+n/2, (n/2+1)*n)
+    val xs = Array.range(1, ys.length+1).map(_.toDouble)
+    scikit.util.Commands.plot(new PointSet(xs, ys))
   }
   
   def mapMatrix(m: Dense[S], f: R => R): Dense[S] = {
@@ -40,18 +45,18 @@ object Hamiltonian {
   }
   
   def testEigenvalues() {
-    val lx = 36
-    val ly = 36
+    val lx = 200
+    val ly = 1
     val n = lx*ly
     val order = 1000
     val decay = 2.0
     val cutoff = 4.0
     val spacing = 1.0
-    val disorder = 0.2
-    val mu = 0.3
-    val nrand = 64
+    val disorder = 0.0
+    val mu = 0.5
+    val nrand = 5
     
-    val hamiltonian = new Hamiltonian(lx=lx, ly=ly, decay=decay, cutoff=cutoff, rand=new util.Random(0))
+    val hamiltonian = new Hamiltonian(lx=lx, ly=ly, decay=decay, cutoff=cutoff, rand=new util.Random(1))
     hamiltonian.randomizePositions(spacing=spacing, disorder=disorder)
     val h = hamiltonian.matrix()
     
@@ -111,18 +116,15 @@ object Hamiltonian {
           acc_n_uc += (densityMatrix(i,j) / sqrt(nr)).abs2
         }
       }
-      // println(s"e = $exactEnergy +- (c ${sqrt(acc_e_c)}) (uc ${sqrt(acc_e_uc)})")
-      // println(s"n = $exactFilling +- (c ${sqrt(acc_n_c)}) (uc ${sqrt(acc_n_uc)})")
       println(s"$nr ${sqrt(acc_e_c)} ${sqrt(acc_e_uc)} ${sqrt(acc_n_c)} ${sqrt(acc_n_uc)}")
     }
     println("# nrand sig_e_c sig_e_uc sig_n_c sig_n_uc")
-    for (nr <- Seq(1, 4, 9, 16, 36, 81, 144, 324)) {
-      estimateErrorsDeterministic(nr)
-    }
+//    for (nr <- Seq(1, 4, 9, 16, 36, 81, 144, 324)) {
+//      estimateErrorsDeterministic(nr)
+//    }
+    estimateErrorsDeterministic(nrand)
     
-    val r = kpm.correlatedVectors(hamiltonian.grouping)
-    drawMatrix(r * r.dag)
-    
+//    val r = kpm.correlatedVectors(hamiltonian.grouping)
 //    val eig = KPM.eigenvaluesExact(h)
 //    val moments = kpm.momentsStochastic(order, r)
 //    val range = KPM.range(npts=5*order)
@@ -170,12 +172,12 @@ class Hamiltonian(val lx: Int, val ly: Int, val decay: Double, val cutoff: Doubl
     for (i <- 0 until numAtoms;
          j <- 0 until numAtoms) {
       val delta = pos(i) - pos(j)
-      val dx = min(abs(delta.x), abs(lx-delta.x))
-      val dy = min(abs(delta.y), abs(ly*sqrt(3.0)/2.0-delta.y))
-      val r = sqrt(dx*dx + dy*dy)
-      // val r = (pos(i) - pos(j)).norm
+      // val dx = min(abs(delta.x), abs(lx-delta.x))
+      // val dy = min(abs(delta.y), abs(ly*sqrt(3.0)/2.0-delta.y))
+      // val r = sqrt(dx*dx + dy*dy)
+      val r = (pos(i) - pos(j)).norm
       if (r < cutoff) {
-        val t_ij = exp(-r/decay)
+        val t_ij = - exp(-r/decay)
         ret(i, j) = t_ij
         ret(j, i) = t_ij
       }
@@ -189,6 +191,9 @@ class Hamiltonian(val lx: Int, val ly: Int, val decay: Double, val cutoff: Doubl
     val e_scale = (e_max - e_min)/2
     for (i <- 0 until numAtoms) { ret(i,i) -= e_avg }
     ret /= (1.01*e_scale)
+    
+    val eig2 = KPM.eigenvaluesExact(ret.toPacked)
+    println(s"max ${eig2.max} min ${eig2.min}")
     
     ret.toPacked
   }
