@@ -30,8 +30,8 @@ class EnergyBins(val e_lo: Double, val e_hi: Double, val n: Int) {
     require(e >= e_lo && e <= e_hi)
     val x = (e - e_lo) / de
     val alpha = x % 1.0
-    val ilo = math.floor(x).toInt
-    val ihi = math.ceil(x).toInt
+    val ilo = math.max(math.floor(x).toInt, 0)
+    val ihi = math.min(math.ceil(x).toInt, n-1)
     (1.0 - alpha) * a(ilo) + alpha * a(ihi) 
   }
 }
@@ -110,7 +110,7 @@ class CuCrO2WL extends Simulation {
     c.frame(histogramPlot, densityPlot, heatPlot)
     params.add("L", 16)
     params.add("Impurity density", 0.0)
-    params.add("Energy bins", 100)
+    params.add("Energy bins", 500)
     params.add("mcs")
     params.add("iteration")
   }
@@ -118,7 +118,8 @@ class CuCrO2WL extends Simulation {
   def run() {
     model = new IsingModel(L=params.iget("L"),
                            impurityDensity=params.fget("Impurity density"))
-    bins = new EnergyBins(e_lo = -2*model.N, e_hi = 2*model.N, n=(4*model.N+1)/10)
+    bins = new EnergyBins(e_lo = -2*model.N, e_hi = 2*model.N, n=params.iget("Energy bins"))
+    println("nbins "+bins.n)
     mcs = 0
     f = Math.exp(1)
     iterations = 0
@@ -135,11 +136,15 @@ class CuCrO2WL extends Simulation {
     for (steps <- 0 until model.N) {
       val de = model.newTrialChange()
       require (model.energy+de >= bins.e_lo && model.energy+de <= bins.e_hi)
-      val dg = bins.interpolate(g, model.energy) - bins.interpolate(g, model.energy+de)
-      if (Math.random() < Math.exp(dg)) {
+      val dg = bins.interpolate(g, model.energy+de) - bins.interpolate(g, model.energy)
+      if (Math.random() < Math.exp(-dg)) {
+        println(s"accepting dg=$dg, from ${bins.index(model.energy)} to ${bins.index(model.energy+de)}")
         model.acceptTrialChange()
       }
-      
+      else {
+        println(s"rejecting dg=$dg, from ${bins.index(model.energy)} to ${bins.index(model.energy+de)}")
+        println(s"e1=${model.energy} e2=${model.energy+de}")
+      }
       val i = bins.index(model.energy)
       g(i) += Math.log(f)
       H(i) += 1
@@ -190,11 +195,15 @@ class CuCrO2WL extends Simulation {
     val histogramData = new DynamicArray()
     val heatData = new Accumulator(0.02)
 
+    val gridPts = math.min(1000, 100*bins.n)
+    val de = (bins.e_hi - bins.e_lo) / gridPts
+    for (e <- bins.e_lo until bins.e_hi by de) {
+//      if (bins.interpolate(g, e) > 0) {
+        densityData.append2(e, bins.interpolate(g, e) - g(0))
+//      }
+    }
     for (i <- 0 until bins.n) {
-      if (g(i) > 0) {
-        densityData.append2  (bins.center(i), g(i) - g(0))
-        histogramData.append2(bins.center(i), H(i))
-      }
+      histogramData.append2(bins.center(i), H(i))
     }
     
     for (T <- 0.5 to 5 by 0.1)
@@ -204,7 +213,7 @@ class CuCrO2WL extends Simulation {
     
     
     densityPlot.setAutoScale(true)
-    densityPlot.registerPoints("Density", densityData, Color.BLUE)
+    densityPlot.registerLines("Density", densityData, Color.BLUE)
     
     histogramPlot.registerPoints("Histogram", histogramData, Color.BLACK)
     
