@@ -29,6 +29,16 @@ object ColorGradient {
             (1,    (255, 100, 100, a)))
     )
   }
+  
+  def purpleGreen(lo: Double, hi: Double, alpha: Double = 1.0) = {
+    val a = (255*alpha).toInt
+    new ColorGradient(lo, hi,
+        Array (
+            (0,    (200, 20, 200, a)),
+            (0.5,  (255, 255, 255, a)),
+            (1,    (40, 255, 40, a)))
+    )
+  }
 }
 
 
