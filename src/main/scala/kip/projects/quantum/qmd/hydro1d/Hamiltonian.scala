@@ -25,6 +25,11 @@ object Hamiltonian {
     }
     scikit.util.Commands.grid(m, n, data)
     
+    val w = rint(sqrt(n)).toInt
+    val h = w
+    val i = (h/2)*w + w/2
+    println(s"i=$i out of n=$n, m=$m")
+//    val ys = data.slice(i*n+i, i*n+i+w/2)
     val ys = data.slice((n/2)*n+n/2, (n/2+1)*n)
     val xs = Array.range(1, ys.length+1).map(_.toDouble)
     scikit.util.Commands.plot(new PointSet(xs, ys))
@@ -45,15 +50,15 @@ object Hamiltonian {
   }
   
   def testEigenvalues() {
-    val lx = 200
-    val ly = 1
+    val lx = 36
+    val ly = 36
     val n = lx*ly
     val order = 1000
-    val decay = 2.0
-    val cutoff = 4.0
+    val decay = 4.0 // 2.0
+    val cutoff = 1.5 // 4.0
     val spacing = 1.0
     val disorder = 0.0
-    val mu = 0.5
+    val mu = 0.2
     val nrand = 5
     
     val hamiltonian = new Hamiltonian(lx=lx, ly=ly, decay=decay, cutoff=cutoff, rand=new util.Random(1))
@@ -76,7 +81,7 @@ object Hamiltonian {
     val c_energy  = KPM.expansionCoefficients2(order, quadPts=10*order, fn_energy)
     val c_filling = KPM.expansionCoefficients2(order, quadPts=10*order, fn_filling)
     
-    def estimateErrorsEmpirical(genRand: () => Dense[S]) {
+    def estimateErrorsStochastic(genRand: () => Dense[S]) {
       val iters = 1000
       val (es, ns) = (for (i <- 0 until iters) yield {
         val r = genRand()
