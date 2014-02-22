@@ -2,11 +2,13 @@ package kip.projects.quantum.kpm
 
 import smatrix._
 import scala.util.Random
+import kip.projects.cuda.JCudaWorld
 
 object Test extends App {
 //  testExpansionCoeffs()
 //  testKPM1()
-  testKPM2()
+  testKPM1Cuda()
+//  testKPM2()
   
   def testExpansionCoeffs() {
     val order = 10
@@ -46,7 +48,38 @@ object Test extends App {
     println(s"KPM energy=$e, expected 50")
     println(s"KPM de_dH(0,0)=${de_dH(0,0)}, expected 10")
   }
-  
+
+  def testKPM1Cuda() {
+    import Constructors.complexDbl._
+    
+    val n = 4
+    val H = {
+      val ret = sparse(n, n)
+      ret(0,0) = 0.5
+      ret(1,1) = -0.5
+      ret(2,2) = 0.0
+      ret(3,3) = 0.0
+      ret.toPacked
+    }
+    
+    def f(x: Double) = x*x  
+    
+    val M = 1000
+    val es: EnergyScale = new EnergyScale(lo = -1, hi = +1) // KPMUtil.energyScale(H)
+    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=(e=>e*e), es=es)
+    val r = KPMUtil.allVectors(n)
+    
+    // val (e, de_dH) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
+    val cworld = new JCudaWorld(deviceIndex=1)
+    val cukpm = new CuKPM(cworld, H, r.numCols, seed=0)
+    
+    val de_dH = H.duplicate
+    val e = cukpm.functionAndGradient(r, c, de_dH, es)
+    
+    println(s"KPM energy=$e, expected 50")
+    println(s"KPM de_dH(0,0)=${de_dH(0,0)}, expected 10")
+  }
+
   def testKPM2() {
     import Constructors.complexDbl._
     
