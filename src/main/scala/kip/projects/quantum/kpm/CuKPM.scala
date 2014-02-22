@@ -93,10 +93,7 @@ class CuKPM(val cworld: JCudaWorld, H: PackedSparse[Scalar.ComplexDbl], nrand: I
   val cudaSource = """
 #include <cuComplex.h>
 extern "C"
-__global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatComplex *b, float scal, cuFloatComplex *gradVal) {
-  int nnz = %d;   // number of non-zero elements
-  int n = %d;     // number of rows in (column) vector
-  int nrand = %d; // number of random vectors
+__global__ void accumulateGrad(int n, int nnz, int nrand, int *dis, int *djs, cuFloatComplex *a, cuFloatComplex *b, float scal, cuFloatComplex *gradVal) {
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   while (idx < nnz) {
     int di = dis[idx];
@@ -114,11 +111,13 @@ __global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatCom
     gradVal[idx] = cuCaddf(gradVal[idx], make_cuFloatComplex(scal * acc_re, scal * acc_im));
     idx += gridDim.x*blockDim.x;
   }
-}
-""".format(nnz, n, nrand)
+}"""
   cworld.loadModule(CuPreparePtx.fromSrcString(cudaSource), Seq("accumulateGrad"))
-  def accumulateGrad(dis_d: Pointer, djs_d: Pointer, a_d: Pointer, b_d: Pointer, scal: Float, gradVal_d: Pointer) {
+  def accumulateGrad(n: Int, nnz: Int, nrand: Int, dis_d: Pointer, djs_d: Pointer, a_d: Pointer, b_d: Pointer, scal: Float, gradVal_d: Pointer) {
     val kernelParameters = Pointer.to(
+      Pointer.to(Array(n)),
+      Pointer.to(Array(nnz)),
+      Pointer.to(Array(nrand)),
       Pointer.to(dis_d),
       Pointer.to(djs_d),
       Pointer.to(a_d),
@@ -216,8 +215,8 @@ __global__ void accumulateGrad(int *dis, int *djs, cuFloatComplex *a, cuFloatCom
     for (m <- order-2 to 0 by -1) {
       // a0 = alpha_{m}
       // b0 = beta_{m}
-      val scal = (if (m == 0) 1f else 2f) / nrand
-      accumulateGrad(dis_d, djs_d, a0_d, b0_d, scal, gradVal_d)
+      val scal = (if (m == 0) 1f else 2f)
+      accumulateGrad(n: Int, nnz: Int, nrand: Int, dis_d, djs_d, a0_d, b0_d, scal, gradVal_d)
       
       // (a0, a1, a2) <= (2 H a1 - a2, a0, a1)
       val temp = a2_d

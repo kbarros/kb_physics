@@ -62,22 +62,27 @@ object Test extends App {
       ret.toPacked
     }
     
-    def f(x: Double) = x*x  
+    def f(x: Double) = x*x
     
-    val M = 1000
+    val M = 100
     val es: EnergyScale = new EnergyScale(lo = -1, hi = +1) // KPMUtil.energyScale(H)
     val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=(e=>e*e), es=es)
     val r = KPMUtil.allVectors(n)
     
     // val (e, de_dH) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
-    val cworld = new JCudaWorld(deviceIndex=1)
+    val cworld = new JCudaWorld(deviceIndex=0)
     val cukpm = new CuKPM(cworld, H, r.numCols, seed=0)
     
     val de_dH = H.duplicate
-    val e = cukpm.functionAndGradient(r, c, de_dH, es)
     
-    println(s"KPM energy=$e, expected 50")
-    println(s"KPM de_dH(0,0)=${de_dH(0,0)}, expected 10")
+    var iter = 0
+    while (true) {
+      val ms = System.currentTimeMillis()
+      val e = cukpm.functionAndGradient(r, c, de_dH, es)
+      println(s"Energy e=$e (0.5), de_dH(0,0)=${de_dH(0,0)} (1.0)")
+      println(s"Iter $iter Elapsed ${(System.currentTimeMillis() - ms)/1000.0}")
+      iter += 1
+    }
   }
 
   def testKPM2() {
