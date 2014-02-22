@@ -1,8 +1,7 @@
 package kip.projects.quantum.qmd
 
 import smatrix._
-import kip.projects.quantum._
-import kip.projects.quantum.ctor._
+import Constructors.complexDbl._
 import kip.math.Vec3
 import kip.javasim.Random
 
@@ -33,7 +32,7 @@ object TbHamiltonian extends App {
       -(pot.hssσ - pot.hppσ)/2 + pot.Δsp/2 + math.sqrt(sqr(pot.Δsp/2+(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ)),
       -(pot.hssσ - pot.hppσ)/2 + pot.Δsp/2 - math.sqrt(sqr(pot.Δsp/2+(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ))
     ).sorted
-    val eig2 = KPM.eigenvaluesExact(tbh.H)
+    val eig2 = tbh.H.toDense.eig._1.toArray.map(_.re).sorted
     
     val eigDev = math.sqrt((eig1 zip eig2).map(e => sqr(e._1-e._2)).sum)
     println(s"Eigenvalue deviation: $eigDev")
@@ -43,9 +42,9 @@ object TbHamiltonian extends App {
     val de_dh = (rmat + rmat.dag).toPacked
     
     // fake energy with simple, random dependence on elements of H 
-    def energy(H: PackedSparse[S]) = (de_dh.toDense dagDot H.toDense).re
+    def energy(H: PackedSparse[Scalar.ComplexDbl]) = (de_dh.toDense dagDot H.toDense).re
     
-    val dx = 0.005
+    val dx = 0.0001
     def deriv(dir: Vec3): Double = {
       val ep = energy(buildHamiltonian(delta + dir*dx).H)
       val em = energy(buildHamiltonian(delta - dir*dx).H)
@@ -84,7 +83,7 @@ class TbHamiltonian(pot: Potential, lat: Lattice, pos: Array[Vec3]) {
   
   // returns forces (-dE/dr_i) on every atom
   
-  def forces(dE_dH: PackedSparse[S]): Array[Vec3] = {
+  def forces(dE_dH: PackedSparse[Scalar.ComplexDbl]): Array[Vec3] = {
     val f = Array.fill(nAtoms)(Vec3.zero)
     
     val tmp   = Array.ofDim[Double](nOrbs, nOrbs)
@@ -98,7 +97,6 @@ class TbHamiltonian(pot: Potential, lat: Lattice, pos: Array[Vec3]) {
       pot.fillTBHoppings(lat.displacement(pos(i), pos(j)), tmp, dh_dx, dh_dy, dh_dz)
       for (o1 <- 0 until nOrbs;
            o2 <- 0 until nOrbs) {
-        // could be simplified by applying Hermiticity of dE_dH
         val dE_dH_ij = (dE_dH(i*nOrbs+o1, j*nOrbs+o2) + dE_dH(j*nOrbs+o2, i*nOrbs+o1)).re
         // force applied by atom i on atom j
         val f_ij = - Vec3(dh_dx(o1)(o2), dh_dy(o1)(o2), dh_dz(o1)(o2)) * dE_dH_ij
