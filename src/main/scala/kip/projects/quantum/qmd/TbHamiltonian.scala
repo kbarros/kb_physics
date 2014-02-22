@@ -10,10 +10,9 @@ object TbHamiltonian extends App {
   testDimer()
   
   def testDimer() {
-    val r0 = 0.8
-    val r = r0
+    val pot = new GoodwinSi(rcut=10)
+    val r = pot.r0
     
-    val pot = new GoodwinSi(r0=r0, rcut=10)
     val lat = new LinearChain(numAtoms=2, spacing=r)
     
     val delta = Vec3(1.1, 2.3, -1.8).normalize * (-r)

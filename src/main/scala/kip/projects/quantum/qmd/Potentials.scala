@@ -21,7 +21,7 @@ trait Potential {
                      dh_dz: Array[Array[Double]])
 }
 
-class GoodwinSi(r0: Double, val rcut: Double) extends Potential {
+class GoodwinSi(val rcut: Double) extends Potential {
   import math._
   
   // inter-orbital hoppings
@@ -36,6 +36,7 @@ class GoodwinSi(r0: Double, val rcut: Double) extends Potential {
   
   val Δsp = 8.295 // (eV) sp energy separation
   
+  val r0 = 2.351 // (Å) equilibrium nearest neighbor distance in Si diamond lattice 
   val rc = 3.67 // (Å) characteristic truncation length
   val nc = 6.48 // (Å) sharpness of truncation
   val ϕ1 = 3.4581 // (eV) pair potential energy scale  
