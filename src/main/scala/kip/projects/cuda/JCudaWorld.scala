@@ -18,6 +18,7 @@ import jcuda.driver.CUdevice
 import jcuda.driver.CUfunction
 import jcuda.driver.CUmodule
 import jcuda.jcusparse.JCusparse
+import jcuda.runtime.JCuda.cudaFree
 import jcuda.runtime.JCuda.cudaMalloc
 import jcuda.runtime.JCuda.cudaMemcpy
 import jcuda.runtime.JCuda.cudaMemset
@@ -112,6 +113,10 @@ class JCudaWorld(deviceIndex: Int) {
     cudaMalloc(data_d, bytes)
     cudaMemcpy(data_d, pointerTo(data_h), bytes, cudaMemcpyHostToDevice)
     data_d
+  }
+  
+  def freeDeviceArray(p_d: Pointer) = {
+    cudaFree(p_d)
   }
   
   def clearDeviceArray(data_d: Pointer, nbytes: Int) {

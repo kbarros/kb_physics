@@ -41,7 +41,7 @@ object Test extends App {
     
     val M = 1000
     val es: EnergyScale = KPMUtil.energyScale(H)
-    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=(e=>e*e), es=es)
+    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=f, es=es)
     val r = KPMUtil.allVectors(n)
     val (e, de_dH) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
     
@@ -55,8 +55,8 @@ object Test extends App {
     val n = 4
     val H = {
       val ret = sparse(n, n)
-      ret(0,0) = 0.5
-      ret(1,1) = -0.5
+      ret(0,0) = 5.0
+      ret(1,1) = -5.0
       ret(2,2) = 0.0
       ret(3,3) = 0.0
       ret.toPacked
@@ -65,20 +65,19 @@ object Test extends App {
     def f(x: Double) = x*x
     
     val M = 100
-    val es: EnergyScale = new EnergyScale(lo = -1, hi = +1) // KPMUtil.energyScale(H)
-    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=(e=>e*e), es=es)
+    val es = KPMUtil.energyScale(H)
+    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=f, es=es)
     val r = KPMUtil.allVectors(n)
     
-    // val (e, de_dH) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
+    val (e, de_dH_cpu) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
+    println(s"CPU e=$e de_dH(0,0)=${de_dH_cpu(0,0)}")
+    
     val cworld = new JCudaWorld(deviceIndex=0)
-    val cukpm = new CuKPM(cworld, H, r.numCols, seed=0)
-    
-    val de_dH = H.duplicate
-    
+    val cukpm = new ComplexKPMGpuS(cworld)
     var iter = 0
     while (true) {
       val ms = System.currentTimeMillis()
-      val e = cukpm.functionAndGradient(r, c, de_dH, es)
+      val (e, de_dH) = cukpm.functionAndGradient(c, r, H, es)
       println(s"Energy e=$e (0.5), de_dH(0,0)=${de_dH(0,0)} (1.0)")
       println(s"Iter $iter Elapsed ${(System.currentTimeMillis() - ms)/1000.0}")
       iter += 1
@@ -110,13 +109,13 @@ object Test extends App {
     
     def f(x: Double) = x*x
     
-    def exactEnergy(H: Dense[Cd]) = {
+    def exactEnergy(H: Dense[Scalar.ComplexDbl]) = {
       H.eig._1.toArray.map(_.re).map(f _).sum
     }
     
     val M = 1000
     val es: EnergyScale = KPMUtil.energyScale(H)
-    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=(e=>e*e), es=es)
+    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=f, es=es)
     val r = KPMUtil.allVectors(n)
     val (e, de_dH) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
     

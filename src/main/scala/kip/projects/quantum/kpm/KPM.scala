@@ -1,7 +1,6 @@
 package kip.projects.quantum.kpm
 
 import smatrix._
-import Constructors.complexDbl._
 import scala.util.Random
 
 class EnergyScale(lo: Double, hi: Double) {
@@ -12,7 +11,7 @@ class EnergyScale(lo: Double, hi: Double) {
     (x - avg) / mag 
   }
   
-  def scale(x: PackedSparse[Cd]) = {
+  def scale(x: PackedSparse[Scalar.ComplexDbl]) = {
     val ret = x.duplicate
     for (i <- 0 until ret.numRows) {
       ret(i, i) -= avg
@@ -66,14 +65,16 @@ object KPMUtil {
   }
   
   // Vectors with random elements in {1, i, -1, -i}
-  def uncorrelatedVectors(n: Int, s: Int, rand: Random): Dense[Cd] = {
+  def uncorrelatedVectors(n: Int, s: Int, rand: Random): Dense[Scalar.ComplexDbl] = {
+    import Constructors.complexDbl._
     val r = dense(n, s)
     val a = Array[Complexd](1, I, -1, -I).map(_ / math.sqrt(s))
     r.fill(a(rand.nextInt(4)))
   }
   
   // Nearly orthogonal vectors with mostly zeros
-  def correlatedVectors(n: Int, s: Int, grouping: Int => Int, rand: Random): Dense[Cd] = {
+  def correlatedVectors(n: Int, s: Int, grouping: Int => Int, rand: Random): Dense[Scalar.ComplexDbl] = {
+    import Constructors.complexDbl._
     val r = dense(n, s)
     val a = Array[Complexd](1, I, -1, -I)
     r.tabulate { (i, j) =>
@@ -83,13 +84,14 @@ object KPMUtil {
     }
   }
   
-  def allVectors(n: Int): Dense[Cd] = {
+  def allVectors(n: Int): Dense[Scalar.ComplexDbl] = {
+    import Constructors.complexDbl._
     val r = dense(n, n)
     for (i <- 0 until n) r(i, i) = 1
     r
   }
   
-  def energyScale(H: PackedSparse[Cd]) = {
+  def energyScale(H: PackedSparse[Scalar.ComplexDbl]) = {
     val eig_min = H.eig(nev=1, which="SR", tol=1e-4)._1.apply(0).re
     val eig_max = H.eig(nev=1, which="LR", tol=1e-4)._1.apply(0).re
     val slack = 0.01 * (eig_max - eig_min)
@@ -99,11 +101,13 @@ object KPMUtil {
 
 
 trait ComplexKPM {
+  type Cd = Scalar.ComplexDbl
   def moments(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): Array[Double]
   def functionAndGradient(c: Array[Double], r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): (Double, PackedSparse[Cd])
 }
 
 object ComplexKPMCpu extends ComplexKPM {
+  import Constructors.complexDbl._
   
   // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
   def momentsAux(M: Int, r: Dense[Cd], Hs: PackedSparse[Cd]): (Array[Double], Dense[Cd], Dense[Cd]) = {
@@ -133,8 +137,7 @@ object ComplexKPMCpu extends ComplexKPM {
   }
   
   def moments(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): Array[Double] = {
-    val Hs = es.scale(H)
-    momentsAux(M, r, Hs)._1
+    momentsAux(M, r, es.scale(H))._1
   }
   
   def functionAndGradient(c: Array[Double], r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): (Double, PackedSparse[Cd]) = {
