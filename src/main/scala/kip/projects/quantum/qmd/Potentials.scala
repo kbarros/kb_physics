@@ -4,8 +4,8 @@ import scala.math.exp
 import scala.math.pow
 import scala.math.sqrt
 import kip.math.Vec3
+import Units._
 
-// all energies in eV, lengths in Angstrom
 trait Potential {
   def rcut: Double
   
@@ -25,21 +25,21 @@ class GoodwinSi(val rcut: Double) extends Potential {
   import math._
   
   // inter-orbital hoppings
-  val hssσ = -1.82 // (eV)
-  val hspσ = 1.96 // (eV)
+  val hssσ = -1.82*eV
+  val hspσ = 1.96*eV
   val hpsσ = -hspσ
-  val hppσ = 3.06 // (eV)
-  val hppπ = -0.87 // (eV)
+  val hppσ = 3.06*eV
+  val hppπ = -0.87*eV
   
-  val en = 2.00 // hopping exponent 
-  val em = 4.54 // potential exponent
+  val en = 2.00           // hopping exponent 
+  val em = 4.54           // potential exponent
   
-  val Δsp = 8.295 // (eV) sp energy separation
+  val Δsp = 8.295*eV      // sp energy separation
   
-  val r0 = 2.351 // (Å) equilibrium nearest neighbor distance in Si diamond lattice 
-  val rc = 3.67 // (Å) characteristic truncation length
-  val nc = 6.48 // (Å) sharpness of truncation
-  val ϕ1 = 3.4581 // (eV) pair potential energy scale  
+  val r0 = 2.351*angstrom // equilibrium nearest neighbor distance in Si diamond lattice 
+  val rc = 3.67*angstrom  // characteristic truncation length
+  val nc = 6.48*angstrom  // sharpness of truncation
+  val ϕ1 = 3.4581*eV      // pair potential energy scale  
   
   
   def phi(r: Double): Double = {

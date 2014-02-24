@@ -1,14 +1,17 @@
 package kip.projects.quantum.qmd
 
+import Units._
 import kip.math.Vec3
 import smatrix._
 import smatrix.Constructors.complexDbl._
 import scala.util.Random
+import kip.projects.quantum.kpm.ComplexKPMCpu
 
 
 object Test extends App {
-  testDimer()
-  testDimerJoel()
+  // testDimer()
+  // testDimerJoel()
+  testForce()
   
   def testDimer() {
     val pot = new GoodwinSi(rcut=10)
@@ -58,12 +61,8 @@ object Test extends App {
   }
   
   
-  def testDimerJoel() {
-    // Use less accurate units to match Joel
-    val bohr = 0.5292 // 0.5291772109217 // (Å)
-    val rydberg = 13.605804 // 13.6056925330 // (eV)
-    
-    val r = 4.2 * bohr
+  def testDimerJoel() { 
+    val r = 4.2*bohr
     val pot = new GoodwinSi(rcut=10)
     val lat = new LinearChain(numAtoms=2, spacing=r)
     
@@ -74,9 +73,39 @@ object Test extends App {
     println(s"Pair energy / atom = ${pot.phi(r) / (natoms*rydberg)} (? 0.17715058505537967 rydberg)")
     
     val eig = tbh.H.toDense.eig._1.toArray.map(_.re).sorted
-    val ezero = 16.59 // (eV)
+    
+    val ezero = natoms*8.295*eV
     val nspin = 2
     val elecEnergy = nspin * (eig.take(4).sum - ezero)
     println(s"Elec. energy / atom = ${elecEnergy / (natoms*rydberg)} (? -0.37133489682938575 rydberg)")
+  }
+  
+  def testForce() {
+    val r = 4.2*bohr
+    val pot = new GoodwinSi(rcut=10)
+    val lat = new LinearChain(numAtoms=2, spacing=r)
+    val T = 0.1 * eV / kB
+    val mu = 7.287906987689409 // half filling
+    
+    def calc(pos: Vec3) = {
+      val x = Array(Vec3.zero, pos)
+      val v = Array(Vec3.zero, Vec3.zero)
+      val tbmd = new TbMD(x, v, pot, lat, ComplexKPMCpu, M=1000)
+      tbmd.energyAndForces(mu, T)
+    }
+    
+    val pos = Vec3(1.3, -0.2, 0.7).normalize * r
+    println("energy " + calc(pos)._1)
+    println("force " + calc(pos)._2.mkString(","))
+    
+    val eps = 1e-5
+    def deriv(dir: Vec3): Double = {
+      val ep = calc(pos + dir*eps)._1
+      val em = calc(pos - dir*eps)._1
+      (ep - em) / (2*eps)
+    }
+    
+    val forceDiscrete = -Vec3(deriv(Vec3(1,0,0)), deriv(Vec3(0,1,0)), deriv(Vec3(0,0,1)))
+    println("force discrete "+forceDiscrete)
   }
 }
