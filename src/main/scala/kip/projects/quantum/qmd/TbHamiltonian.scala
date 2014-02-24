@@ -5,7 +5,7 @@ import smatrix._
 import smatrix.Constructors.complexDbl._
 
 
-class TbHamiltonian(pot: Potential, lat: Lattice, pos: Array[Vec3]) {
+class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
   val nOrbs = pot.numOrbitalsPerSite
   val nAtoms = lat.numAtoms
   val n = nOrbs * nAtoms
@@ -15,9 +15,9 @@ class TbHamiltonian(pot: Potential, lat: Lattice, pos: Array[Vec3]) {
     val h     = Array.ofDim[Double](nOrbs, nOrbs)
     val tmp   = Array.ofDim[Double](nOrbs, nOrbs)
     for (i <- 0 until lat.numAtoms;
-         j <- lat.neighbors(i, pos, pot.rcut);
+         j <- lat.neighbors(i, x, pot.rcut);
          if (j <= i)) {
-      pot.fillTBHoppings(lat.displacement(pos(i), pos(j)), h, tmp, tmp, tmp)
+      pot.fillTBHoppings(lat.displacement(x(i), x(j)), h, tmp, tmp, tmp)
       for (o1 <- 0 until nOrbs;
            o2 <- 0 until nOrbs) {
         H(i*nOrbs+o1, j*nOrbs+o2) = h(o1)(o2)
@@ -39,9 +39,9 @@ class TbHamiltonian(pot: Potential, lat: Lattice, pos: Array[Vec3]) {
     val dh_dz = Array.ofDim[Double](nOrbs, nOrbs)
     
     for (i <- 0 until lat.numAtoms;
-         j <- lat.neighbors(i, pos, pot.rcut);
+         j <- lat.neighbors(i, x, pot.rcut);
          if (j <= i)) {
-      pot.fillTBHoppings(lat.displacement(pos(i), pos(j)), tmp, dh_dx, dh_dy, dh_dz)
+      pot.fillTBHoppings(lat.displacement(x(i), x(j)), tmp, dh_dx, dh_dy, dh_dz)
       for (o1 <- 0 until nOrbs;
            o2 <- 0 until nOrbs) {
         val dE_dH_ij = (dE_dH(i*nOrbs+o1, j*nOrbs+o2) + dE_dH(j*nOrbs+o2, i*nOrbs+o1)).re
@@ -53,6 +53,4 @@ class TbHamiltonian(pot: Potential, lat: Lattice, pos: Array[Vec3]) {
     }
     f
   }
-  
-  
 }

@@ -5,13 +5,13 @@ import kip.math.Vec3
 trait Lattice {
   def numAtoms: Int
   def initialPositions(i: Int): Array[Vec3]
-  def grouping(i: Int, pos: Array[Vec3], s: Int): Int
+  def grouping(i: Int, x: Array[Vec3], s: Int): Int
   
   def displacement(r1: Vec3, r2: Vec3) = r2 - r1
   
-  def neighbors(i: Int, pos: Array[Vec3], rcut: Double): Array[Int] = {
+  def neighbors(i: Int, x: Array[Vec3], rcut: Double): Array[Int] = {
     (for (j <- 0 until numAtoms;
-         if (displacement(pos(i), pos(j)).norm2 < rcut*rcut)) yield j).toArray
+         if (displacement(x(i), x(j)).norm2 < rcut*rcut)) yield j).toArray
   }
 }
 
@@ -21,7 +21,7 @@ class LinearChain(val numAtoms: Int, spacing: Double) extends Lattice {
     Array.tabulate(numAtoms) { i => Vec3(i, 0, 0)*spacing }
   }
   
-  def grouping(i: Int, pos: Array[Vec3], s: Int) = {
+  def grouping(i: Int, x: Array[Vec3], s: Int) = {
     require(numAtoms % s == 0)
     i % s
   }
@@ -48,7 +48,7 @@ class SquareLattice(lx: Int, ly: Int, spacing: Double) extends Lattice {
 //    }
 //  }
   
-  def grouping(i: Int, pos: Array[Vec3], s: Int): Int = {
+  def grouping(i: Int, x: Array[Vec3], s: Int): Int = {
     val len = math.sqrt(s).toInt
     require(len*len == s)
     val (x, y) = latticeCoords(i)
