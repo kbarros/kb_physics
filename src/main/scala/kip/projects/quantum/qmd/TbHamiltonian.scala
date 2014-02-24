@@ -5,15 +5,15 @@ import Constructors.complexDbl._
 import kip.math.Vec3
 import kip.javasim.Random
 
+
 object TbHamiltonian extends App {
-  testDimer()
+//  testDimer()
+  testDimerJoel()
   
   def testDimer() {
     val pot = new GoodwinSi(rcut=10)
     val r = pot.r0
-    
     val lat = new LinearChain(numAtoms=2, spacing=r)
-    
     val delta = Vec3(1.1, 2.3, -1.8).normalize * (-r)
     
     def buildHamiltonian(delta: Vec3) = {
@@ -55,6 +55,29 @@ object TbHamiltonian extends App {
     
     // println(s"$forceDiscrete $forceAnalytical")
     println(s"Force deviation: ${forceAnalytical-forceDiscrete}")
+  }
+  
+  
+  def testDimerJoel() {
+    // Use less accurate units to match Joel
+    val bohr = 0.5292 // 0.5291772109217 // (Å)
+    val rydberg = 13.605804 // 13.6056925330 // (eV)
+    
+    val r = 4.2 * bohr
+    val pot = new GoodwinSi(rcut=10)
+    val lat = new LinearChain(numAtoms=2, spacing=r)
+    
+    val pos = Array(Vec3.zero, Vec3(r, 0, 0))
+    val tbh = new TbHamiltonian(pot, lat, pos)
+    
+    val natoms = 2
+    println(s"Pair energy / atom = ${pot.phi(r) / (natoms*rydberg)} (? 0.17715058505537967 rydberg)")
+    
+    val eig = tbh.H.toDense.eig._1.toArray.map(_.re).sorted
+    val ezero = 16.59 // (eV)
+    val nspin = 2
+    val elecEnergy = nspin * (eig.take(4).sum - ezero)
+    println(s"Elec. energy / atom = ${elecEnergy / (natoms*rydberg)} (? -0.37133489682938575 rydberg)")
   }
 }
 
