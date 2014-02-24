@@ -56,7 +56,7 @@ object Test extends App {
     val H = {
       val ret = sparse(n, n)
       ret(0,0) = 5.0
-      ret(1,1) = -5.0
+      ret(1,1) = -1.0
       ret(2,2) = 0.0
       ret(3,3) = 0.0
       ret.toPacked
@@ -64,7 +64,7 @@ object Test extends App {
     
     def f(x: Double) = x*x
     
-    val M = 100
+    val M = 1000
     val es = KPMUtil.energyScale(H)
     val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=f, es=es)
     val r = KPMUtil.allVectors(n)
@@ -72,12 +72,23 @@ object Test extends App {
     val (e, de_dH_cpu) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
     println(s"CPU e=$e de_dH(0,0)=${de_dH_cpu(0,0)}")
     
+    /*
+      // OLD VERSION
+      val es = new EnergyScale(-1, 1)
+      val nrand = n
+      val cworld = new JCudaWorld(deviceIndex=0)
+      val cukpm = new kip.projects.quantum.CuKPM(cworld, H.map(_.toComplexf), nrand=nrand, seed=0)
+      val de_dH = H.duplicate.clear().map(_.toComplexf)
+      val e = cukpm.functionAndGradient(r=r.map(x => (x*math.sqrt(nrand)).toComplexf), c=c.map(_.toFloat), grad=de_dH)
+      println(s"Energy e=$e (0.5), de_dH(0,0)=${de_dH(0,0)} (1.0)")
+    */
+    
     val cworld = new JCudaWorld(deviceIndex=0)
-    val cukpm = new ComplexKPMGpuS(cworld)
+    val kpm = new ComplexKPMGpuS(cworld)
     var iter = 0
     while (true) {
       val ms = System.currentTimeMillis()
-      val (e, de_dH) = cukpm.functionAndGradient(c, r, H, es)
+      val (e, de_dH) = kpm.functionAndGradient(c, r, H, es)
       println(s"Energy e=$e (0.5), de_dH(0,0)=${de_dH(0,0)} (1.0)")
       println(s"Iter $iter Elapsed ${(System.currentTimeMillis() - ms)/1000.0}")
       iter += 1

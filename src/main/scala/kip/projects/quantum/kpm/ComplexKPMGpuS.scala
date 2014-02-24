@@ -188,8 +188,8 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
   val one  = cuCmplx(1, 0)
   val two  = cuCmplx(2, 0)
   
-  def momentsAux(st: State): (Array[Double], Array[Pointer]) = {
-    val mu = Array.fill(st.s)(0.0)
+  def momentsAux(M: Int, st: State): (Array[Double], Array[Pointer]) = {
+    val mu = Array.fill(M)(0.0)
     mu(0) = st.n           // Tr[T_0[H]] = Tr[1]
     mu(1) = st.Hs.trace.re // Tr[T_1[H]] = Tr[H]
     
@@ -198,7 +198,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     cworld.cpyDeviceToDevice(a_d(0), st.r_d, st.vecBytes)  // a1 = T_0[H] |r> = 1 |r>
     cgemmH(alpha=one, b=st.r_d, beta=zero, a_d(1), st)     // a2 = T_1[H] |r> = H |r>
     
-    for (m <- 2 to st.s-1) {
+    for (m <- 2 to M-1) {
       cworld.cpyDeviceToDevice(a_d(2), a_d(0), st.vecBytes)
       cgemmH(alpha=two, b=a_d(1), beta=neg_one, a_d(2), st) // a2 <- alpha_m = T_m[H] r = 2 H a1 - a0 
       
@@ -216,7 +216,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
   
   def moments(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): Array[Double] = {
     val st = new State(r, es.scale(H))
-    val (mu, _) = momentsAux(st)
+    val (mu, _) = momentsAux(M, st)
     st.deallocate()
     mu
   }
@@ -225,8 +225,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     val st = new State(r, es.scale(H))
     val M = c.size
     
-    val (mu, a_d) = momentsAux(st) // sets a0_d=alpha_{M-2} and a1_d=alpha_{M-1}
-    
+    val (mu, a_d) = momentsAux(M, st) // sets a0_d=alpha_{M-2} and a1_d=alpha_{M-1}
     val b_d = Array(st.b0_d, st.b1_d, st.b2_d)
     cworld.clearDeviceArray(b_d(1), st.vecBytes) // b1 = 0
     scaleVector(c(M-1), st.r_d, b_d(0), st)  // b0 = c(order-1) r
