@@ -6,6 +6,7 @@ import kip.projects.quantum.kpm.ComplexKPM
 import kip.projects.quantum.kpm.KPMUtil
 import smatrix._
 import smatrix.Constructors.complexDbl._
+import kip.projects.quantum.kpm.EnergyScale
 
 
 class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
@@ -27,9 +28,20 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
         H(j*nOrbs+o2, i*nOrbs+o1) = h(o1)(o2)
       }
     }
+    
+    // val hermitDev = math.sqrt((q.matrix - q.matrix.dag).norm2.abs)
+    // require(hermitDev < 1e-6, "Found non-hermitian hamiltonian! Deviation: "+hermitDev)
+    
     H.toPacked
   }
   
+  val energyScale = KPMUtil.energyScale(H)
+  
+  // TODO: make 'r' a parameter
+  def moments(kpm: ComplexKPM, M: Int): Array[Double] = {
+    val r = KPMUtil.allVectors(n)
+    kpm.moments(M, r, H, energyScale)
+  }
   
   def energyAndForces(mu: Double, T: Double, kpm: ComplexKPM, M: Int): (Double, Array[Vec3]) = {
     import math.{max, exp, log}
@@ -38,6 +50,7 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
     val f = Array.fill(nAtoms)(Vec3.zero)
 
     // electronic part
+    // TODO: move up 
     def energyFn(x: Double) = {
       val nspin = 2.0
       val alpha = (x-mu)/(kB*max(T,+0.0))
@@ -48,10 +61,9 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
       else
         -kB*T*nspin*log(1 + exp(-alpha))
     }
-    val es = KPMUtil.energyScale(H)
-    val c = KPMUtil.expansionCoefficients(M, 4*M, energyFn, es)
+    val c = KPMUtil.expansionCoefficients(M, 4*M, energyFn, energyScale)
     val r = KPMUtil.allVectors(n)
-    val (electronicEnergy, de_dH) = kpm.functionAndGradient(c, r, H, es)
+    val (electronicEnergy, de_dH) = kpm.functionAndGradient(c, r, H, energyScale)
     e += electronicEnergy
     val tmp   = Array.ofDim[Double](nOrbs, nOrbs)
     val dh_dx = Array.ofDim[Double](nOrbs, nOrbs)
@@ -90,10 +102,9 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
     def fillingFn(x: Double) = {
       if (x < mu) 1.0 else 0.0
     }
-    val es = KPMUtil.energyScale(H)
-    val c = KPMUtil.expansionCoefficients(M, 4*M, fillingFn, es)
+    val c = KPMUtil.expansionCoefficients(M, 4*M, fillingFn, energyScale)
     val r = KPMUtil.allVectors(n)
-    kpm.functionAndGradient(c, r, H, es)._1 / n
+    kpm.functionAndGradient(c, r, H, energyScale)._1 / n
   }
 
 }

@@ -4,7 +4,7 @@ import kip.math.Vec3
 
 trait Lattice {
   def numAtoms: Int
-  def initialPositions(i: Int): Array[Vec3]
+  def initialPositions: Array[Vec3]
   def grouping(i: Int, x: Array[Vec3], s: Int): Int
   
   def displacement(r1: Vec3, r2: Vec3) = r2 - r1
@@ -16,9 +16,9 @@ trait Lattice {
 }
 
 
-class LinearChain(val numAtoms: Int, spacing: Double) extends Lattice {
-  def initialPositions(i: Int) = {
-    Array.tabulate(numAtoms) { i => Vec3(i, 0, 0)*spacing }
+class LinearChain(val numAtoms: Int, r0: Double) extends Lattice {
+  def initialPositions = {
+    Array.tabulate(numAtoms) { i => Vec3(i, 0, 0)*r0 }
   }
   
   def grouping(i: Int, x: Array[Vec3], s: Int) = {
@@ -27,24 +27,26 @@ class LinearChain(val numAtoms: Int, spacing: Double) extends Lattice {
   }
 }
 
-class SquareLattice(lx: Int, ly: Int, spacing: Double) extends Lattice {
+class SquareLattice(lx: Int, ly: Int, r0: Double) extends Lattice {
   val numAtoms = lx*ly
   
   def latticeCoords(i: Int) = {
     (i%lx, i/lx)
   }
   
-  def initialPositions(i: Int) = {
-    val (x, y) = latticeCoords(i)
-    Array.tabulate(numAtoms) { i => Vec3(x, y, 0)*spacing }
+  def initialPositions = {
+    Array.tabulate(numAtoms) { i =>
+      val (x, y) = latticeCoords(i)
+      Vec3(x, y, 0)*r0
+    }
   }
   
-//  def randomizePositions(spacing: Double, disorder: Double) {
+//  def randomizePositions(r0: Double, disorder: Double) {
 //    for (i <- 0 until numAtoms) {
 //      val (x, y) = latticeCoords(i)
 //      val dx = disorder*rand.nextGaussian()
 //      val dy = if (ly == 1) 0 else disorder*rand.nextGaussian()
-//      pos(i) = Vec3(x+0.5*y+dx, y*sqrt(3.0)/2.0+dy, 0)*spacing
+//      pos(i) = Vec3(x+0.5*y+dx, y*sqrt(3.0)/2.0+dy, 0)*r0
 //    }
 //  }
   

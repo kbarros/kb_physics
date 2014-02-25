@@ -21,7 +21,7 @@ trait Potential {
                      dh_dz: Array[Array[Double]])
 }
 
-class GoodwinSi(val rcut: Double) extends Potential {
+object GoodwinSi extends Potential {
   import math._
   
   // inter-orbital hoppings
@@ -40,6 +40,8 @@ class GoodwinSi(val rcut: Double) extends Potential {
   val rc = 3.67*angstrom  // characteristic truncation length
   val nc = 6.48*angstrom  // sharpness of truncation
   val ϕ1 = 3.4581*eV      // pair potential energy scale  
+  
+  val rcut = 1.3*rc       // at this distance, hopping decays by factor ~1e-4
   
   
   def phi(r: Double): Double = {

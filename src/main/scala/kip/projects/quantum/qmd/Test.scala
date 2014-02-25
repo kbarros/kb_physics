@@ -14,9 +14,9 @@ object Test extends App {
   testForce()
   
   def testDimer() {
-    val pot = new GoodwinSi(rcut=10)
+    val pot = GoodwinSi
     val r = pot.r0
-    val lat = new LinearChain(numAtoms=2, spacing=r)
+    val lat = new LinearChain(numAtoms=2, r0=r)
     val delta = Vec3(1.1, 2.3, -1.8).normalize * (-r)
     
     def buildHamiltonian(delta: Vec3) = {
@@ -44,8 +44,8 @@ object Test extends App {
   
   def testDimerJoel() { 
     val r = 4.2*bohr
-    val pot = new GoodwinSi(rcut=10)
-    val lat = new LinearChain(numAtoms=2, spacing=r)
+    val pot = GoodwinSi
+    val lat = new LinearChain(numAtoms=2, r0=r)
     
     val pos = Array(Vec3.zero, Vec3(r, 0, 0))
     val tbh = new TbHamiltonian(pot, lat, pos)
@@ -63,8 +63,8 @@ object Test extends App {
   
   def testForce() {
     val r = 4.2*bohr
-    val pot = new GoodwinSi(rcut=10)
-    val lat = new LinearChain(numAtoms=2, spacing=r)
+    val pot = GoodwinSi
+    val lat = new LinearChain(numAtoms=2, r0=r)
     val T = 0.1 * eV / kB
     val M = 1000
     val mu = 7.0
