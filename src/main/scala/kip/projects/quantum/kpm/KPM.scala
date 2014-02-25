@@ -3,7 +3,7 @@ package kip.projects.quantum.kpm
 import smatrix._
 import scala.util.Random
 
-class EnergyScale(lo: Double, hi: Double) {
+class EnergyScale(val lo: Double, val hi: Double) {
   val avg = (hi + lo) / 2.0
   val mag = (hi - lo) / 2.0 
   

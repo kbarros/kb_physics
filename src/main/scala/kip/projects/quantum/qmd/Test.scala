@@ -85,7 +85,7 @@ object Test extends App {
     val pot = new GoodwinSi(rcut=10)
     val lat = new LinearChain(numAtoms=2, spacing=r)
     val T = 0.1 * eV / kB
-    val M = 10
+    val M = 200
     val mu = 7.0
     // val mu = 7.287906987689409 // half filling
     
@@ -99,8 +99,7 @@ object Test extends App {
     }
     
     val pos = Vec3(1.3, -0.2, 0.7).normalize * r
-    println("energy " + calc(pos)._1)
-    println("force " + calc(pos)._2(1))
+    println(s"force ${calc(pos)._2(1)} (<1.8277, ...>)")
     
     val eps = 1e-4
     def deriv(dir: Vec3): Double = {
@@ -110,6 +109,6 @@ object Test extends App {
     }
     
     val forceDiscrete = -Vec3(deriv(Vec3(1,0,0)), deriv(Vec3(0,1,0)), deriv(Vec3(0,0,1)))
-    println("fdisc "+forceDiscrete)
+    println(s"fdisc $forceDiscrete (<1.8277, ...>")
   }
 }
