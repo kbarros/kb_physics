@@ -27,6 +27,16 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
     H.toPacked
   }
   
+  val pairEnergy = {
+    var ret = 0.0
+    for (i <- 0 until lat.numAtoms;
+         j <- lat.neighbors(i, x, pot.rcut);
+         if (j < i)) {
+      val r = lat.displacement(x(i), x(j)).norm
+      ret += pot.phi(r)
+    }
+    ret
+  }
   
   // returns forces (-dE/dr_i) on every atom
   
@@ -38,6 +48,7 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
     val dh_dy = Array.ofDim[Double](nOrbs, nOrbs)
     val dh_dz = Array.ofDim[Double](nOrbs, nOrbs)
     
+    // electronic part
     for (i <- 0 until lat.numAtoms;
          j <- lat.neighbors(i, x, pot.rcut);
          if (j <= i)) {
@@ -51,6 +62,18 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
         f(i) -= f_ij
       }
     }
+    
+    // pair part
+    for (i <- 0 until lat.numAtoms;
+         j <- lat.neighbors(i, x, pot.rcut);
+         if (j < i)) {
+      val del = lat.displacement(x(i), x(j))
+      val r = del.norm
+      val f_ij = del * (-pot.dphi_dr(r) / r)
+      f(j) += f_ij
+      f(i) -= f_ij
+    }
+    
     f
   }
 }

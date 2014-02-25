@@ -23,6 +23,7 @@ class TbMD(x: Array[Vec3], v: Array[Vec3], pot: Potential, lat: Lattice, kpm: Co
   }
   
   def energyAndForces(mu: Double, T: Double): (Double, Array[Vec3]) = {
+    // electronic part
     def energyFn(x: Double) = {
       val nspin = 2.0
       val alpha = (x-mu)/(kB*max(T,+0.0))
@@ -36,7 +37,8 @@ class TbMD(x: Array[Vec3], v: Array[Vec3], pot: Potential, lat: Lattice, kpm: Co
     val r = KPMUtil.allVectors(tbh.n)
     val (e, de_dH) = kpm.functionAndGradient(c, r, tbh.H, es)
     // val f = tbh.forces(de_dH) // strange Scala bug
-    (e, tbh.forces(de_dH))
+    
+    (e+tbh.pairEnergy, tbh.forces(de_dH))
   }
   
   def timestep(f: Array[Vec3], m: Double, gamma: Double, T: Double, dt: Double, rand: Random) {

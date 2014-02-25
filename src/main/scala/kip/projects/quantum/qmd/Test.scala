@@ -85,20 +85,24 @@ object Test extends App {
     val pot = new GoodwinSi(rcut=10)
     val lat = new LinearChain(numAtoms=2, spacing=r)
     val T = 0.1 * eV / kB
-    val mu = 7.287906987689409 // half filling
+    val M = 10
+    val mu = 7.0
+    // val mu = 7.287906987689409 // half filling
+    
+    println("M = "+M)
     
     def calc(pos: Vec3) = {
       val x = Array(Vec3.zero, pos)
       val v = Array(Vec3.zero, Vec3.zero)
-      val tbmd = new TbMD(x, v, pot, lat, ComplexKPMCpu, M=1000)
+      val tbmd = new TbMD(x, v, pot, lat, ComplexKPMCpu, M)
       tbmd.energyAndForces(mu, T)
     }
     
     val pos = Vec3(1.3, -0.2, 0.7).normalize * r
     println("energy " + calc(pos)._1)
-    println("force " + calc(pos)._2.mkString(","))
+    println("force " + calc(pos)._2(1))
     
-    val eps = 1e-5
+    val eps = 1e-4
     def deriv(dir: Vec3): Double = {
       val ep = calc(pos + dir*eps)._1
       val em = calc(pos - dir*eps)._1
@@ -106,6 +110,6 @@ object Test extends App {
     }
     
     val forceDiscrete = -Vec3(deriv(Vec3(1,0,0)), deriv(Vec3(0,1,0)), deriv(Vec3(0,0,1)))
-    println("force discrete "+forceDiscrete)
+    println("fdisc "+forceDiscrete)
   }
 }
