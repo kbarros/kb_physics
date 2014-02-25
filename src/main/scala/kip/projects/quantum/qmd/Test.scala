@@ -1,16 +1,16 @@
 package kip.projects.quantum.qmd
 
-import Units._
 import kip.math.Vec3
+import kip.projects.quantum.kpm.ComplexKPMCpu
+import scala.util.Random
 import smatrix._
 import smatrix.Constructors.complexDbl._
-import scala.util.Random
-import kip.projects.quantum.kpm.ComplexKPMCpu
+import Units._
 
 
 object Test extends App {
-  // testDimer()
-  // testDimerJoel()
+  testDimer()
+  testDimerJoel()
   testForce()
   
   def testDimer() {
@@ -39,25 +39,6 @@ object Test extends App {
     
     val eigDev = math.sqrt((eig1 zip eig2).map(e => sqr(e._1-e._2)).sum)
     println(s"Eigenvalue deviation: $eigDev")
-    
-    val rand = new Random(0)
-    val rmat = tbh.H.duplicate.transform(x => if (x == 0) 0 else rand.nextGaussian())
-    val de_dh = (rmat + rmat.dag).toPacked
-    
-    // fake energy with simple, random dependence on elements of H 
-    def energy(H: PackedSparse[Scalar.ComplexDbl]) = (de_dh.toDense dagDot H.toDense).re
-    
-    val dx = 0.0001
-    def deriv(dir: Vec3): Double = {
-      val ep = energy(buildHamiltonian(delta + dir*dx).H)
-      val em = energy(buildHamiltonian(delta - dir*dx).H)
-      (ep - em) / (2*dx)
-    }
-    val forceDiscrete = -Vec3(deriv(Vec3(1,0,0)), deriv(Vec3(0,1,0)), deriv(Vec3(0,0,1)))
-    val forceAnalytical = tbh.forces(de_dh)(1)
-    
-    // println(s"$forceDiscrete $forceAnalytical")
-    println(s"Force deviation: ${forceAnalytical-forceDiscrete}")
   }
   
   
@@ -85,7 +66,7 @@ object Test extends App {
     val pot = new GoodwinSi(rcut=10)
     val lat = new LinearChain(numAtoms=2, spacing=r)
     val T = 0.1 * eV / kB
-    val M = 200
+    val M = 1000
     val mu = 7.0
     // val mu = 7.287906987689409 // half filling
     
@@ -94,8 +75,9 @@ object Test extends App {
     def calc(pos: Vec3) = {
       val x = Array(Vec3.zero, pos)
       val v = Array(Vec3.zero, Vec3.zero)
-      val tbmd = new TbMD(x, v, pot, lat, ComplexKPMCpu, M)
-      tbmd.energyAndForces(mu, T)
+      val tbh = new TbHamiltonian(pot, lat, x)
+      // println(s"Filling ${tbh.filling(mu, ComplexKPMCpu, M)}")
+      tbh.energyAndForces(mu, T, ComplexKPMCpu, M)
     }
     
     val pos = Vec3(1.3, -0.2, 0.7).normalize * r
