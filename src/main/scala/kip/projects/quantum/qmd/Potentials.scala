@@ -13,6 +13,7 @@ trait Potential {
   def dphi_dr(r: Double): Double
   
   def numOrbitalsPerSite: Int
+  def numFilledOrbitalsPerSite: Int
   
   def fillTBHoppings(del: Vec3,
                      h: Array[Array[Double]],
@@ -52,8 +53,9 @@ object GoodwinSi extends Potential {
     - phi(r) * em * (1 + nc*pow(r/rc, nc)) / r
   }
   
-  def numOrbitalsPerSite: Int = 4
-
+  def numOrbitalsPerSite = 4
+  def numFilledOrbitalsPerSite = 2
+  
   def fillTBHoppings(del: Vec3,
                      h: Array[Array[Double]],
                      dh_dx: Array[Array[Double]],
@@ -67,7 +69,10 @@ object GoodwinSi extends Potential {
     if (r == 0.0) {
       for (i <- 0 until 4;
            j <- 0 until 4) {
-        h(i)(j) = if (i == j && i > 0) Δsp else 0.0
+        (if (i != j)
+          h(i)(j) = 0.0
+        else
+          h(i)(j) = if (i == 0) -0.5*Δsp else +0.5*Δsp)
         dh_dx(i)(j) = 0.0
         dh_dy(i)(j) = 0.0
         dh_dz(i)(j) = 0.0

@@ -26,14 +26,14 @@ object Test extends App {
     
     def sqr(x: Double) = x*x
     val eig1 = Array(
-      pot.Δsp + pot.hppπ,
-      pot.Δsp + pot.hppπ,
-      pot.Δsp - pot.hppπ,
-      pot.Δsp - pot.hppπ,
-      (pot.hssσ - pot.hppσ)/2 + pot.Δsp/2 + math.sqrt(sqr(pot.Δsp/2-(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ)),
-      (pot.hssσ - pot.hppσ)/2 + pot.Δsp/2 - math.sqrt(sqr(pot.Δsp/2-(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ)),
-      -(pot.hssσ - pot.hppσ)/2 + pot.Δsp/2 + math.sqrt(sqr(pot.Δsp/2+(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ)),
-      -(pot.hssσ - pot.hppσ)/2 + pot.Δsp/2 - math.sqrt(sqr(pot.Δsp/2+(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ))
+      pot.Δsp/2 + pot.hppπ,
+      pot.Δsp/2 + pot.hppπ,
+      pot.Δsp/2 - pot.hppπ,
+      pot.Δsp/2 - pot.hppπ,
+      (pot.hssσ - pot.hppσ)/2 + math.sqrt(sqr(pot.Δsp/2-(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ)),
+      (pot.hssσ - pot.hppσ)/2 - math.sqrt(sqr(pot.Δsp/2-(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ)),
+      -(pot.hssσ - pot.hppσ)/2 + math.sqrt(sqr(pot.Δsp/2+(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ)),
+      -(pot.hssσ - pot.hppσ)/2 - math.sqrt(sqr(pot.Δsp/2+(pot.hssσ+pot.hppσ)/2)+sqr(pot.hspσ))
     ).sorted
     val eig2 = tbh.H.toDense.eig._1.toArray.map(_.re).sorted
     
@@ -50,27 +50,31 @@ object Test extends App {
     val pos = Array(Vec3.zero, Vec3(r, 0, 0))
     val tbh = new TbHamiltonian(pot, lat, pos)
     
-    val natoms = 2
+    val natoms = lat.numAtoms
     println(s"Pair energy / atom = ${pot.phi(r) / (natoms*rydberg)} (? 0.17715058505537967 rydberg)")
     
     val eig = tbh.H.toDense.eig._1.toArray.map(_.re).sorted
     
-    val ezero = natoms*8.295*eV
     val nspin = 2
-    val elecEnergy = nspin * (eig.take(4).sum - ezero)
+    val elecEnergy = nspin*eig.take(natoms*pot.numFilledOrbitalsPerSite).sum
     println(s"Elec. energy / atom = ${elecEnergy / (natoms*rydberg)} (? -0.37133489682938575 rydberg)")
+    
+    val mu = 3.140*eV
+    val T = 0
+    val M = 1000
+    val (e, _) = tbh.energyAndForces(mu, T, ComplexKPMCpu, M)
+    val e_kpm = e + mu*natoms*pot.numFilledOrbitalsPerSite*nspin
+    val n_kpm = tbh.filling(mu, ComplexKPMCpu, M)
+    println(s"Kpm : e=${e_kpm/(natoms*rydberg)} (? -0.19418 rydberg) at n=$n_kpm")
   }
   
   def testForce() {
     val r = 4.2*bohr
     val pot = GoodwinSi
     val lat = new LinearChain(numAtoms=2, r0=r)
+    val mu = 2.8525*eV
     val T = 0.1 * eV / kB
     val M = 1000
-    val mu = 7.0
-    // val mu = 7.287906987689409 // half filling
-    
-    println("M = "+M)
     
     def calc(pos: Vec3) = {
       val x = Array(Vec3.zero, pos)
