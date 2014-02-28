@@ -17,7 +17,7 @@ import kip.projects.quantum.kpm.ComplexKPMGpuS
 
 object TbMD extends App {
   case class Conf(T: Double, mu: Double, gamma: Double, dt: Double, dumpEvery: Int, 
-                  M: Int, nrand: Int, model: Map[String, String])
+                  M: Int, s: Int, model: Map[String, String])
   case class Snap(time: Double, moments: Array[Double], e_lo: Double, e_hi: Double,
                   energy: Double, filling: Double, x: Array[Vec3], v: Array[Vec3])
   
@@ -31,7 +31,7 @@ object TbMD extends App {
     conf.copy(
         T = conf.T*kelvin,
         mu = conf.mu*eV,
-        gamma = conf.gamma/fs,
+        gamma = conf.gamma*fs,
         dt = conf.dt*fs
     )
   }
@@ -78,6 +78,7 @@ object TbMD extends App {
   // require(!(new File(dumpFilename(dumpCnt))).exists, "Refuse to overwrite dump file %s".format(dumpFilename(dumpCnt)))
   
   def calcMomentsAndDump() {
+    return
     val tbh = new TbHamiltonian(pot, lat, x)
     
     val moments = tbh.moments(kpm, conf.M)
@@ -104,7 +105,7 @@ object TbMD extends App {
     // update momentum at fixed position
     for (i <- 0 until lat.numAtoms) {
       val eta = Vec3(rand.nextGaussian(), rand.nextGaussian(), rand.nextGaussian())
-      v(i) += f(i)*(dt/m) + v(i)*(-gamma*dt) + eta*math.sqrt(2*kB*T*gamma*dt/m)
+      v(i) += f(i)*(dt/m) // + v(i)*(-dt/gamma) + eta*math.sqrt(2*kB*T*dt/(m*gamma))
     }
     // update position at fixed momentum
     for (i <- 0 until lat.numAtoms) {
@@ -117,10 +118,15 @@ object TbMD extends App {
     calcMomentsAndDump()
   }
   
+  println(s"# M=${conf.M}, dt=${conf.dt/fs}")
+  
   while (true) {
-    Util.time("Langevin dynamics") (for (_ <- 0 until conf.dumpEvery) {
+    Util.notime("Langevin dynamics") (for (_ <- 0 until conf.dumpEvery) {
       val tbh = new TbHamiltonian(pot, lat, x)
-      val (e, f) = tbh.energyAndForces(conf.mu, conf.T, kpm, conf.M)
+      val (e_pot, f) = tbh.energyAndForces(conf.mu, conf.T, kpm, conf.M)
+      val e_kin = 0.5 * massSi * v.map(_.norm2).sum
+      val e_tot = e_pot + e_kin
+      println(s"$stepCnt ${x(0).x}, e_tot=$e_tot e_pot=$e_pot e_kin=$e_kin")
       timestep(f, massSi, conf.gamma, conf.T, conf.dt, rand)
     })
     calcMomentsAndDump()
