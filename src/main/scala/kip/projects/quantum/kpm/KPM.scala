@@ -1,7 +1,8 @@
 package kip.projects.quantum.kpm
 
-import smatrix._
 import scala.util.Random
+import math._
+import smatrix._
 
 class EnergyScale(val lo: Double, val hi: Double) {
   val avg = (hi + lo) / 2.0
@@ -27,7 +28,6 @@ class EnergyScale(val lo: Double, val hi: Double) {
 
 object KPMUtil {
   def jacksonKernel(order: Int): Array[Double] = {
-    import math._
     val Mp = order+1d
     Array.tabulate(order) { m => 
       (1/Mp)*((Mp-m)*cos(Pi*m/Mp) + sin(Pi*m/Mp)/tan(Pi/Mp))
@@ -44,6 +44,8 @@ object KPMUtil {
     }
   }
   
+  // Returns array c such that:
+  //    \int_lo^hi rho(x) f(x) = \sum mu_m c_m
   def expansionCoefficients(M: Int, quadPts: Int, f: Double => Double, es: EnergyScale): Array[Double] = {
     // TODO: replace with DCT-II, f -> fp
     var fp = Array.fill[Double](quadPts)(0d)
@@ -52,7 +54,7 @@ object KPMUtil {
       val x_i = math.cos(math.Pi * (i+0.5) / quadPts)
       chebyshevFillArray(x_i, T)
       for (m <- 0 until M) {
-        fp(m) += T(m) * f(es.unscale(x_i))
+        fp(m) += f(es.unscale(x_i)) * T(m) 
       }
     }
     
@@ -64,6 +66,63 @@ object KPMUtil {
     ret
   }
   
+  // Transformation of moments mu suitable for reconstructing density of states
+  def momentTransform(mu: Array[Double], quadPts: Int): Array[Double] = {
+    val M = mu.size
+    val T = new Array[Double](M)
+    val mup = (mu, jacksonKernel(M)).zipped.map(_*_)
+    val gamma = new Array[Double](quadPts)
+    
+    // TODO: replace with DCT-III, mup -> gamma
+    for (i <- 0 until quadPts) {
+      val x_i = cos(Pi * (i+0.5) / quadPts)
+      chebyshevFillArray(x_i, T) // T_m(x_i) = cos(m pi (i+1/2) / quadPts)
+      for (m <- 0 until M) {
+        gamma(i) += (if (m == 0) 1 else 2) * mup(m) * T(m)
+      }
+    }
+    gamma
+  }
+  
+  // Estimate \int_lo^hi rho(x) g(x) dx 
+  def densityProduct(gamma: Array[Double], g: Double => Double, es: EnergyScale): Double = {
+    val quadPts = gamma.size
+    var ret = 0.0
+    for (i <- 0 until quadPts) {
+      val x_i = cos(Pi * (i+0.5) / quadPts)
+      ret += gamma(i) * g(es.unscale(x_i))
+    }
+    ret / quadPts
+  }
+  
+  // Returns density of states rho(x) at Chebyshev points x
+  def densityFunction(gamma: Array[Double], es: EnergyScale): (Array[Double], Array[Double]) = {
+    val quadPts = gamma.size
+    val x = new Array[Double](quadPts)
+    val rho = new Array[Double](quadPts)
+    for (i <- quadPts-1 to 0 by -1) {
+      val x_i = cos(Pi * (i+0.5) / quadPts)
+      x(i) = es.unscale(x_i)
+      rho(i) = gamma(i) / (Pi * sqrt(1-x_i*x_i) * es.mag)
+    }
+    (x, rho)
+  }
+  
+  // Returns density of states \int theta(x-x') rho(x') dx' at Chebyshev points x
+  def integratedDensityFunction(gamma: Array[Double], es: EnergyScale): (Array[Double], Array[Double]) = {
+    val quadPts = gamma.size
+    val x = new Array[Double](quadPts)
+    val irho = new Array[Double](quadPts)
+    var acc = 0.0
+    for (i <- quadPts-1 to 0 by -1) {
+      val x_i = cos(Pi * (i+0.5) / quadPts)
+      x(i) = es.unscale(x_i)
+      irho(i) = (acc+0.5*gamma(i)) / quadPts
+      acc += gamma(i) 
+    }
+    (x, irho)
+  }
+
   // Vectors with random elements in {1, i, -1, -i}
   def uncorrelatedVectors(n: Int, s: Int, rand: Random): Dense[Scalar.ComplexDbl] = {
     import Constructors.complexDbl._

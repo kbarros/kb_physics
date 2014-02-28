@@ -6,12 +6,15 @@ import scala.util.Random
 import smatrix._
 import smatrix.Constructors.complexDbl._
 import Units._
+import kip.projects.quantum.kpm.EnergyScale
+import kip.projects.quantum.kpm.KPMUtil
 
 
 object Test extends App {
-  testDimer()
-  testDimerJoel()
-  testForce()
+//  testDimer()
+//  testDimerJoel()
+//  testForce()
+  testDensity()
   
   def testDimer() {
     val pot = GoodwinSi
@@ -96,5 +99,30 @@ object Test extends App {
     
     val forceDiscrete = -Vec3(deriv(Vec3(1,0,0)), deriv(Vec3(0,1,0)), deriv(Vec3(0,0,1)))
     println(s"fdisc $forceDiscrete (<1.8277, ...>")
+  }
+  
+  def testDensity() {
+    val n = 4
+    val H = {
+      val ret = sparse(n, n)
+      ret(0, 0) = 0.5
+      ret(1, 1) = -0.5
+      ret(2, 2) = 0.0
+      ret(3, 3) = 0.0
+      ret.toPacked
+    }
+    val es = new EnergyScale(-1, 1)
+//    val es = KPMUtil.energyScale(H)
+    val r = KPMUtil.allVectors(n)
+    val M = 100
+    val quadPts = 4*M
+    val mu = ComplexKPMCpu.moments(M, r, H, es)
+    val gamma = KPMUtil.momentTransform(mu, quadPts)
+    val (x, rho) = KPMUtil.densityFunction(gamma, es)
+    scikit.util.Commands.plot(x, rho)
+    val (xp, irho) = KPMUtil.integratedDensityFunction(gamma, es)
+    scikit.util.Commands.plot(xp, irho)
+
+//    println("total density "+KPMUtil.densityProduct(gamma, x=>x, es))
   }
 }
