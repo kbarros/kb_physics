@@ -12,6 +12,7 @@ import kip.projects.cuda.JCudaWorld
 import kip.projects.quantum.kpm.ComplexKPM
 import kip.projects.quantum.kpm.ComplexKPMCpu
 import kip.projects.quantum.kpm.ComplexKPMGpuS
+import kip.projects.quantum.kpm.KPMUtil
 
 
 
@@ -80,18 +81,18 @@ object TbMD extends App {
   def calcMomentsAndDump() {
     return
     val tbh = new TbHamiltonian(pot, lat, x)
-    
-    val moments = tbh.moments(kpm, conf.M)
-    val energy  = Double.NaN
-    val filling = Double.NaN
+    val r = KPMUtil.allVectors(tbh.n)
+    val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
+    val energy  = tbh.energyAndForce(kpm, fd, conf.mu, conf.T)._1
+    val filling = tbh.fillingFraction(kpm, fd, conf.mu, conf.T)
     // println("  Action  = %.7g".format(action))
     // println("  Filling = %g".format(filling))
     
     // dump configuration
     val snap = Snap(time=stepCnt*conf.dt/fs,
-                    moments=moments,
-                    e_lo=tbh.energyScale.lo/eV,
-                    e_hi=tbh.energyScale.hi/eV,
+                    moments=fd.mu,
+                    e_lo=fd.es.lo/eV,
+                    e_hi=fd.es.hi/eV,
                     energy=energy/eV,
                     filling=filling,
                     x=x, v=v)
@@ -123,7 +124,9 @@ object TbMD extends App {
   while (true) {
     Util.notime("Langevin dynamics") (for (_ <- 0 until conf.dumpEvery) {
       val tbh = new TbHamiltonian(pot, lat, x)
-      val (e_pot, f) = tbh.energyAndForces(conf.mu, conf.T, kpm, conf.M)
+      val r = KPMUtil.allVectors(tbh.n)
+      val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
+      val (e_pot, f) = tbh.energyAndForce(kpm, fd, conf.mu, conf.T)
       val e_kin = 0.5 * massSi * v.map(_.norm2).sum
       val e_tot = e_pot + e_kin
       println(s"$stepCnt ${x(0).x}, e_tot=$e_tot e_pot=$e_pot e_kin=$e_kin")

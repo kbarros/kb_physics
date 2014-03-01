@@ -12,9 +12,9 @@ import kip.projects.quantum.kpm.KPMUtil
 
 object Test extends App {
 //  testDimer()
-//  testDimerJoel()
+  testDimerJoel()
 //  testForce()
-  testDensity()
+//  testDensity()
   
   def testDimer() {
     val pot = GoodwinSi
@@ -62,12 +62,14 @@ object Test extends App {
     val elecEnergy = nspin*eig.take(natoms*pot.numFilledOrbitalsPerSite).sum
     println(s"Elec. energy / atom = ${elecEnergy / (natoms*rydberg)} (? -0.37133489682938575 rydberg)")
     
-    val mu = 3.140*eV
-    val T = 0
-    val M = 1000
-    val (e, _) = tbh.energyAndForces(mu, T, ComplexKPMCpu, M)
+    val mu = 3.15*eV
+    val T = 0.001*eV / kB
+    val M = 2000
+    val kpm = ComplexKPMCpu
+    val fd = kpm.forward(M, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
+    val (e, _) = tbh.energyAndForce(kpm, fd, mu, T)
     val e_kpm = e + mu*natoms*pot.numFilledOrbitalsPerSite*nspin
-    val n_kpm = tbh.filling(mu, ComplexKPMCpu, M)
+    val n_kpm = tbh.fillingFraction(kpm, fd, mu, T)
     println(s"Kpm : e=${e_kpm/(natoms*rydberg)} (? -0.19418 rydberg) at n=$n_kpm")
   }
   
@@ -78,13 +80,15 @@ object Test extends App {
     val mu = 2.8525*eV
     val T = 0.1 * eV / kB
     val M = 1000
-    
+    val kpm = ComplexKPMCpu
+
     def calc(pos: Vec3) = {
       val x = Array(Vec3.zero, pos)
       val v = Array(Vec3.zero, Vec3.zero)
       val tbh = new TbHamiltonian(pot, lat, x)
-      // println(s"Filling ${tbh.filling(mu, ComplexKPMCpu, M)}")
-      tbh.energyAndForces(mu, T, ComplexKPMCpu, M)
+      val fd = kpm.forward(M, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
+      // println(s"Filling ${tbh.fillingFraction(kpm, fd, mu, T)}")
+      tbh.energyAndForce(kpm, fd, mu, T)
     }
     
     val pos = Vec3(1.3, -0.2, 0.7).normalize * r
@@ -116,11 +120,10 @@ object Test extends App {
     val r = KPMUtil.allVectors(n)
     val M = 100
     val quadPts = 4*M
-    val mu = ComplexKPMCpu.moments(M, r, H, es)
-    val gamma = KPMUtil.momentTransform(mu, quadPts)
-    val (x, rho) = KPMUtil.densityFunction(gamma, es)
+    val fd = ComplexKPMCpu.forward(M, r, H, es)
+    val (x, rho) = KPMUtil.densityFunction(fd.gamma, es)
     scikit.util.Commands.plot(x, rho)
-    val (xp, irho) = KPMUtil.integratedDensityFunction(gamma, es)
+    val (xp, irho) = KPMUtil.integratedDensityFunction(fd.gamma, es)
     scikit.util.Commands.plot(xp, irho)
 
 //    println("total density "+KPMUtil.densityProduct(gamma, x=>x, es))

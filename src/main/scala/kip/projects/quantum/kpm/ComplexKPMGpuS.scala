@@ -21,6 +21,7 @@ import scala.util.Random
 
 
 class ComplexKPMGpuS(val cworld: JCudaWorld) extends ComplexKPM {
+  import ComplexKPM._
   
   // Initialize JCublas library
   cublasInit()
@@ -188,7 +189,9 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
   val one  = cuCmplx(1, 0)
   val two  = cuCmplx(2, 0)
   
-  def momentsAux(M: Int, st: State): (Array[Double], Array[Pointer]) = {
+  def forward(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData = {
+    val st = new State(r, es.scale(H))
+    
     val mu = Array.fill(M)(0.0)
     mu(0) = st.n           // Tr[T_0[H]] = Tr[1]
     mu(1) = st.Hs.trace.re // Tr[T_1[H]] = Tr[H]
@@ -211,31 +214,33 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
       a_d(2) = temp
     }
     
-    (mu, a_d)
-  }
-  
-  def moments(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): Array[Double] = {
-    val st = new State(r, es.scale(H))
-    val (mu, _) = momentsAux(M, st)
+    val aM2 = dense(st.n, st.s)
+    val aM1 = dense(st.n, st.s)
+    cworld.cpyDeviceToHost(aM2, a_d(0)) // alpha_{M-2}
+    cworld.cpyDeviceToHost(aM1, a_d(1)) // alpha_{M-1}
+    val gamma = KPMUtil.momentTransform(mu, quadAccuracy*M)
     st.deallocate()
-    mu
+    ForwardData(st.Hs, es, r, mu, gamma, aM2, aM1)
   }
   
-  def functionAndGradient(c: Array[Double], r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): (Double, PackedSparse[Cd]) = {
-    val st = new State(r, es.scale(H))
-    val M = c.size
+  def reverse(fd: ForwardData, coeff: Array[Double]): PackedSparse[Cd] = {
+    val st = new State(fd.r, fd.Hs)
+    val M = coeff.size
     
-    val (mu, a_d) = momentsAux(M, st) // sets a0_d=alpha_{M-2} and a1_d=alpha_{M-1}
+    val a_d = Array(st.a0_d, st.a1_d, st.a2_d)
+    cworld.cpyHostToDevice(a_d(0), fd.aM2)       // a0 = alpha_{M-2}
+    cworld.cpyHostToDevice(a_d(1), fd.aM1)       // a1 = alpha_{M-1}
+    
     val b_d = Array(st.b0_d, st.b1_d, st.b2_d)
+    scaleVector(coeff(M-1), st.r_d, b_d(0), st)  // b0 = c(order-1) r
     cworld.clearDeviceArray(b_d(1), st.vecBytes) // b1 = 0
-    scaleVector(c(M-1), st.r_d, b_d(0), st)  // b0 = c(order-1) r
     
     val dE_dHs = st.Hs.duplicate.clear()
     cworld.clearDeviceArray(st.gradVal_d, st.gradBytes)
     
     // need special logic since (mu_1) is calculated exactly
-    def cp(m: Int): Double = if (m == 1) 0 else c(m)
-    for (i <- 0 until dE_dHs.numRows) { dE_dHs(i, i) += c(1) }
+    def cp(m: Int): Double = if (m == 1) 0 else coeff(m)
+    for (i <- 0 until dE_dHs.numRows) { dE_dHs(i, i) += coeff(1) }
     
     for (m <- M-2 to 0 by -1) {
       // a0 = alpha_{m}
@@ -268,12 +273,9 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     for (idx <- 0 until st.nnz) {
       dE_dHs(st.dis(idx), st.djs(idx)) += st.gradVal_h(2*idx+0) + I*st.gradVal_h(2*idx+1)
     }
-    dE_dHs.transform(_ / es.mag)
-    
     st.deallocate()
     
-    val e = (c, mu).zipped.map(_*_).sum
-    (e, dE_dHs)
+    dE_dHs.transform(_ / fd.es.mag)
   }
   
   def destroy {

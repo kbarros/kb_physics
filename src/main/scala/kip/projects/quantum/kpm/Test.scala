@@ -7,8 +7,8 @@ import kip.projects.cuda.JCudaWorld
 object Test extends App {
 //  testExpansionCoeffs()
 //  testKPM1()
-  testKPM1Cuda()
-//  testKPM2()
+//  testKPM1Cuda()
+  testKPM2()
   
   def testExpansionCoeffs() {
     val order = 10
@@ -26,7 +26,6 @@ object Test extends App {
   
   def testKPM1() {
     import Constructors.complexDbl._
-    
     val n = 4
     val H = {
       val ret = sparse(n, n)
@@ -36,17 +35,15 @@ object Test extends App {
       ret(3,3) = 0.0
       ret.toPacked
     }
-    
     def f(x: Double) = x*x  
-    
     val M = 1000
     val es: EnergyScale = KPMUtil.energyScale(H)
-    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=f, es=es)
     val r = KPMUtil.allVectors(n)
-    val (e, de_dH) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
-    
-    println(s"KPM energy=$e, expected 50")
-    println(s"KPM de_dH(0,0)=${de_dH(0,0)}, expected 10")
+    val fd = ComplexKPMCpu.forward(M, r, H, es)
+    val E = ComplexKPMCpu.function(fd, f)
+    val dE_dH = ComplexKPMCpu.gradient(fd, f)
+    println(s"KPM energy=$E, expected 50")
+    println(s"KPM de_dH(0,0)=${dE_dH(0,0)}, expected 10")
   }
 
   def testKPM1Cuda() {
@@ -69,8 +66,10 @@ object Test extends App {
     val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=f, es=es)
     val r = KPMUtil.allVectors(n)
     
-    val (e, de_dH_cpu) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
-    println(s"CPU e=$e de_dH(0,0)=${de_dH_cpu(0,0)}")
+    val fd = ComplexKPMCpu.forward(M, r, H, es)
+    val E = ComplexKPMCpu.function(fd, f)
+    val dE_dH_cpu = ComplexKPMCpu.gradient(fd, f)
+    println(s"CPU E=$E dE_dH(0,0)=${dE_dH_cpu(0,0)}")
     
     /*
       // OLD VERSION
@@ -88,8 +87,10 @@ object Test extends App {
     var iter = 0
     while (true) {
       val ms = System.currentTimeMillis()
-      val (e, de_dH) = kpm.functionAndGradient(c, r, H, es)
-      println(s"Energy e=$e (0.5), de_dH(0,0)=${de_dH(0,0)} (1.0)")
+      val fd = kpm.forward(M, r, H, es)
+      val E = kpm.function(fd, f)
+      val dE_dH = kpm.gradient(fd, f)
+      println(s"E=$E (0.5), dE_dH(0,0)=${dE_dH(0,0)} (1.0)")
       println(s"Iter $iter Elapsed ${(System.currentTimeMillis() - ms)/1000.0}")
       iter += 1
     }
@@ -126,18 +127,17 @@ object Test extends App {
     
     val M = 1000
     val es: EnergyScale = KPMUtil.energyScale(H)
-    val c = KPMUtil.expansionCoefficients(M=M, quadPts=4*M, f=f, es=es)
-    val r = KPMUtil.allVectors(n)
-    val (e, de_dH) = ComplexKPMCpu.functionAndGradient(c, r, H, es)
     
     val s = 10
+    val r = Array(
+        KPMUtil.allVectors(n),
+        KPMUtil.uncorrelatedVectors(n, s, rand),
+        KPMUtil.correlatedVectors(n, s, _%s, rand))
+    val fd = r.map(ComplexKPMCpu.forward(M, _, H, es))
+    val E = fd.map(ComplexKPMCpu.function(_, f))
+    val dE_dH = fd.map(ComplexKPMCpu.gradient(_, f))
     
-    val r2 = KPMUtil.uncorrelatedVectors(n, s, rand)
-    val (e2, de_dH2) = ComplexKPMCpu.functionAndGradient(c, r2, H, es)
-    val r3 = KPMUtil.correlatedVectors(n, s, _%s, rand)
-    val (e3, de_dH3) = ComplexKPMCpu.functionAndGradient(c, r3, H, es)
-    
-    println(s"Energy exact=${exactEnergy(H.toDense)} kpm=$e stoch1=$e2 stoch2=$e3")
+    println(s"Energy exact=${exactEnergy(H.toDense)} kpm=${E(0)} stoch1=${E(1)} stoch2=${E(2)}")
     
     val eps = 1e-6
     val dH = sparse(n, n)
@@ -145,6 +145,6 @@ object Test extends App {
     dH(jt, it) = eps
     
     val de_dH_exact = (exactEnergy((H + dH).toDense)-exactEnergy((H - dH).toDense)) / (2*eps)
-    println(s"Deriv exact=$de_dH_exact kpm=${de_dH(it,jt)+de_dH(jt,it)} stoch1=${de_dH2(it,jt)+de_dH2(jt,it)} stoch2=${de_dH3(it,jt)+de_dH3(jt,it)}")
+    println(s"Deriv exact=$de_dH_exact kpm=${dE_dH(0)(it,jt)+dE_dH(0)(jt,it)} stoch1=${dE_dH(1)(it,jt)+dE_dH(1)(jt,it)} stoch2=${dE_dH(2)(it,jt)+dE_dH(2)(jt,it)}")
   }
 }

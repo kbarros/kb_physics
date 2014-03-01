@@ -26,6 +26,8 @@ class EnergyScale(val lo: Double, val hi: Double) {
   }
 }
 
+// TODO: merge KPMUtil and KPM?
+
 object KPMUtil {
   def jacksonKernel(order: Int): Array[Double] = {
     val Mp = order+1d
@@ -158,30 +160,47 @@ object KPMUtil {
   }
 }
 
+object ComplexKPM {
+  type Cd = Scalar.ComplexDbl
+  val quadAccuracy = 4
+  case class ForwardData(Hs: PackedSparse[Cd], es: EnergyScale, r: Dense[Cd], mu: Array[Double], gamma: Array[Double], aM2: Dense[Cd], aM1: Dense[Cd])
+}
 
 trait ComplexKPM {
-  type Cd = Scalar.ComplexDbl
-  def moments(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): Array[Double]
-  def functionAndGradient(c: Array[Double], r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): (Double, PackedSparse[Cd])
+  import ComplexKPM._
+  
+  def forward(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData
+  def reverse(fd: ForwardData, coeff: Array[Double]): PackedSparse[Cd]
+  
+  def function(fd: ForwardData, f: Double=>Double): Double = {
+    KPMUtil.densityProduct(fd.gamma, f, fd.es)
+  }
+
+  def gradient(fd: ForwardData, f: Double=>Double): PackedSparse[Cd] = {
+    val M = fd.mu.size
+    val quadPts = M * quadAccuracy
+    val coeff = KPMUtil.expansionCoefficients(M, quadPts, f, fd.es)
+    reverse(fd, coeff)
+  }
 }
 
 object ComplexKPMCpu extends ComplexKPM {
+  import ComplexKPM._
   import Constructors.complexDbl._
   
-  // Returns: (mu(m), alpha_{M-2}, alpha_{M-1})
-  def momentsAux(M: Int, r: Dense[Cd], Hs: PackedSparse[Cd]): (Array[Double], Dense[Cd], Dense[Cd]) = {
+  def forward(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData = {
     val n = r.numRows
     val s = r.numCols
+    val Hs = es.scale(H)
     
     val mu = Array.fill[Double](M)(0)
-    mu(0) = n                   // Tr[T_0[H]] = Tr[1]
-    mu(1) = Hs.trace.re          // Tr[T_1[H]] = Tr[H]
+    mu(0) = n                     // Tr[T_0[H]] = Tr[1]
+    mu(1) = Hs.trace.re           // Tr[T_1[H]] = Tr[H]
     
     val a0 = dense(n, s)
     val a1 = dense(n, s)
     val a2 = dense(n, s)
-    
-    a0 := r                      // T_0[H] |r> = 1 |r>
+    a0 := r                       // T_0[H] |r> = 1 |r>
     a1 :=* (Hs, r)                // T_1[H] |r> = H |r>
     
     for (m <- 2 to M-1) {
@@ -192,32 +211,30 @@ object ComplexKPMCpu extends ComplexKPM {
       a1 := a2
     }
     
-    (mu, a0, a1)
+    val gamma = KPMUtil.momentTransform(mu, quadAccuracy*M)
+    ForwardData(Hs, es, r, mu, gamma, aM2=a0, aM1=a1)
   }
   
-  def moments(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): Array[Double] = {
-    momentsAux(M, r, es.scale(H))._1
-  }
-  
-  def functionAndGradient(c: Array[Double], r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): (Double, PackedSparse[Cd]) = {
+  def reverse(fd: ForwardData, coeff: Array[Double]): PackedSparse[Cd] = {
+    import fd._
     val n = r.numRows
     val s = r.numCols
-    val M = c.size
-    
-    val Hs = es.scale(H)
+    val M = coeff.size
+
     val dE_dHs = Hs.duplicate.clear()
     
     val a2 = dense(n, s)
-    val (mu, a0, a1) = momentsAux(M, r, Hs)
+    val a1 = aM1.duplicate
+    val a0 = aM2.duplicate
     
     val b2 = dense(n, s)
     val b1 = dense(n, s)
-    val b0 = r * c(M - 1)
+    val b0 = r * coeff(M - 1)
     
     // need special logic since `mu_1` is calculated exactly
     // note that `mu_0` does not contribute to derivative
-    for (i <- 0 until n) { dE_dHs(i, i) += c(1) }
-    def cp(m: Int): Double = if (m == 1) 0 else c(m)
+    for (i <- 0 until n) { dE_dHs(i, i) += coeff(1) }
+    def cp(m: Int): Double = if (m == 1) 0 else coeff(m)
     
     // cache defined indices for speed
     val (indicesI, indicesJ) = {
@@ -250,8 +267,6 @@ object ComplexKPMCpu extends ComplexKPM {
       b0 :=* (cp(m), r); b0.gemm(2, Hs, b1, 1); b0 -= b2 // b0 = c(m) r + 2 H b1 - b2
     }
     
-    val E = (c, mu).zipped.map(_*_).sum
-    val dE_dH = dE_dHs.transform(_ / es.mag)
-    (E, dE_dH)
+    dE_dHs.transform(_ / es.mag)
   }
 }

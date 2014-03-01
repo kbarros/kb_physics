@@ -13,7 +13,8 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
   val nOrbs = pot.numOrbitalsPerSite
   val nAtoms = lat.numAtoms
   val n = nOrbs * nAtoms
-  
+  val nspin = 2.0
+
   val H = {
     val H     = sparse(n, n)
     val h     = Array.ofDim[Double](nOrbs, nOrbs)
@@ -35,36 +36,9 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
     H.toPacked
   }
   
-  val energyScale = KPMUtil.energyScale(H)
-  
-  // TODO: make 'r' a parameter
-  def moments(kpm: ComplexKPM, M: Int): Array[Double] = {
-    val r = KPMUtil.allVectors(n)
-    kpm.moments(M, r, H, energyScale)
-  }
-  
-  def energyAndForces(mu: Double, T: Double, kpm: ComplexKPM, M: Int): (Double, Array[Vec3]) = {
-    import math.{max, exp, log}
-    
-    var e = 0.0
-    val f = Array.fill(nAtoms)(Vec3.zero)
-
-    // electronic part
-    // TODO: move up 
-    def energyFn(x: Double) = {
-      val nspin = 2.0
-      val alpha = (x-mu)/(kB*max(T,+0.0))
-      if (alpha < -20)
-        nspin*(x - mu)
-      else if (alpha > +20)
-        0.0
-      else
-        -kB*T*nspin*log(1 + exp(-alpha))
-    }
-    val c = KPMUtil.expansionCoefficients(M, 4*M, energyFn, energyScale)
-    val r = KPMUtil.allVectors(n)
-    val (electronicEnergy, de_dH) = kpm.functionAndGradient(c, r, H, energyScale)
-    e += electronicEnergy
+  // returns dX_dr for every atomic position r
+  def chainGradient(dX_dH: PackedSparse[Scalar.ComplexDbl]): Array[Vec3] = {
+    val ret = Array.fill(nAtoms)(Vec3.zero)
     val tmp   = Array.ofDim[Double](nOrbs, nOrbs)
     val dh_dx = Array.ofDim[Double](nOrbs, nOrbs)
     val dh_dy = Array.ofDim[Double](nOrbs, nOrbs)
@@ -75,13 +49,48 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
       pot.fillTBHoppings(lat.displacement(x(i), x(j)), tmp, dh_dx, dh_dy, dh_dz)
       for (o1 <- 0 until nOrbs;
            o2 <- 0 until nOrbs) {
-        val de_dH_ij = (de_dH(i*nOrbs+o1, j*nOrbs+o2) + de_dH(j*nOrbs+o2, i*nOrbs+o1)).re
+        val dX_dH_ij = (dX_dH(i*nOrbs+o1, j*nOrbs+o2) + dX_dH(j*nOrbs+o2, i*nOrbs+o1)).re
         // force applied by atom i on atom j
-        val f_ij = - Vec3(dh_dx(o1)(o2), dh_dy(o1)(o2), dh_dz(o1)(o2)) * de_dH_ij
-        f(j) += f_ij
-        f(i) -= f_ij
+        val dX_dr_j = Vec3(dh_dx(o1)(o2), dh_dy(o1)(o2), dh_dz(o1)(o2)) * dX_dH_ij
+        ret(j) += dX_dr_j
+        ret(i) -= dX_dr_j
       }
     }
+    ret
+  }
+  
+  def localFermiEnergy(x: Double, T: Double, mu: Double) = {
+    import math.{abs, exp, log}
+    val alpha = (x-mu)/(kB*abs(T))
+    if (T == 0.0 || abs(alpha) > 20) {
+      if (x < mu) nspin*(x-mu) else 0.0
+    }
+    else {
+      -kB*T*nspin*log(1 + exp(-alpha))
+    }
+  }
+  
+  def localFermiDensity(x: Double, T: Double, mu: Double) = {
+    import math.{abs, exp, log}
+    val alpha = (x-mu)/(kB*abs(T))
+    if (T == 0.0 || abs(alpha) > 20) {
+      if (x < mu) nspin else 0.0
+    }
+    else {
+      // println(s"at x=$x got n=${1.0/(exp(alpha)+1.0)}")
+      1.0/(exp(alpha)+1.0)
+    }
+  }
+  
+  def energyAndForce(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double): (Double, Array[Vec3]) = {
+    var E = 0.0
+    val f = Array.fill(nAtoms)(Vec3.zero)
+    
+    // electronic part
+    E += kpm.function(fd, localFermiEnergy(_, T, mu))
+    val dE_dr = chainGradient(kpm.gradient(fd, localFermiEnergy(_, T, mu)))
+    for (i <- 0 until lat.numAtoms)
+      f(i) -= dE_dr(i)
     
     // pair part
     for (i <- 0 until lat.numAtoms;
@@ -89,22 +98,20 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
          if (j < i)) {
       val del = lat.displacement(x(i), x(j))
       val r = del.norm
-      e += pot.phi(r)
+      E += pot.phi(r)
       val f_ij = del * (-pot.dphi_dr(r) / r)
       f(j) += f_ij
       f(i) -= f_ij
     }
-
-    (e, f)
+    
+    (E, f)
   }
   
-  def filling(mu: Double, kpm: ComplexKPM, M: Int) = {
-    def fillingFn(x: Double) = {
-      if (x < mu) 1.0 else 0.0
-    }
-    val c = KPMUtil.expansionCoefficients(M, 4*M, fillingFn, energyScale)
-    val r = KPMUtil.allVectors(n)
-    kpm.functionAndGradient(c, r, H, energyScale)._1 / n
+  def fillingFraction(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double) = {
+    kpm.function(fd, localFermiDensity(_, T, mu)) / (nspin*n)
   }
-
+  
+  def fillingGradient(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double) = {
+    chainGradient(kpm.gradient(fd, localFermiDensity(_, T, mu)))
+  }
 }
