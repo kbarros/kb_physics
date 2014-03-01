@@ -214,13 +214,13 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
       a_d(2) = temp
     }
     
-    val aM2 = dense(st.n, st.s)
-    val aM1 = dense(st.n, st.s)
-    cworld.cpyDeviceToHost(aM2, a_d(0)) // alpha_{M-2}
-    cworld.cpyDeviceToHost(aM1, a_d(1)) // alpha_{M-1}
+    val aM2 = Constructors.complexFlt.dense(st.n, st.s)
+    val aM1 = Constructors.complexFlt.dense(st.n, st.s)
+    cworld.cpyDeviceToHost(aM2.data.buffer, a_d(0)) // alpha_{M-2}
+    cworld.cpyDeviceToHost(aM1.data.buffer, a_d(1)) // alpha_{M-1}
     val gamma = KPMUtil.momentTransform(mu, quadAccuracy*M)
     st.deallocate()
-    ForwardData(st.Hs, es, r, mu, gamma, aM2, aM1)
+    ForwardData(st.Hs, es, r, mu, gamma, aM2.map(_.toComplexd), aM1.map(_.toComplexd))
   }
   
   def reverse(fd: ForwardData, coeff: Array[Double]): PackedSparse[Cd] = {
@@ -228,8 +228,8 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     val M = coeff.size
     
     val a_d = Array(st.a0_d, st.a1_d, st.a2_d)
-    cworld.cpyHostToDevice(a_d(0), fd.aM2)       // a0 = alpha_{M-2}
-    cworld.cpyHostToDevice(a_d(1), fd.aM1)       // a1 = alpha_{M-1}
+    cworld.cpyHostToDevice(a_d(0), fd.aM2.map(_.toComplexf).data.buffer) // a0 = alpha_{M-2}
+    cworld.cpyHostToDevice(a_d(1), fd.aM1.map(_.toComplexf).data.buffer) // a1 = alpha_{M-1}
     
     val b_d = Array(st.b0_d, st.b1_d, st.b2_d)
     scaleVector(coeff(M-1), st.r_d, b_d(0), st)  // b0 = c(order-1) r
