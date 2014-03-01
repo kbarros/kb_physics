@@ -71,17 +71,6 @@ object Test extends App {
     val dE_dH_cpu = ComplexKPMCpu.gradient(fd, f)
     println(s"CPU E=$E dE_dH(0,0)=${dE_dH_cpu(0,0)}")
     
-    /*
-      // OLD VERSION
-      val es = new EnergyScale(-1, 1)
-      val nrand = n
-      val cworld = new JCudaWorld(deviceIndex=0)
-      val cukpm = new kip.projects.quantum.CuKPM(cworld, H.map(_.toComplexf), nrand=nrand, seed=0)
-      val de_dH = H.duplicate.clear().map(_.toComplexf)
-      val e = cukpm.functionAndGradient(r=r.map(x => (x*math.sqrt(nrand)).toComplexf), c=c.map(_.toFloat), grad=de_dH)
-      println(s"Energy e=$e (0.5), de_dH(0,0)=${de_dH(0,0)} (1.0)")
-    */
-    
     val cworld = new JCudaWorld(deviceIndex=0)
     val kpm = new ComplexKPMGpuS(cworld)
     var iter = 0
@@ -90,7 +79,7 @@ object Test extends App {
       val fd = kpm.forward(M, r, H, es)
       val E = kpm.function(fd, f)
       val dE_dH = kpm.gradient(fd, f)
-      println(s"E=$E (0.5), dE_dH(0,0)=${dE_dH(0,0)} (1.0)")
+      println(s"E=$E, dE_dH(0,0)=${dE_dH(0,0)}")
       println(s"Iter $iter Elapsed ${(System.currentTimeMillis() - ms)/1000.0}")
       iter += 1
     }
