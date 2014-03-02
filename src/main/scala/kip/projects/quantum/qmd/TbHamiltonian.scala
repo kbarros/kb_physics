@@ -82,36 +82,57 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
     }
   }
   
-  def energyAndForce(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double): (Double, Array[Vec3]) = {
-    var E = 0.0
-    val f = Array.fill(nAtoms)(Vec3.zero)
-    
+  def energy(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double): Double = {
     // electronic part
-    E += kpm.function(fd, localFermiEnergy(_, T, mu))
-    val dE_dr = chainGradient(kpm.gradient(fd, localFermiEnergy(_, T, mu)))
-    for (i <- 0 until lat.numAtoms)
-      f(i) -= dE_dr(i)
-    
-    // pair part
+    var E = kpm.function(fd, localFermiEnergy(_, T, mu))
     for (i <- 0 until lat.numAtoms;
          j <- lat.neighbors(i, x, pot.rcut);
          if (j < i)) {
       val del = lat.displacement(x(i), x(j))
       val r = del.norm
       E += pot.phi(r)
+    }
+    E
+  }
+  
+  // mu and fillingFraction must correspond
+  def energyAtFixedFilling(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, fillingFraction: Double, T: Double): Double = {
+    val E = energy(kpm, fd, mu, T)
+    val occupiedStates = fillingFraction*nspin*n
+    E + mu*occupiedStates
+  }
+  
+  def force(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double): Array[Vec3] = {
+    // electronic part
+    val f = Array.fill(nAtoms)(Vec3.zero)
+    val dE_dr = chainGradient(kpm.gradient(fd, localFermiEnergy(_, T, mu)))
+    for (i <- 0 until lat.numAtoms)
+      f(i) -= dE_dr(i)
+    // pair part
+    for (i <- 0 until lat.numAtoms;
+         j <- lat.neighbors(i, x, pot.rcut);
+         if (j < i)) {
+      val del = lat.displacement(x(i), x(j))
+      val r = del.norm
       val f_ij = del * (-pot.dphi_dr(r) / r)
       f(j) += f_ij
       f(i) -= f_ij
     }
-    
-    (E, f)
+    f
+  }
+  
+  // TODO: generalize to Fermi function
+  // TODO: search for band gap
+  def findChemicalPotential(fd: ComplexKPM.ForwardData, fillingFraction: Double): Double = {
+    val (x, irho) = KPMUtil.integratedDensityFunction(fd.gamma, fd.es)
+    val i = irho.indexWhere(_ > fillingFraction*n)
+    require(0.0 < fillingFraction && fillingFraction < 1.0, s"Filling fraction $fillingFraction out of range (-1, 1)")
+    require(0 < i && i < irho.size-1, s"Could not find mu for filling fraction $fillingFraction")
+    // println(s"mu1=${x(i-1)} n1=${irho(i-1)/8} mu2=${x(i)} n2=${irho(i)/8}")
+    (x(i) + x(i-1)) / 2.0
   }
   
   def fillingFraction(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double) = {
     kpm.function(fd, localFermiDensity(_, T, mu)) / (nspin*n)
-  }
-  
-  def fillingGradient(kpm: ComplexKPM, fd: ComplexKPM.ForwardData, mu: Double, T: Double) = {
-    chainGradient(kpm.gradient(fd, localFermiDensity(_, T, mu)))
   }
 }

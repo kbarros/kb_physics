@@ -13,7 +13,6 @@ trait Potential {
   def dphi_dr(r: Double): Double
   
   def numOrbitalsPerSite: Int
-  def numFilledOrbitalsPerSite: Int
   
   def fillTBHoppings(del: Vec3,
                      h: Array[Array[Double]],
@@ -54,7 +53,6 @@ object GoodwinSi extends Potential {
   }
   
   def numOrbitalsPerSite = 4
-  def numFilledOrbitalsPerSite = 2
   
   def fillTBHoppings(del: Vec3,
                      h: Array[Array[Double]],

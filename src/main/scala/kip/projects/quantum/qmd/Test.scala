@@ -48,6 +48,7 @@ object Test extends App {
   def testDimerJoel() { 
     val r = 4.2*bohr
     val pot = GoodwinSi
+    val fillingFraction = 0.5
     val lat = new LinearChain(numAtoms=2, r0=r)
     
     val pos = Array(Vec3.zero, Vec3(r, 0, 0))
@@ -57,20 +58,21 @@ object Test extends App {
     println(s"Pair energy / atom = ${pot.phi(r) / (natoms*rydberg)} (? 0.17715058505537967 rydberg)")
     
     val eig = tbh.H.toDense.eig._1.toArray.map(_.re).sorted
-    
     val nspin = 2
-    val elecEnergy = nspin*eig.take(natoms*pot.numFilledOrbitalsPerSite).sum
+    val elecEnergy = nspin*eig.take((tbh.n*fillingFraction).round.toInt).sum
     println(s"Elec. energy / atom = ${elecEnergy / (natoms*rydberg)} (? -0.37133489682938575 rydberg)")
     
-    val mu = 3.15*eV
-    val T = 0.001*eV / kB
-    val M = 2000
+    println(s"Total = ${(pot.phi(r)+elecEnergy) / (natoms*rydberg)} rydberg")
+    
+    val T = 0
+    val M = 500
     val kpm = ComplexKPMCpu
     val fd = kpm.forward(M, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
-    val (e, _) = tbh.energyAndForce(kpm, fd, mu, T)
-    val e_kpm = e + mu*natoms*pot.numFilledOrbitalsPerSite*nspin
+    val mu = tbh.findChemicalPotential(fd, fillingFraction)
+    println("mu = "+mu)
+    val E_kpm = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, T)
     val n_kpm = tbh.fillingFraction(kpm, fd, mu, T)
-    println(s"Kpm : e=${e_kpm/(natoms*rydberg)} (? -0.19418 rydberg) at n=$n_kpm")
+    println(s"Kpm : e=${E_kpm/(natoms*rydberg)} (? -0.19418 rydberg) at n=$n_kpm")
   }
   
   def testForce() {
@@ -88,7 +90,7 @@ object Test extends App {
       val tbh = new TbHamiltonian(pot, lat, x)
       val fd = kpm.forward(M, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
       // println(s"Filling ${tbh.fillingFraction(kpm, fd, mu, T)}")
-      tbh.energyAndForce(kpm, fd, mu, T)
+      (tbh.energy(kpm, fd, mu, T), tbh.force(kpm, fd, mu, T))
     }
     
     val pos = Vec3(1.3, -0.2, 0.7).normalize * r

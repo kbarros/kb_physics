@@ -104,8 +104,8 @@ object KPMUtil {
     val rho = new Array[Double](quadPts)
     for (i <- quadPts-1 to 0 by -1) {
       val x_i = cos(Pi * (i+0.5) / quadPts)
-      x(i) = es.unscale(x_i)
-      rho(i) = gamma(i) / (Pi * sqrt(1-x_i*x_i) * es.mag)
+      x(quadPts-1-i) = es.unscale(x_i)
+      rho(quadPts-1-i) = gamma(i) / (Pi * sqrt(1-x_i*x_i) * es.mag)
     }
     (x, rho)
   }
@@ -118,8 +118,8 @@ object KPMUtil {
     var acc = 0.0
     for (i <- quadPts-1 to 0 by -1) {
       val x_i = cos(Pi * (i+0.5) / quadPts)
-      x(i) = es.unscale(x_i)
-      irho(i) = (acc+0.5*gamma(i)) / quadPts
+      x(quadPts-1-i) = es.unscale(x_i)
+      irho(quadPts-1-i) = (acc+0.5*gamma(i)) / quadPts
       acc += gamma(i) 
     }
     (x, irho)

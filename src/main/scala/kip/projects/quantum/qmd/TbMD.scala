@@ -1,18 +1,20 @@
 package kip.projects.quantum.qmd
 
-import scala.math.sqrt
-import scala.util.Random
-import Units._
-import kip.math.Vec3
 import java.io.File
-import kip.util.JacksonWrapper._
-import kip.util.Util
-import kip.enrich._
+
+import scala.Array.canBuildFrom
+import scala.util.Random
+
+import Units._
+import kip.enrich.enrichFile
+import kip.math.Vec3
 import kip.projects.cuda.JCudaWorld
-import kip.projects.quantum.kpm.ComplexKPM
 import kip.projects.quantum.kpm.ComplexKPMCpu
 import kip.projects.quantum.kpm.ComplexKPMGpuS
 import kip.projects.quantum.kpm.KPMUtil
+import kip.util.JacksonWrapper.deserialize
+import kip.util.JacksonWrapper.serialize
+import kip.util.Util
 
 
 
@@ -83,7 +85,7 @@ object TbMD extends App {
     val tbh = new TbHamiltonian(pot, lat, x)
     val r = KPMUtil.allVectors(tbh.n)
     val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
-    val energy  = tbh.energyAndForce(kpm, fd, conf.mu, conf.T)._1
+    val energy  = tbh.energy(kpm, fd, conf.mu, conf.T)
     val filling = tbh.fillingFraction(kpm, fd, conf.mu, conf.T)
     // println("  Action  = %.7g".format(action))
     // println("  Filling = %g".format(filling))
@@ -126,10 +128,11 @@ object TbMD extends App {
       val tbh = new TbHamiltonian(pot, lat, x)
       val r = KPMUtil.allVectors(tbh.n)
       val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
-      val (e_pot, f) = tbh.energyAndForce(kpm, fd, conf.mu, conf.T)
+      val e_pot = tbh.energy(kpm, fd, conf.mu, conf.T)
       val e_kin = 0.5 * massSi * v.map(_.norm2).sum
       val e_tot = e_pot + e_kin
       println(s"$stepCnt ${x(0).x}, e_tot=$e_tot e_pot=$e_pot e_kin=$e_kin")
+      val f = tbh.force(kpm, fd, conf.mu, conf.T)
       timestep(f, massSi, conf.gamma, conf.T, conf.dt, rand)
     })
     calcMomentsAndDump()
