@@ -20,7 +20,7 @@ import kip.util.Util
 
 object TbMD extends App {
   case class Conf(T: Double, gamma: Double, dt: Double, dumpEvery: Int, 
-                  M: Int, s: Int, model: Map[String, String])
+                  M: Int, Mq: Int, s: Int, model: Map[String, String])
   case class Snap(time: Double, moments: Array[Double], e_lo: Double, e_hi: Double,
                   energy: Double, x: Array[Vec3], v: Array[Vec3])
   
@@ -84,7 +84,7 @@ object TbMD extends App {
     return
     val tbh = new TbHamiltonian(pot, lat, x)
     val r = KPMUtil.allVectors(tbh.n)
-    val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
+    val fd = kpm.forward(conf.M, conf.Mq, r, tbh.H, KPMUtil.energyScale(tbh.H))
     val mu = tbh.findChemicalPotential(fd, fillingFraction)
     val energy  = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, conf.T)
     
@@ -124,7 +124,7 @@ object TbMD extends App {
     Util.notime("Langevin dynamics") (for (_ <- 0 until conf.dumpEvery) {
       val tbh = new TbHamiltonian(pot, lat, x)
       val r = KPMUtil.allVectors(tbh.n)
-      val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
+      val fd = kpm.forward(conf.M, conf.Mq, r, tbh.H, KPMUtil.energyScale(tbh.H))
       val mu = tbh.findChemicalPotential(fd, fillingFraction)
       val e_pot  = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, conf.T)
       val e_kin = 0.5 * massSi * v.map(_.norm2).sum

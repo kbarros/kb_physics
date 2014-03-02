@@ -189,7 +189,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
   val one  = cuCmplx(1, 0)
   val two  = cuCmplx(2, 0)
   
-  def forward(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData = {
+  def forward(M: Int, Mq: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData = {
     val st = new State(r, es.scale(H))
     
     val mu = Array.fill(M)(0.0)
@@ -218,7 +218,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     val aM1 = Constructors.complexFlt.dense(st.n, st.s)
     cworld.cpyDeviceToHost(aM2.data.buffer, a_d(0)) // alpha_{M-2}
     cworld.cpyDeviceToHost(aM1.data.buffer, a_d(1)) // alpha_{M-1}
-    val gamma = KPMUtil.momentTransform(mu, quadAccuracy*M)
+    val gamma = KPMUtil.momentTransform(mu, Mq)
     st.deallocate()
     ForwardData(st.Hs, es, r, mu, gamma, aM2.map(_.toComplexd), aM1.map(_.toComplexd))
   }
@@ -232,7 +232,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     cworld.cpyHostToDevice(a_d(1), fd.aM1.map(_.toComplexf).data.buffer) // a1 = alpha_{M-1}
     
     val b_d = Array(st.b0_d, st.b1_d, st.b2_d)
-    scaleVector(coeff(M-1), st.r_d, b_d(0), st)  // b0 = c(order-1) r
+    scaleVector(coeff(M-1), st.r_d, b_d(0), st)  // b0 = c(M-1) r
     cworld.clearDeviceArray(b_d(1), st.vecBytes) // b1 = 0
     
     val dE_dHs = st.Hs.duplicate.clear()

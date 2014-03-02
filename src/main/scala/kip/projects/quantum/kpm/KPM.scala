@@ -26,12 +26,11 @@ class EnergyScale(val lo: Double, val hi: Double) {
   }
 }
 
-// TODO: merge KPMUtil and KPM?
 
 object KPMUtil {
-  def jacksonKernel(order: Int): Array[Double] = {
-    val Mp = order+1d
-    Array.tabulate(order) { m => 
+  def jacksonKernel(M: Int): Array[Double] = {
+    val Mp = M+1.0
+    Array.tabulate(M) { m => 
       (1/Mp)*((Mp-m)*cos(Pi*m/Mp) + sin(Pi*m/Mp)/tan(Pi/Mp))
     }
   }
@@ -48,12 +47,12 @@ object KPMUtil {
   
   // Returns array c such that:
   //    \int_lo^hi rho(x) f(x) = \sum mu_m c_m
-  def expansionCoefficients(M: Int, quadPts: Int, f: Double => Double, es: EnergyScale): Array[Double] = {
+  def expansionCoefficients(M: Int, Mq: Int, f: Double => Double, es: EnergyScale): Array[Double] = {
     // TODO: replace with DCT-II, f -> fp
-    var fp = Array.fill[Double](quadPts)(0d)
+    var fp = Array.fill[Double](Mq)(0d)
     val T = Array.fill[Double](M)(0d)
-    for (i <- 0 until quadPts) {
-      val x_i = math.cos(math.Pi * (i+0.5) / quadPts)
+    for (i <- 0 until Mq) {
+      val x_i = math.cos(math.Pi * (i+0.5) / Mq)
       chebyshevFillArray(x_i, T)
       for (m <- 0 until M) {
         fp(m) += f(es.unscale(x_i)) * T(m) 
@@ -63,22 +62,22 @@ object KPMUtil {
     val kernel = jacksonKernel(M)
     var ret = Array.fill[Double](M)(0)
     for (m <- 0 until M) {
-      ret(m) = /* es.mag * */ (if (m == 0) 1 else 2) * kernel(m) * fp(m) / quadPts 
+      ret(m) = (if (m == 0) 1 else 2) * kernel(m) * fp(m) / Mq 
     }
     ret
   }
   
   // Transformation of moments mu suitable for reconstructing density of states
-  def momentTransform(mu: Array[Double], quadPts: Int): Array[Double] = {
+  def momentTransform(mu: Array[Double], Mq: Int): Array[Double] = {
     val M = mu.size
     val T = new Array[Double](M)
     val mup = (mu, jacksonKernel(M)).zipped.map(_*_)
-    val gamma = new Array[Double](quadPts)
+    val gamma = new Array[Double](Mq)
     
     // TODO: replace with DCT-III, mup -> gamma
-    for (i <- 0 until quadPts) {
-      val x_i = cos(Pi * (i+0.5) / quadPts)
-      chebyshevFillArray(x_i, T) // T_m(x_i) = cos(m pi (i+1/2) / quadPts)
+    for (i <- 0 until Mq) {
+      val x_i = cos(Pi * (i+0.5) / Mq)
+      chebyshevFillArray(x_i, T) // T_m(x_i) = cos(m pi (i+1/2) / Mq)
       for (m <- 0 until M) {
         gamma(i) += (if (m == 0) 1 else 2) * mup(m) * T(m)
       }
@@ -88,38 +87,38 @@ object KPMUtil {
   
   // Estimate \int_lo^hi rho(x) g(x) dx 
   def densityProduct(gamma: Array[Double], g: Double => Double, es: EnergyScale): Double = {
-    val quadPts = gamma.size
+    val Mq = gamma.size
     var ret = 0.0
-    for (i <- 0 until quadPts) {
-      val x_i = cos(Pi * (i+0.5) / quadPts)
+    for (i <- 0 until Mq) {
+      val x_i = cos(Pi * (i+0.5) / Mq)
       ret += gamma(i) * g(es.unscale(x_i))
     }
-    ret / quadPts
+    ret / Mq
   }
   
   // Returns density of states rho(x) at Chebyshev points x
   def densityFunction(gamma: Array[Double], es: EnergyScale): (Array[Double], Array[Double]) = {
-    val quadPts = gamma.size
-    val x = new Array[Double](quadPts)
-    val rho = new Array[Double](quadPts)
-    for (i <- quadPts-1 to 0 by -1) {
-      val x_i = cos(Pi * (i+0.5) / quadPts)
-      x(quadPts-1-i) = es.unscale(x_i)
-      rho(quadPts-1-i) = gamma(i) / (Pi * sqrt(1-x_i*x_i) * es.mag)
+    val Mq = gamma.size
+    val x = new Array[Double](Mq)
+    val rho = new Array[Double](Mq)
+    for (i <- Mq-1 to 0 by -1) {
+      val x_i = cos(Pi * (i+0.5) / Mq)
+      x(Mq-1-i) = es.unscale(x_i)
+      rho(Mq-1-i) = gamma(i) / (Pi * sqrt(1-x_i*x_i) * es.mag)
     }
     (x, rho)
   }
   
   // Returns density of states \int theta(x-x') rho(x') dx' at Chebyshev points x
   def integratedDensityFunction(gamma: Array[Double], es: EnergyScale): (Array[Double], Array[Double]) = {
-    val quadPts = gamma.size
-    val x = new Array[Double](quadPts)
-    val irho = new Array[Double](quadPts)
+    val Mq = gamma.size
+    val x = new Array[Double](Mq)
+    val irho = new Array[Double](Mq)
     var acc = 0.0
-    for (i <- quadPts-1 to 0 by -1) {
-      val x_i = cos(Pi * (i+0.5) / quadPts)
-      x(quadPts-1-i) = es.unscale(x_i)
-      irho(quadPts-1-i) = (acc+0.5*gamma(i)) / quadPts
+    for (i <- Mq-1 to 0 by -1) {
+      val x_i = cos(Pi * (i+0.5) / Mq)
+      x(Mq-1-i) = es.unscale(x_i)
+      irho(Mq-1-i) = (acc+0.5*gamma(i)) / Mq
       acc += gamma(i) 
     }
     (x, irho)
@@ -162,14 +161,13 @@ object KPMUtil {
 
 object ComplexKPM {
   type Cd = Scalar.ComplexDbl
-  val quadAccuracy = 10
   case class ForwardData(Hs: PackedSparse[Cd], es: EnergyScale, r: Dense[Cd], mu: Array[Double], gamma: Array[Double], aM2: Dense[Cd], aM1: Dense[Cd])
 }
 
 trait ComplexKPM {
   import ComplexKPM._
   
-  def forward(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData
+  def forward(M: Int, Mq: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData
   def reverse(fd: ForwardData, coeff: Array[Double]): PackedSparse[Cd]
   
   def function(fd: ForwardData, f: Double=>Double): Double = {
@@ -178,8 +176,8 @@ trait ComplexKPM {
 
   def gradient(fd: ForwardData, f: Double=>Double): PackedSparse[Cd] = {
     val M = fd.mu.size
-    val quadPts = M * quadAccuracy
-    val coeff = KPMUtil.expansionCoefficients(M, quadPts, f, fd.es)
+    val Mq = fd.gamma.size
+    val coeff = KPMUtil.expansionCoefficients(M, Mq, f, fd.es)
     reverse(fd, coeff)
   }
 }
@@ -188,7 +186,7 @@ object ComplexKPMCpu extends ComplexKPM {
   import ComplexKPM._
   import Constructors.complexDbl._
   
-  def forward(M: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData = {
+  def forward(M: Int, Mq: Int, r: Dense[Cd], H: PackedSparse[Cd], es: EnergyScale): ForwardData = {
     val n = r.numRows
     val s = r.numCols
     val Hs = es.scale(H)
@@ -211,7 +209,7 @@ object ComplexKPMCpu extends ComplexKPM {
       a1 := a2
     }
     
-    val gamma = KPMUtil.momentTransform(mu, quadAccuracy*M)
+    val gamma = KPMUtil.momentTransform(mu, Mq)
     ForwardData(Hs, es, r, mu, gamma, aM2=a0, aM1=a1)
   }
   

@@ -11,10 +11,10 @@ import kip.projects.quantum.kpm.KPMUtil
 
 
 object Test extends App {
-//  testDimer()
+  testDimer()
   testDimerJoel()
-//  testForce()
-//  testDensity()
+  testForce()
+  testDensity()
   
   def testDimer() {
     val pot = GoodwinSi
@@ -66,13 +66,13 @@ object Test extends App {
     
     val T = 0
     val M = 500
+    val Mq = 4*M
     val kpm = ComplexKPMCpu
-    val fd = kpm.forward(M, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
+    val fd = kpm.forward(M, Mq, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
     val mu = tbh.findChemicalPotential(fd, fillingFraction)
-    println("mu = "+mu)
     val E_kpm = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, T)
     val n_kpm = tbh.fillingFraction(kpm, fd, mu, T)
-    println(s"Kpm : e=${E_kpm/(natoms*rydberg)} (? -0.19418 rydberg) at n=$n_kpm")
+    println(s"Kpm : e=${E_kpm/(natoms*rydberg)} (? -0.19418 rydberg) at n=$n_kpm ($fillingFraction)")
   }
   
   def testForce() {
@@ -82,13 +82,14 @@ object Test extends App {
     val mu = 2.8525*eV
     val T = 0.1 * eV / kB
     val M = 1000
+    val Mq = 4*M
     val kpm = ComplexKPMCpu
 
     def calc(pos: Vec3) = {
       val x = Array(Vec3.zero, pos)
       val v = Array(Vec3.zero, Vec3.zero)
       val tbh = new TbHamiltonian(pot, lat, x)
-      val fd = kpm.forward(M, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
+      val fd = kpm.forward(M, Mq, KPMUtil.allVectors(tbh.n), tbh.H, KPMUtil.energyScale(tbh.H))
       // println(s"Filling ${tbh.fillingFraction(kpm, fd, mu, T)}")
       (tbh.energy(kpm, fd, mu, T), tbh.force(kpm, fd, mu, T))
     }
@@ -121,8 +122,8 @@ object Test extends App {
 //    val es = KPMUtil.energyScale(H)
     val r = KPMUtil.allVectors(n)
     val M = 100
-    val quadPts = 4*M
-    val fd = ComplexKPMCpu.forward(M, r, H, es)
+    val Mq = 4*M
+    val fd = ComplexKPMCpu.forward(M, Mq, r, H, es)
     val (x, rho) = KPMUtil.densityFunction(fd.gamma, es)
     scikit.util.Commands.plot(x, rho)
     val (xp, irho) = KPMUtil.integratedDensityFunction(fd.gamma, es)
