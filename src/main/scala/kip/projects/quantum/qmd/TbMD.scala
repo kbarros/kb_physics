@@ -19,10 +19,10 @@ import kip.util.Util
 
 
 object TbMD extends App {
-  case class Conf(T: Double, mu: Double, gamma: Double, dt: Double, dumpEvery: Int, 
+  case class Conf(T: Double, gamma: Double, dt: Double, dumpEvery: Int, 
                   M: Int, s: Int, model: Map[String, String])
   case class Snap(time: Double, moments: Array[Double], e_lo: Double, e_hi: Double,
-                  energy: Double, filling: Double, x: Array[Vec3], v: Array[Vec3])
+                  energy: Double, x: Array[Vec3], v: Array[Vec3])
   
   def dumpFilename(iter: Int) = dumpdir+"/%04d.json".format(iter)
   
@@ -33,7 +33,6 @@ object TbMD extends App {
     val conf = deserialize[Conf](s2)
     conf.copy(
         T = conf.T*kelvin,
-        mu = conf.mu*eV,
         gamma = conf.gamma*fs,
         dt = conf.dt*fs
     )
@@ -56,6 +55,7 @@ object TbMD extends App {
   val conf = loadConf(dir+"/cfg.json")
   
   val pot = GoodwinSi
+  val fillingFraction = conf.model("filling").toDouble
   val numAtoms = conf.model("numAtoms").toInt
   val r0 = conf.model("r0").toDouble*angstrom
   val lat = new LinearChain(numAtoms, r0)
@@ -85,10 +85,8 @@ object TbMD extends App {
     val tbh = new TbHamiltonian(pot, lat, x)
     val r = KPMUtil.allVectors(tbh.n)
     val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
-    val energy  = tbh.energy(kpm, fd, conf.mu, conf.T)
-    val filling = tbh.fillingFraction(kpm, fd, conf.mu, conf.T)
-    // println("  Action  = %.7g".format(action))
-    // println("  Filling = %g".format(filling))
+    val mu = tbh.findChemicalPotential(fd, fillingFraction)
+    val energy  = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, conf.T)
     
     // dump configuration
     val snap = Snap(time=stepCnt*conf.dt/fs,
@@ -96,7 +94,6 @@ object TbMD extends App {
                     e_lo=fd.es.lo/eV,
                     e_hi=fd.es.hi/eV,
                     energy=energy/eV,
-                    filling=filling,
                     x=x, v=v)
     val filename = dumpFilename(dumpCnt)
     println(s"Dumping $filename (t=${stepCnt*conf.dt/fs} fs)")
@@ -128,11 +125,12 @@ object TbMD extends App {
       val tbh = new TbHamiltonian(pot, lat, x)
       val r = KPMUtil.allVectors(tbh.n)
       val fd = kpm.forward(conf.M, r, tbh.H, KPMUtil.energyScale(tbh.H))
-      val e_pot = tbh.energy(kpm, fd, conf.mu, conf.T)
+      val mu = tbh.findChemicalPotential(fd, fillingFraction)
+      val e_pot  = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, conf.T)
       val e_kin = 0.5 * massSi * v.map(_.norm2).sum
       val e_tot = e_pot + e_kin
       println(s"$stepCnt ${x(0).x}, e_tot=$e_tot e_pot=$e_pot e_kin=$e_kin")
-      val f = tbh.force(kpm, fd, conf.mu, conf.T)
+      val f = tbh.force(kpm, fd, mu, conf.T)
       timestep(f, massSi, conf.gamma, conf.T, conf.dt, rand)
     })
     calcMomentsAndDump()

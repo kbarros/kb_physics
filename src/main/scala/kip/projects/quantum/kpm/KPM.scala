@@ -162,7 +162,7 @@ object KPMUtil {
 
 object ComplexKPM {
   type Cd = Scalar.ComplexDbl
-  val quadAccuracy = 4
+  val quadAccuracy = 10
   case class ForwardData(Hs: PackedSparse[Cd], es: EnergyScale, r: Dense[Cd], mu: Array[Double], gamma: Array[Double], aM2: Dense[Cd], aM1: Dense[Cd])
 }
 
