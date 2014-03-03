@@ -14,7 +14,7 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
   val nAtoms = lat.numAtoms
   val n = nOrbs * nAtoms
   val nspin = 2.0
-
+  
   val H = {
     val H     = sparse(n, n)
     val h     = Array.ofDim[Double](nOrbs, nOrbs)
@@ -57,6 +57,11 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
       }
     }
     ret
+  }
+  
+  def grouping(i: Int, s: Int): Int = {
+    val norb = pot.numOrbitalsPerSite
+    norb*lat.grouping(i/norb, x, s/norb) + (i%norb)
   }
   
   def localFermiEnergy(x: Double, T: Double, mu: Double) = {

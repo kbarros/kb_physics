@@ -51,7 +51,7 @@ class SquareLattice(lx: Int, ly: Int, r0: Double) extends Lattice {
 //  }
   
   def grouping(i: Int, x: Array[Vec3], s: Int): Int = {
-    val len = math.sqrt(s).toInt
+    val len = math.sqrt(s).round.toInt
     require(len*len == s)
     val (x, y) = latticeCoords(i)
     val xp = x % len
