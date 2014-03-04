@@ -31,7 +31,5 @@ javacOptions ++= Seq(
   "-Xlint:unchecked"
 )
 
-retrieveManaged := true
-
 // fork a new JVM for 'run' and 'test:run'
 fork := true

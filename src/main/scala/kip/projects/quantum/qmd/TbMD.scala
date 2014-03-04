@@ -21,8 +21,9 @@ import kip.util.Util
 object TbMD extends App {
   case class Conf(T: Double, gamma: Double, dt: Double, dumpEvery: Int, 
                   M: Int, Mq: Int, s: Int, model: Map[String, String])
-  case class Snap(time: Double, moments: Array[Double], e_lo: Double, e_hi: Double,
-                  energy: Double, x: Array[Vec3], v: Array[Vec3])
+  case class Snap(time: Double, energy: Double, bdsLo: Array[Double], bdsHi: Array[Double], 
+                  id: Array[Int], x: Array[Double], v: Array[Double],
+                  mu: Double, moments: Array[Double], energyScale: (Double, Double))
   
   def dumpFilename(iter: Int) = dumpdir+"/%04d.json".format(iter)
   
@@ -61,6 +62,7 @@ object TbMD extends App {
   val lat = new LinearChain(numAtoms, r0)
   val x = lat.initialPositions
   val v = Array.fill(numAtoms)(Vec3.zero)
+  v(1) += Vec3(1, 0, 0) * (1 / 10.0)
   
   println(s"${lat.numAtoms} atoms, ${conf.M} moments")
   
@@ -81,7 +83,6 @@ object TbMD extends App {
   // require(!(new File(dumpFilename(dumpCnt))).exists, "Refuse to overwrite dump file %s".format(dumpFilename(dumpCnt)))
   
   def calcMomentsAndDump() {
-    return
     val tbh = new TbHamiltonian(pot, lat, x)
     val r = KPMUtil.allVectors(tbh.n)
     val fd = kpm.forward(conf.M, conf.Mq, r, tbh.H, KPMUtil.energyScale(tbh.H))
@@ -90,11 +91,15 @@ object TbMD extends App {
     
     // dump configuration
     val snap = Snap(time=stepCnt*conf.dt/fs,
-                    moments=fd.mu,
-                    e_lo=fd.es.lo/eV,
-                    e_hi=fd.es.hi/eV,
                     energy=energy/eV,
-                    x=x, v=v)
+                    bdsLo = Array(lat.boundsLow.x, lat.boundsLow.y, lat.boundsLow.z),
+                    bdsHi = Array(lat.boundsHigh.x, lat.boundsHigh.y, lat.boundsHigh.z),
+                    id=new Array(tbh.nAtoms),
+                    x=x.flatMap(r => Array(r.x, r.y, r.z)),
+                    v=v.flatMap(r => Array(r.x, r.y, r.z)),
+                    mu=mu,
+                    moments=fd.mu,
+                    energyScale=(fd.es.lo/eV, fd.es.hi/eV))
     val filename = dumpFilename(dumpCnt)
     println(s"Dumping $filename (t=${stepCnt*conf.dt/fs} fs)")
     kip.util.Util.writeStringToFile(serialize(snap), filename)
@@ -119,7 +124,7 @@ object TbMD extends App {
   }
   
   println(s"# M=${conf.M}, dt=${conf.dt/fs}")
-  
+  println(s"# step x0 x1 x2 e_tot e_pot e_kin")
   while (true) {
     Util.notime("Langevin dynamics") (for (_ <- 0 until conf.dumpEvery) {
       val tbh = new TbHamiltonian(pot, lat, x)
@@ -129,7 +134,7 @@ object TbMD extends App {
       val e_pot  = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, conf.T)
       val e_kin = 0.5 * massSi * v.map(_.norm2).sum
       val e_tot = e_pot + e_kin
-      println(s"$stepCnt ${x(0).x}, e_tot=$e_tot e_pot=$e_pot e_kin=$e_kin")
+      // println(s"$stepCnt ${x(0).x} ${x(1).x} ${x(2).x} $e_tot $e_pot $e_kin")
       val f = tbh.force(kpm, fd, mu, conf.T)
       timestep(f, massSi, conf.gamma, conf.T, conf.dt, rand)
     })

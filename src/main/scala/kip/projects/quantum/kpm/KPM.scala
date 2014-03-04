@@ -6,7 +6,7 @@ import smatrix._
 
 class EnergyScale(val lo: Double, val hi: Double) {
   val avg = (hi + lo) / 2.0
-  val mag = (hi - lo) / 2.0 
+  val mag = (hi - lo) / 2.0
   
   def scale(x: Double) = {
     (x - avg) / mag 
@@ -161,7 +161,8 @@ object KPMUtil {
 
 object ComplexKPM {
   type Cd = Scalar.ComplexDbl
-  case class ForwardData(Hs: PackedSparse[Cd], es: EnergyScale, r: Dense[Cd], mu: Array[Double], gamma: Array[Double], aM2: Dense[Cd], aM1: Dense[Cd])
+  case class ForwardData(Hs: PackedSparse[Cd], es: EnergyScale, r: Dense[Cd],
+                         mu: Array[Double], gamma: Array[Double], aM2: Dense[Cd], aM1: Dense[Cd])
 }
 
 trait ComplexKPM {

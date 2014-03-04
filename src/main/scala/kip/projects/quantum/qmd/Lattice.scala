@@ -4,6 +4,8 @@ import kip.math.Vec3
 
 trait Lattice {
   def numAtoms: Int
+  def boundsLow: Vec3
+  def boundsHigh: Vec3
   def initialPositions: Array[Vec3]
   def grouping(i: Int, x: Array[Vec3], s: Int): Int
   
@@ -17,6 +19,9 @@ trait Lattice {
 
 
 class LinearChain(val numAtoms: Int, r0: Double) extends Lattice {
+  val boundsLow  = Vec3(-r0, -r0, -r0)
+  val boundsHigh = Vec3((numAtoms+1)*r0, r0, r0)
+  
   def initialPositions = {
     Array.tabulate(numAtoms) { i => Vec3(i, 0, 0)*r0 }
   }
@@ -29,6 +34,8 @@ class LinearChain(val numAtoms: Int, r0: Double) extends Lattice {
 
 class SquareLattice(lx: Int, ly: Int, r0: Double) extends Lattice {
   val numAtoms = lx*ly
+  val boundsLow  = Vec3(-r0, -r0, -r0)
+  val boundsHigh = Vec3((lx+1)*r0, (ly+1)*r0, -r0)
   
   def latticeCoords(i: Int) = {
     (i%lx, i/lx)
