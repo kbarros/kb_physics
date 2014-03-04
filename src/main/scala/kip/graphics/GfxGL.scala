@@ -171,15 +171,11 @@ class GfxGL(glDrawable: GLAutoDrawable) {
   }
 
   def drawQuads(ps: Vec3*) {
-    gl.glBegin(GL_QUADS)
-    for (qs <- ps.grouped(4)) {
-      val n = ((qs(1) - qs(0)) cross (qs(2) - qs(0))).normalize
-      gl.glNormal3d(n.x, n.y, n.z)
-      for (q <- qs) {
-        gl.glVertex3d(q.x, q.y, q.z)
-      }
+    val ps2 = ps.grouped(4).flatMap {qs =>
+      Seq(qs(0), qs(1), qs(2),
+          qs(0), qs(2), qs(3))
     }
-    gl.glEnd()
+    drawTriangles(ps2.toSeq:_*)
   }
 
   def drawTriangleStrip(ps: IndexedSeq[Vec3], colors: IndexedSeq[Color]) {

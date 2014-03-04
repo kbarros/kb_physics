@@ -41,7 +41,7 @@ object RetainedScene {
       
       gfx.setColor(color1)
       // bottom cap
-      gfx.drawQuads(x0 + (+a1+a2)*w0, x0 + (+a1-a2)*w0, x1 + (-a1-a2)*w1, x1 + (-a1+a2)*w1)      
+      gfx.drawQuads(x0 + (+a1+a2)*w0, x0 + (+a1-a2)*w0, x0 + (-a1-a2)*w0, x0 + (-a1+a2)*w0)
       // base
       gfx.drawQuads(x0 + (+a1-a2)*w0, x0 + (+a1+a2)*w0, x1 + (+a1+a2)*w1, x1 + (+a1-a2)*w1)
       gfx.drawQuads(x0 + (+a1+a2)*w0, x0 + (-a1+a2)*w0, x1 + (-a1+a2)*w1, x1 + (+a1+a2)*w1)
