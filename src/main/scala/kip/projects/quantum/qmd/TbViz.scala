@@ -11,6 +11,10 @@ import java.awt.event.{WindowAdapter, WindowEvent}
 import javax.swing.{JPanel, JSlider, JComponent}
 import javax.swing.event.{ChangeEvent, ChangeListener}
 import java.io.File
+import scikit.graphics.dim2.Plot
+import kip.projects.quantum.kpm.KPMUtil
+import kip.projects.quantum.kpm.EnergyScale
+import scikit.dataset.PointSet
 
 object TbViz {
   def readSnap(file: File): TbMD.Snap = {
@@ -21,10 +25,7 @@ object TbViz {
     require(dir.isDirectory(), "Cannot load directory %s".format(dir))  
     val files = dir.listFiles()
     val indices = files.map { f =>
-      val name = f.getName()
-      val idx = name.takeWhile(_ != '.').toInt
-      println(s"Name = $name, idx=$idx")
-      idx
+      f.getName().takeWhile(_ != '.').toInt
     }
     (files zip indices).sortBy(_._2).filter(_._2 % readEvery == 0).map(x => readSnap(x._1))
   }
@@ -58,32 +59,8 @@ class TbViz(val snaps: Seq[TbMD.Snap]) {
       for (i <- 0 until snap.x.size/3) {
         val pos = Vec3(snap.x(3*i+0), snap.x(3*i+1), snap.x(3*i+2))
         gfx.setColor(Color.BLUE)
-//        gfx.drawSphere(pos, 1*Units.angstrom, 2)
+        gfx.drawSphere(pos, 1*Units.angstrom, 2)
       }
-      
-      
-      
-      val origin = Vec3(0, 0, 0)
-      val delta = Vec3(1, 1, 1)
-      val width = 0.5
-      val color1 = java.awt.Color.blue
-      val color2 = java.awt.Color.red
-      val a0 = delta.normalize 
-      val a1 = {
-        val alignedz = math.abs(a0.z) > (1 - 1e-6) 
-        ((if (alignedz) Vec3(0, 1, 0) else Vec3(0, 0, 1)) cross a0).normalize    
-      }
-      val a2 = (a0 cross a1).normalize
-
-      val l0 = delta.norm * 0.8 // length from base to waist
-      val l1 = delta.norm - l0  // length from waist to end
-      
-      val x0 = origin
-      val x1 = origin + a0 * l0
-      val x2 = origin + a0 * (l0 + l1)
-      
-      val w0 = 0.5 * width * 0.3 // width at base
-      val w1 = 0.5 * width       // width at waist
       
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)
@@ -93,9 +70,14 @@ class TbViz(val snaps: Seq[TbMD.Snap]) {
     }
   }
   
-  val frame = buildFrame()
-  
-  def buildSlider(): JSlider = {
+  val frame = {
+    val frame = new Frame("Atoms")
+    frame.addWindowListener(new WindowAdapter() {
+      override def windowClosing(e: WindowEvent) {
+        System.exit(0)
+      }
+    })
+
     val slider = new JSlider(0, snaps.size-1, 0)
     slider.addChangeListener(new ChangeListener() {
       def stateChanged(e: ChangeEvent) {
@@ -103,20 +85,10 @@ class TbViz(val snaps: Seq[TbMD.Snap]) {
         scene.display()
       }
     })
-    slider
-  }
-  
-  def buildFrame(): Frame = {
-    val frame = new Frame("Molecular Visualizer")
-    frame.addWindowListener(new WindowAdapter() {
-      override def windowClosing(e: WindowEvent) {
-        System.exit(0)
-      }
-    })
-
+    
     val panel = new JPanel(new BorderLayout())
     panel.add(scene.component, BorderLayout.CENTER);
-    panel.add(buildSlider(), BorderLayout.SOUTH);
+    panel.add(slider, BorderLayout.SOUTH);
     
     frame.add(panel)
     frame.setSize(300, 300)
@@ -124,18 +96,38 @@ class TbViz(val snaps: Seq[TbMD.Snap]) {
     frame
   }
   
+  lazy val plot = {
+    val plot = new Plot("Integrated density")
+    scikit.util.Utilities.frame(plot.getComponent(), plot.getTitle())
+    plot
+  }
+  
   def goto(i: Int) {
     idx = i
     scene.display()
+    
+    // integrated density 
+    if (true) {
+      val snap = snaps(idx)
+      val es = new EnergyScale(snap.energyScale._1, snap.energyScale._2)
+      val gamma = KPMUtil.momentTransform(snap.moments, 10*snap.moments.size)
+      val (xp, irho) = KPMUtil.integratedDensityFunction(gamma, es)
+      val data = new PointSet(xp, irho)
+      plot.registerLines("Integrated density", data, Color.BLACK)
+      val muIdx = xp.indexWhere(_ > snap.mu)
+      val muData = new PointSet(Array(snap.mu), Array(irho(muIdx)))
+      plot.registerBars("Mu", muData, Color.RED)
+    }
   }
   
-  def animate(molviz: MolViz) {
+  goto(0)
+  
+  def animate() {
     for (i <- 500 until 2000) {
-      molviz.goto(i)
-
+      goto(i)
       // val im = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
-      val im = scene.captureImage()
-      javax.imageio.ImageIO.write(im, "PNG", new java.io.File("foo6.png"))
+      // val im = scene.captureImage()
+      // javax.imageio.ImageIO.write(im, "PNG", new java.io.File("foo6.png"))
 
     }
   }
