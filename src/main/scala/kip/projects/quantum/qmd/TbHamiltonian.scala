@@ -67,7 +67,7 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
   def localFermiEnergy(x: Double, T: Double, mu: Double) = {
     import math.{abs, exp, log}
     val alpha = (x-mu)/(kB*abs(T))
-    if (T == 0.0 || abs(alpha) > 20) {
+    if (true || T == 0.0 || abs(alpha) > 20) {
       if (x < mu) nspin*(x-mu) else 0.0
     }
     else {
@@ -78,11 +78,10 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
   def localFermiDensity(x: Double, T: Double, mu: Double) = {
     import math.{abs, exp, log}
     val alpha = (x-mu)/(kB*abs(T))
-    if (T == 0.0 || abs(alpha) > 20) {
+    if (true || T == 0.0 || abs(alpha) > 20) {
       if (x < mu) nspin else 0.0
     }
     else {
-      // println(s"at x=$x got n=${1.0/(exp(alpha)+1.0)}")
       1.0/(exp(alpha)+1.0)
     }
   }
