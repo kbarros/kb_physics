@@ -8,6 +8,7 @@ import scala.util.Random
 import Units._
 import kip.enrich.enrichFile
 import kip.math.Vec3
+import kip.math.Math.sqr
 import kip.projects.cuda.JCudaWorld
 import kip.projects.quantum.kpm.ComplexKPMCpu
 import kip.projects.quantum.kpm.ComplexKPMGpuS
@@ -15,11 +16,11 @@ import kip.projects.quantum.kpm.KPMUtil
 import kip.util.JacksonWrapper.deserialize
 import kip.util.JacksonWrapper.serialize
 import kip.util.Util
-
+import Util.time
 
 
 object TbMD extends App {
-  case class Conf(T: Double, gamma: Double, dt: Double, dumpEvery: Int, 
+  case class Conf(T: Double, gamma: Double, dt: Double, randomSeed: Int, dumpEvery: Int,
                   M: Int, Mq: Int, s: Int, model: Map[String, String])
   case class Snap(time: Double, energy: Double, mu: Double,
                   bdsLo: Array[Double], bdsHi: Array[Double], 
@@ -46,28 +47,34 @@ object TbMD extends App {
   }
   val dir = args(0)
   val deviceIndex = args(1).toInt
-  
-  val seed = 0 // System.currentTimeMillis().toInt
-  val rand = new Random(seed)
-  
+    
   // create output directory for spin configurations
   val dumpdir = new java.io.File(dir+"/dump")
   Util.createEmptyDir(dumpdir)
   
   val conf = loadConf(dir+"/cfg.json")
   
+  val rand = new Random(conf.randomSeed)
   val pot = GoodwinSi
+  val mass = massSi
   val fillingFraction = conf.model("filling").toDouble
   val numAtoms = conf.model("numAtoms").toInt
   val r0 = conf.model("r0").toDouble*angstrom
-  // val lat = new LinearChain(numAtoms, r0)
-  val lx = math.sqrt(numAtoms).round.toInt
-  val lat = new SquareLattice(lx, lx, r0)
+  
+  val periodic = conf.model("periodic").toBoolean
+  val lat = conf.model("lattice") match {
+    case "linear" => {
+      new LinearChain(numAtoms, r0, periodic)
+    }
+    case "square" => {
+      val lx = math.sqrt(numAtoms).round.toInt
+      new SquareLattice(lx, lx, r0, periodic)
+    }
+  }
   val x = lat.initialPositions
   val v = Array.fill(numAtoms)(Vec3.zero)
-  v(1) += Vec3(1, 0, 0) * (1 / 10.0)
   
-  println(s"numAtoms=${lat.numAtoms}, M=${conf.M}, dt=${conf.dt/fs} (fs)")
+  println(s"numAtoms=${lat.numAtoms}, M=${conf.M}, T=${conf.T/kelvin} (K), gamma=${conf.gamma/fs} (fs), dt=${conf.dt/fs} (fs)")
   
   val kpm = try {
     val cworld = new JCudaWorld(deviceIndex=0)
@@ -85,13 +92,38 @@ object TbMD extends App {
   // don't overwrite any existing data
   // require(!(new File(dumpFilename(dumpCnt))).exists, "Refuse to overwrite dump file %s".format(dumpFilename(dumpCnt)))
   
+  def effectiveTemperature(): Double = {
+    val tbh = new TbHamiltonian(pot, lat, x)
+    
+    def estimateForce() = {
+      // val r = KPMUtil.allVectors(tbh.n)
+      // val r = KPMUtil.correlatedVectors(tbh.n, conf.s, tbh.grouping(_, conf.s), rand)
+      val r = KPMUtil.uncorrelatedVectors(tbh.n, conf.s, rand)
+      val fd = kpm.forward(conf.M, conf.Mq, r, tbh.H, KPMUtil.energyScale(tbh.H))
+      val mu = tbh.findChemicalPotential(fd, fillingFraction)
+      tbh.force(kpm, fd, mu, conf.T)
+    }
+    
+    // val f1 = estimateForce()
+    val f1 = Array.fill(tbh.nAtoms)(Vec3.zero)
+    val f2 = estimateForce()
+    
+    val dim = 3
+    val numEstimates = 1
+    val df2 = (f1, f2).zipped.map((f1, f2) => (f1 - f2).norm2).sum / (numEstimates*dim*tbh.nAtoms)
+    (df2*conf.dt*conf.gamma) / (2*mass*kB)
+  }
+  
   def calcMomentsAndDump() {
+    println(s"Teff = ${effectiveTemperature()/kelvin} (K)")
+    sys.exit()
+    
     val tbh = new TbHamiltonian(pot, lat, x)
     val r = KPMUtil.allVectors(tbh.n)
     val fd = kpm.forward(conf.M, conf.Mq, r, tbh.H, KPMUtil.energyScale(tbh.H))
     val mu = tbh.findChemicalPotential(fd, fillingFraction)
     val e_pot = tbh.energyAtFixedFilling(kpm, fd, mu, fillingFraction, conf.T)
-    val e_kin = 0.5 * massSi * v.map(_.norm2).sum
+    val e_kin = 0.5 * mass * v.map(_.norm2).sum
     val energy = e_pot + e_kin
     
     // compare with exact diagonalization
@@ -117,7 +149,7 @@ object TbMD extends App {
                     moments=fd.mu,
                     energyScale=(fd.es.lo/eV, fd.es.hi/eV))
     val filename = dumpFilename(dumpCnt)
-    println(f"Dumping $filename (t=${stepCnt*conf.dt/fs}%g fs, E=${energy/eV}%g (eV)")
+    println(f"Dumping $filename, t=${stepCnt*conf.dt/fs}%g (fs), E=${energy/eV}%g (eV)")
     kip.util.Util.writeStringToFile(serialize(snap), filename)
     dumpCnt += 1
   }
@@ -126,7 +158,7 @@ object TbMD extends App {
     // update momentum at fixed position
     for (i <- 0 until lat.numAtoms) {
       val eta = Vec3(rand.nextGaussian(), rand.nextGaussian(), rand.nextGaussian())
-      v(i) += f(i)*(dt/m) // + v(i)*(-dt/gamma) + eta*math.sqrt(2*kB*T*dt/(m*gamma))
+      v(i) += f(i)*(dt/m) + v(i)*(-dt/gamma) + eta*math.sqrt(2*kB*T*dt/(m*gamma))
     }
     // update position at fixed momentum
     for (i <- 0 until lat.numAtoms) {
@@ -140,14 +172,14 @@ object TbMD extends App {
   }
   
   while (true) {
-    Util.notime("Langevin dynamics") (for (_ <- 0 until conf.dumpEvery) {
-      val tbh = new TbHamiltonian(pot, lat, x)
-      val r = KPMUtil.allVectors(tbh.n)
-      val fd = kpm.forward(conf.M, conf.Mq, r, tbh.H, KPMUtil.energyScale(tbh.H))
-      val mu = tbh.findChemicalPotential(fd, fillingFraction)
-      val f = tbh.force(kpm, fd, mu, conf.T)
-      timestep(f, massSi, conf.gamma, conf.T, conf.dt, rand)
-    })
+    for (_ <- 0 until conf.dumpEvery) {
+      val tbh = time("Build hamiltonian")(new TbHamiltonian(pot, lat, x))
+      val r = time("Random vectors")(KPMUtil.allVectors(tbh.n))
+      val fd = time("Forward calc")(kpm.forward(conf.M, conf.Mq, r, tbh.H, KPMUtil.energyScale(tbh.H)))
+      val mu = time("Chem pot.")(tbh.findChemicalPotential(fd, fillingFraction))
+      val f = time("Force")(tbh.force(kpm, fd, mu, conf.T))
+      time("Timestep")(timestep(f, mass, conf.gamma, conf.T, conf.dt, rand))
+    }
     calcMomentsAndDump()
   }
 }
