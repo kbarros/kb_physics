@@ -2,14 +2,26 @@ package kip.projects.quantum.qmd
 
 import kip.math.Vec3
 
+object Lattice {
+  def periodicWrap(dx: Double, L: Double) = {
+    val dxp = dx % L
+    if (dxp > L/2)
+      dxp-L
+    else if (dxp < -L/2)
+      dxp+L
+    else
+      dxp
+  }
+}
+
+
 trait Lattice {
   def numAtoms: Int
   def boundsLow: Vec3
   def boundsHigh: Vec3
+  def displacement(r1: Vec3, r2: Vec3): Vec3
   def initialPositions: Array[Vec3]
   def grouping(i: Int, x: Array[Vec3], s: Int): Int
-  
-  def displacement(r1: Vec3, r2: Vec3) = r2 - r1
   
   def neighbors(i: Int, x: Array[Vec3], rcut: Double): Array[Int] = {
     (for (j <- 0 until numAtoms;
@@ -18,9 +30,20 @@ trait Lattice {
 }
 
 
-class LinearChain(val numAtoms: Int, r0: Double) extends Lattice {
+class LinearChain(val numAtoms: Int, r0: Double, periodic: Boolean) extends Lattice {
+  if (periodic) require(numAtoms > 2)
+  
   val boundsLow  = Vec3(-r0, -r0, -r0)
-  val boundsHigh = Vec3((numAtoms+1)*r0, r0, r0)
+  val boundsHigh = Vec3(numAtoms*r0, +r0, +r0)
+  
+  def displacement(r1: Vec3, r2: Vec3): Vec3 = {
+    val delta = r2 - r1 
+    if (!periodic) delta
+    else {
+      val dx = Lattice.periodicWrap(delta.x, numAtoms*r0)
+      Vec3(dx, delta.y, delta.z)
+    }
+  }
   
   def initialPositions = {
     Array.tabulate(numAtoms) { i => Vec3(i, 0, 0)*r0 }
@@ -32,13 +55,25 @@ class LinearChain(val numAtoms: Int, r0: Double) extends Lattice {
   }
 }
 
-class SquareLattice(lx: Int, ly: Int, r0: Double) extends Lattice {
+class SquareLattice(lx: Int, ly: Int, r0: Double, periodic: Boolean) extends Lattice {
+  if (periodic) require(lx > 2 && ly > 2)
+  
   val numAtoms = lx*ly
   val boundsLow  = Vec3(-r0, -r0, -r0)
-  val boundsHigh = Vec3((lx+1)*r0, (ly+1)*r0, -r0)
+  val boundsHigh = Vec3(lx*r0, ly*r0, +r0)
   
   def latticeCoords(i: Int) = {
     (i%lx, i/lx)
+  }
+  
+  def displacement(r1: Vec3, r2: Vec3): Vec3 = {
+    val delta = r2 - r1 
+    if (!periodic) delta
+    else {
+      val dx = Lattice.periodicWrap(delta.x, lx*r0)
+      val dy = Lattice.periodicWrap(delta.y, ly*r0)
+      Vec3(dx, dy, delta.z)
+    }
   }
   
   def initialPositions = {
