@@ -63,16 +63,16 @@ class KPMComplexGpu(val cworld: JCudaWorld, H: SparseCsrComplex, s: Int, M: Int,
     
     // Matrix representation on device
     convertBufferToSinglePrecision(Hs.data, floatStorage)
-    val cooRowIndex = cworld.allocDeviceArray(Hs.rowIdx, indexBytes)
-    val cooColIndex = cworld.allocDeviceArray(Hs.colIdx, indexBytes)
-    val cooVal      = cworld.allocDeviceArray(floatStorage, matBytes)
+    val cooRowIndex = cworld.allocDeviceArray(Hs.rowIdx.buffer, indexBytes)
+    val cooColIndex = cworld.allocDeviceArray(Hs.colIdx.buffer, indexBytes)
+    val cooVal      = cworld.allocDeviceArray(floatStorage.buffer, matBytes)
     val csrRowPtr   = cworld.allocDeviceArray(rowPtrBytes)
     // Convert to CSR matrix
     cusparseXcoo2csr(handle, cooRowIndex, Hs.nnz, n, csrRowPtr, CUSPARSE_INDEX_BASE_ZERO)
     
     // Can potentially reorder (dis, djs) indices to improve coalesced memory access
-    val dis = Hs.rowIdx
-    val djs = Hs.colIdx
+    val dis = Hs.rowIdx.buffer
+    val djs = Hs.colIdx.buffer
     val dis_d = cworld.allocDeviceArray(dis, indexBytes)
     val djs_d = cworld.allocDeviceArray(djs, indexBytes)
     
@@ -81,7 +81,7 @@ class KPMComplexGpu(val cworld: JCudaWorld, H: SparseCsrComplex, s: Int, M: Int,
     
     // Random vector storage
     convertArrayToSinglePrecision(R.data, floatStorage)
-    val r_d  = cworld.allocDeviceArray(floatStorage, vecBytes)
+    val r_d  = cworld.allocDeviceArray(floatStorage.buffer, vecBytes)
     
     // Array storage on device
     val a0_d = cworld.allocDeviceArray(vecBytes)
