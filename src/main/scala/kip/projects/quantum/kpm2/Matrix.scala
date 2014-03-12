@@ -1,6 +1,7 @@
 package kip.projects.quantum.kpm2
 
 import scala.reflect.ClassTag
+import java.util.Arrays
 
 
 class ArrayBuf[@specialized(Int, Float, Double) T: ClassTag]() {
@@ -51,7 +52,7 @@ class DenseComplex(val numRows: Int, val numCols: Int, val data: Array[Double]) 
   require(data.size == floatsPerElem*numRows*numCols)
   def this(numRows: Int, numCols: Int) = this(numRows, numCols, new Array[Double](2*numRows*numCols))
   
-  def clear() {
+  def zero() {
     for (i <- 0 until data.size)
       data(i) = 0.0
   }
@@ -110,10 +111,16 @@ class SparseCooComplex(val numRows: Int, val numCols: Int) {
     data.add(re)
     data.add(im)
   }
+  
+  def toCsr(): SparseCsrComplex = {
+    val ret = new SparseCsrComplex(numRows, numCols)
+    ret.fromCoo(this)
+    ret
+  }
 }
 
 
-class SparseCsrComplex(val numRows: Int, val numCols: Int) {
+class SparseCsrComplex(val numRows: Int, val numCols: Int) {  
   // data sorted in row-major format
   var rowIdx = new ArrayBuf[Int]()
   var colIdx = new ArrayBuf[Int]()
@@ -126,6 +133,10 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     rowIdx.clear()
     colIdx.clear()
     data.clear()
+  }
+  
+  def zero() {
+    Arrays.fill(data.buffer, 0.0)
   }
   
   def fromCsr(that: SparseCsrComplex) {
@@ -204,12 +215,26 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     data(2*k+1)
   }
   
-  def +=(a_re: Double, a_im: Double) {
+  def trace_re(): Double = {
+    require(numRows == numCols, "Trace operation requires square matrix")
+    var acc = 0.0
+    for (i <- 0 until numRows)
+      acc += get_re(i, i)
+    acc
+  }
+  
+  def +=(i: Int, j: Int, re: Double, im: Double) {
+    val k = index(i, j)
+    data(2*k+0) += re
+    data(2*k+1) += im
+  }
+
+  def +=(re: Double, im: Double) {
     require(numRows == numCols, "Add scalar operation requires square matrix")
     for (i <- 0 until numRows) {
       val k = index(i, i)
-      data(2*k+0) += a_re
-      data(2*k+1) += a_im
+      data(2*k+0) += re
+      data(2*k+1) += im
     }
   }
   

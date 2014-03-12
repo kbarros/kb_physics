@@ -18,13 +18,14 @@ import smatrix._
 import smatrix.Constructors.complexDbl._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import java.util.Arrays
+import java.nio.FloatBuffer
 
-/*
+
 class KPMComplexGpu(val cworld: JCudaWorld, H: SparseCsrComplex, s: Int, M: Int, Mq: Int) extends KPMComplex(H, s, M, Mq) {
   val alphaM2 = new Array[Float](2*n*s)
   val alphaM1 = new Array[Float](2*n*s)
   val floatStorage = new ArrayBuf[Float]()
-  
   
   // Initialize JCublas library
   cublasInit()
@@ -39,6 +40,13 @@ class KPMComplexGpu(val cworld: JCudaWorld, H: SparseCsrComplex, s: Int, M: Int,
   cusparseSetMatType(descra, CUSPARSE_MATRIX_TYPE_GENERAL)
   cusparseSetMatIndexBase(descra, CUSPARSE_INDEX_BASE_ZERO)
   
+  def convertArrayToSinglePrecision(src: Array[Double], dst: ArrayBuf[Float]) {
+    dst.clear()
+    for (i <- 0 until src.size) {
+      dst.add(src(i).toFloat)
+    }
+  }
+  
   def convertBufferToSinglePrecision(src: ArrayBuf[Double], dst: ArrayBuf[Float]) {
     dst.clear()
     for (i <- 0 until src.size) {
@@ -48,36 +56,40 @@ class KPMComplexGpu(val cworld: JCudaWorld, H: SparseCsrComplex, s: Int, M: Int,
   
   // Allocate workspace on device appropriate to matrix H
   class State() {
-    
-    val vecBytes = n*s*2*Sizeof.FLOAT
+    val indexBytes  = Hs.nnz*Sizeof.INT
+    val rowPtrBytes = (n+1)*Sizeof.INT
+    val matBytes    = Hs.nnz*2*Sizeof.FLOAT
+    val vecBytes    = n*s*2*Sizeof.FLOAT
     
     // Matrix representation on device
-    val cooRowIndex = cworld.allocDeviceArray(Hs.rowIdx, Hs.nnz*Sizeof.INT)
-    val cooColIndex = cworld.allocDeviceArray(Hs.colIdx, Hs.nnz*Sizeof.INT)
-    val cooVal      = cworld.allocDeviceArray(Hs.map(_.toComplexf).data.buffer)
-    val csrRowPtr   = cworld.allocDeviceArray(new Array[Int](n+1))
+    convertBufferToSinglePrecision(Hs.data, floatStorage)
+    val cooRowIndex = cworld.allocDeviceArray(Hs.rowIdx, indexBytes)
+    val cooColIndex = cworld.allocDeviceArray(Hs.colIdx, indexBytes)
+    val cooVal      = cworld.allocDeviceArray(floatStorage, matBytes)
+    val csrRowPtr   = cworld.allocDeviceArray(rowPtrBytes)
     // Convert to CSR matrix
-    cusparseXcoo2csr(handle, cooRowIndex, nnz, n, csrRowPtr, CUSPARSE_INDEX_BASE_ZERO)
+    cusparseXcoo2csr(handle, cooRowIndex, Hs.nnz, n, csrRowPtr, CUSPARSE_INDEX_BASE_ZERO)
     
-    require(dis.size == Hs.nnz)
-    val dis_d = cworld.allocDeviceArray(Hs.dis)
-    val djs_d = cworld.allocDeviceArray(djs)
+    // Can potentially reorder (dis, djs) indices to improve coalesced memory access
+    val dis = Hs.rowIdx
+    val djs = Hs.colIdx
+    val dis_d = cworld.allocDeviceArray(dis, indexBytes)
+    val djs_d = cworld.allocDeviceArray(djs, indexBytes)
     
-    // Gradient storage, ordered by diagonal indices
-    val gradBytes = Hs.nnz*2*Sizeof.FLOAT 
-    val gradVal_h = new Array[Float](Hs.nnz*2)
-    val gradVal_d = cworld.allocDeviceArray(gradVal_h)
+    // Gradient storage, ordered by (dis, djs) indices
+    val gradVal_d = cworld.allocDeviceArray(matBytes)
     
-    val r_d  = cworld.allocDeviceArray(r.map(_.toComplexf).data.buffer)
+    // Random vector storage
+    convertArrayToSinglePrecision(R.data, floatStorage)
+    val r_d  = cworld.allocDeviceArray(floatStorage, vecBytes)
     
     // Array storage on device
-    val emptyVec = new Array[Float](n*s*2)
-    val a0_d = cworld.allocDeviceArray(emptyVec)
-    val a1_d = cworld.allocDeviceArray(emptyVec)
-    val a2_d = cworld.allocDeviceArray(emptyVec)
-    val b0_d = cworld.allocDeviceArray(emptyVec)
-    val b1_d = cworld.allocDeviceArray(emptyVec)
-    val b2_d = cworld.allocDeviceArray(emptyVec)
+    val a0_d = cworld.allocDeviceArray(vecBytes)
+    val a1_d = cworld.allocDeviceArray(vecBytes)
+    val a2_d = cworld.allocDeviceArray(vecBytes)
+    val b0_d = cworld.allocDeviceArray(vecBytes)
+    val b1_d = cworld.allocDeviceArray(vecBytes)
+    val b2_d = cworld.allocDeviceArray(vecBytes)
     
     def deallocate() {
       cworld.freeDeviceArray(cooRowIndex)
@@ -156,21 +168,9 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
         c, n) // (C, C.numRows)
   }
   
-//  def dotc(x: Pointer, y: Pointer, st: State): cuComplex = {
-//    val ret = cuCmplx(0, 0)
-//    cusparseCdotci(handle,
-//        st.n*st.s, // nnz for dense matrix
-//        x, st.vecIdxs_d, // "sparse" vector and (full) indices
-//        y, // dense vector
-//        ret, // result
-//        CUSPARSE_INDEX_BASE_ZERO // idxBase
-//        )
-//    ret
-//  }
-  
   def scaleVector(alpha: Complexd, src_d: Pointer, dst_d: Pointer, st: State) {
     cworld.cpyDeviceToDevice(dst_d, src_d, st.vecBytes)
-    cublasCscal(st.n*st.s, // number of elements
+    cublasCscal(n*s, // number of elements
                 cuCmplx(alpha.re.toFloat, alpha.im.toFloat),
                 dst_d, 1)
   }
@@ -182,14 +182,13 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
   
   def forward(es: EnergyScale) {
     this.es = es
-    H.copyTo(Hs)
+    Hs.fromCsr(H)
     es.scale(Hs)
-    
     val st = new State()
     
     val mu = Array.fill(M)(0.0)
-    mu(0) = st.n           // Tr[T_0[H]] = Tr[1]
-    mu(1) = st.Hs.trace.re // Tr[T_1[H]] = Tr[H]
+    mu(0) = n           // Tr[T_0[H]] = Tr[1]
+    mu(1) = Hs.trace_re // Tr[T_1[H]] = Tr[H]
     
     val a_d = Array(st.a0_d, st.a1_d, st.a2_d)
     
@@ -200,8 +199,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
       cworld.cpyDeviceToDevice(a_d(2), a_d(0), st.vecBytes)
       cgemmH(alpha=two, b=a_d(1), beta=neg_one, a_d(2), st) // a2 <- alpha_m = T_m[H] r = 2 H a1 - a0 
       
-//      mu(m) = dotc(st.r_d, a_d(2), st).x
-      mu(m) = cublasCdotc(st.n*st.s, st.r_d, 1, a_d(2), 1).x
+      mu(m) = cublasCdotc(n*s, st.r_d, 1, a_d(2), 1).x      // mu <- r^\dag \dot alpha_2
       
       val temp = a_d(0)
       a_d(0) = a_d(1)
@@ -209,33 +207,31 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
       a_d(2) = temp
     }
     
-    val aM2 = Constructors.complexFlt.dense(st.n, st.s)
-    val aM1 = Constructors.complexFlt.dense(st.n, st.s)
-    cworld.cpyDeviceToHost(aM2.data.buffer, a_d(0)) // alpha_{M-2}
-    cworld.cpyDeviceToHost(aM1.data.buffer, a_d(1)) // alpha_{M-1}
-    val gamma = KPMUtil.momentTransform(mu, Mq)
+    gamma = KPMUtil.momentTransform(mu, Mq)
+    cworld.cpyDeviceToHost(alphaM2, a_d(0)) // alpha_{M-2}
+    cworld.cpyDeviceToHost(alphaM1, a_d(1)) // alpha_{M-1}
     st.deallocate()
-    ForwardData(st.Hs, es, r, mu, gamma, aM2.map(_.toComplexd), aM1.map(_.toComplexd))
   }
   
-  def reverse(fd: ForwardData, coeff: Array[Double]): PackedSparse[Cd] = {
-    val st = new State(fd.r, fd.Hs)
-    val M = coeff.size
+  def gradient(f: Double=>Double): SparseCsrComplex = {
+    val coeff = KPMUtil.expansionCoefficients(M, Mq, f, es)
+    val st = new State()
     
     val a_d = Array(st.a0_d, st.a1_d, st.a2_d)
-    cworld.cpyHostToDevice(a_d(0), fd.aM2.map(_.toComplexf).data.buffer) // a0 = alpha_{M-2}
-    cworld.cpyHostToDevice(a_d(1), fd.aM1.map(_.toComplexf).data.buffer) // a1 = alpha_{M-1}
+    cworld.cpyHostToDevice(a_d(0), alphaM2) // a0 = alpha_{M-2}
+    cworld.cpyHostToDevice(a_d(1), alphaM1) // a1 = alpha_{M-1}
     
     val b_d = Array(st.b0_d, st.b1_d, st.b2_d)
     scaleVector(coeff(M-1), st.r_d, b_d(0), st)  // b0 = c(M-1) r
     cworld.clearDeviceArray(b_d(1), st.vecBytes) // b1 = 0
     
-    val dE_dHs = st.Hs.duplicate.clear()
-    cworld.clearDeviceArray(st.gradVal_d, st.gradBytes)
+    dX_dH.fromCsr(Hs)
+    dX_dH.zero()
+    cworld.clearDeviceArray(st.gradVal_d, st.matBytes)
     
     // need special logic since (mu_1) is calculated exactly
     def cp(m: Int): Double = if (m == 1) 0 else coeff(m)
-    for (i <- 0 until dE_dHs.numRows) { dE_dHs(i, i) += coeff(1) }
+    dX_dH += (coeff(1), 0.0)
     
     for (m <- M-2 to 0 by -1) {
       // a0 = alpha_{m}
@@ -258,19 +254,23 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
       b_d(0) = temp2
       cworld.cpyDeviceToDevice(b_d(0), b_d(2), st.vecBytes)
       cgemmH(alpha=two, b=b_d(1), beta=neg_one, b_d(0), st) // b0 := 2 H b1 - b2
-      cublasCaxpy(st.n*st.s,                                // b0 += c(m) r
+      cublasCaxpy(n*s,                                      // b0 += c(m) r
                   cuCmplx(cp(m).toFloat, 0),
                   st.r_d, 1,
                   b_d(0), 1)
     }
     
-    cworld.cpyDeviceToHost(st.gradVal_h, st.gradVal_d)
-    for (idx <- 0 until st.nnz) {
-      dE_dHs(st.dis(idx), st.djs(idx)) += st.gradVal_h(2*idx+0) + I*st.gradVal_h(2*idx+1)
+    floatStorage.grow(2*dX_dH.nnz)
+    cworld.cpyDeviceToHost(floatStorage.buffer, st.gradVal_d, st.matBytes)
+    for (idx <- 0 until dX_dH.nnz) {
+      val re = floatStorage(2*idx+0)
+      val im = floatStorage(2*idx+1)
+      dX_dH += (st.dis(idx), st.djs(idx), re, im)
     }
     st.deallocate()
     
-    dE_dHs.transform(_ / fd.es.mag)
+    dX_dH *= (1.0/es.mag, 0.0)
+    dX_dH
   }
   
   def destroy {
@@ -278,4 +278,4 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     // ...
   }
 }
-*/
+

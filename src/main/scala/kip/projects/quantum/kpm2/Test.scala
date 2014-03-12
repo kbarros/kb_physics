@@ -27,13 +27,12 @@ object Test extends App {
   def testKPM1() {
     val n = 4
     val H = {
-      import Constructors.complexDbl._
-      val ret = sparse(n, n)
-      ret(0,0) = 5.0
-      ret(1,1) = -5.0
-      ret(2,2) = 0.0
-      ret(3,3) = 0.0
-      new SparseCsrComplex(n, n).fromSmatrix(ret.toPacked)
+      val ret = new SparseCooComplex(n, n)
+      ret.add(0, 0,  5.0, 0.0)
+      ret.add(1, 1, -5.0, 0.0)
+      ret.add(2, 2,  0.0, 0.0)
+      ret.add(3, 3,  0.0, 0.0)
+      ret.toCsr
     }
     def f(x: Double) = x*x
     val M = 1000
@@ -43,50 +42,49 @@ object Test extends App {
     kpm.allVectors()
     kpm.forward(KPMUtil.energyScale(H))
     val E = kpm.eval(f)
-    val dE_dH = kpm.gradient(f).toSmatrix()
+    val dE_dH = kpm.gradient(f)
     println(s"KPM energy=$E, expected 50")
-    println(s"KPM de_dH(0,0)=${dE_dH(0,0)}, expected 10")
+    println(s"KPM de_dH(0,0)=${dE_dH.get_re(0,0)} + I ${dE_dH.get_im(0,0)}, expected 10")
   }
-  /*
+  
   def testKPM1Cuda() {
     val n = 4
     val H = {
-      import Constructors.complexDbl._
-      val ret = sparse(n, n)
-      ret(0,0) = 5.0
-      ret(1,1) = -1.0
-      ret(2,2) = 0.0
-      ret(3,3) = 0.0
-      new SparseCooComplex(n, n).fromSmatrix(ret.toPacked)
+      val ret = new SparseCooComplex(n, n)
+      ret.add(0, 0,  5.0, 0.0)
+      ret.add(1, 1, -1.0, 0.0)
+      ret.add(2, 2,  0.0, 0.0)
+      ret.add(3, 3,  0.0, 0.0)
+      ret.toCsr
     }
+    val es = KPMUtil.energyScale(H)
     
     def f(x: Double) = x*x
     
     val M = 1000
     val Mq = 4*M
     val s = n
-    val kpm = new KPMComplexGpu(H, s, M, Mq)
-    val es = KPMUtil.energyScale(H)
-    val r = KPMUtil.allVectors(n)
-    val fd = ComplexKPMCpu.forward(M, Mq, r, H, es)
-    val E = ComplexKPMCpu.function(fd, f)
-    val dE_dH_cpu = ComplexKPMCpu.gradient(fd, f)
-    println(s"CPU E=$E dE_dH(0,0)=${dE_dH_cpu(0,0)}")
+    val kpm1 = new KPMComplexCpu(H, s, M, Mq)
+    kpm1.allVectors()
+    kpm1.forward(es)
+    val E1 = kpm1.eval(f)
+    val dE_dH1 = kpm1.gradient(f)
+    println(s"CPU E=$E1 dE_dH(0,0)=${dE_dH1.get_re(0,0)} + I ${dE_dH1.get_im(0,0)}")
     
     val cworld = new JCudaWorld(deviceIndex=0)
-    val kpm = new ComplexKPMGpuS(cworld)
+    val kpm2 = new KPMComplexGpu(cworld, H, s, M, Mq)
     var iter = 0
     while (true) {
       val ms = System.currentTimeMillis()
-      val fd = kpm.forward(M, Mq, r, H, es)
-      val E = kpm.function(fd, f)
-      val dE_dH = kpm.gradient(fd, f)
-      println(s"E=$E, dE_dH(0,0)=${dE_dH(0,0)}")
+      val fd = kpm2.forward(es)
+      val E = kpm2.eval(f)
+      val dE_dH = kpm2.gradient(f)
+      println(s"E=$E, dE_dH(0,0)=${dE_dH1.get_re(0,0)} + I ${dE_dH1.get_im(0,0)}")
       println(s"Iter $iter Elapsed ${(System.currentTimeMillis() - ms)/1000.0}")
       iter += 1
     }
   }
-*/
+  
   def testKPM2() {
     import Constructors.complexDbl._
     val rand = new Random(2)

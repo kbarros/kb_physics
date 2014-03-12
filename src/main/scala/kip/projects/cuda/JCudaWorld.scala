@@ -107,6 +107,12 @@ class JCudaWorld(deviceIndex: Int) {
     }
   }
   
+  def allocDeviceArray(nbytes: Int): Pointer = {
+    val data_d = new Pointer()
+    cudaMalloc(data_d, nbytes)
+    data_d
+  }
+  
   def allocDeviceArray(data_h: Any, nbytes: Int): Pointer = {
     val data_d = new Pointer()
     cudaMalloc(data_d, nbytes)
@@ -128,6 +134,10 @@ class JCudaWorld(deviceIndex: Int) {
   
   def cpyHostToDevice(data_d: Pointer, data_h: Any) {
     cudaMemcpy(data_d, pointerTo(data_h), storageBytes(data_h), cudaMemcpyHostToDevice)
+  }
+  
+  def cpyDeviceToHost(data_h: Any, data_d: Pointer, nbytes: Int) {
+    cudaMemcpy(pointerTo(data_h), data_d, nbytes, cudaMemcpyDeviceToHost)
   }
   
   def cpyDeviceToHost(data_h: Any, data_d: Pointer) {

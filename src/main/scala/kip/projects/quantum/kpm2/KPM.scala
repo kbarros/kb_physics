@@ -159,7 +159,7 @@ abstract class KPMComplex(val H: SparseCsrComplex, val s: Int, val M: Int, val M
   
   // Nearly orthogonal vectors with mostly zeros
   def correlatedVectors(grouping: Int => Int, rand: Random) {
-    R.clear()
+    R.zero()
     for (i <- 0 until R.numRows) {
       val g = grouping(i)
       require(0 <= g && g < R.numCols)
@@ -174,7 +174,7 @@ abstract class KPMComplex(val H: SparseCsrComplex, val s: Int, val M: Int, val M
   
   def allVectors(): Unit = {
     require(R.numRows == R.numCols)
-    R.clear()
+    R.zero()
     for (i <- 0 until R.numRows) {
       R.set(i, i, 1, 0)
     }
