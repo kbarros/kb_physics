@@ -9,7 +9,7 @@ class ArrayBuf[@specialized(Int, Float, Double) T: ClassTag]() {
   val scaleFactor = 1.5
   
   def grow(len: Int) {
-    if (len > buffer.size) {
+    while (buffer.size < len) {
       val newSpace = (buffer.size*scaleFactor).round.toInt
       val newBuffer = new Array[T](newSpace)
       System.arraycopy(buffer, 0, newBuffer, 0, size)
@@ -35,6 +35,13 @@ class ArrayBuf[@specialized(Int, Float, Double) T: ClassTag]() {
   def update(i: Int, x: T) {
     require(i < size)
     buffer(i) = x
+  }
+  
+  def copyFrom(that: ArrayBuf[T]) {
+    clear()
+    grow(that.size)
+    System.arraycopy(that.buffer, 0, buffer, 0, that.size)
+    size = that.size
   }
 }
 
@@ -85,87 +92,55 @@ class DenseComplex(val numRows: Int, val numCols: Int, val data: Array[Double]) 
 
 
 class SparseCooComplex(val numRows: Int, val numCols: Int) {
-  val scaleFactor = 1.5
-  val floatsPerElem = 2 // re + im
-  var nnz = 0
-  var space = 16
-  var rowIdx = new Array[Int](space) 
-  var colIdx = new Array[Int](space) 
-  var data = new Array[Double](floatsPerElem*space)
+  var rowIdx = new ArrayBuf[Int]()
+  var colIdx = new ArrayBuf[Int]()
+  var data = new ArrayBuf[Double]()
   
+  def nnz() = rowIdx.size
   
   def clear() {
-    nnz = 0
-  }
-  
-  def expandStorage() {
-    space = (space*scaleFactor).round.toInt
-    val rowIdxP = new Array[Int](space) 
-    val colIdxP = new Array[Int](space) 
-    val dataP = new Array[Double](floatsPerElem*space)
-    System.arraycopy(rowIdx, 0, rowIdxP, 0, nnz)
-    System.arraycopy(colIdx, 0, colIdxP, 0, nnz)
-    System.arraycopy(data, 0, dataP, 0, floatsPerElem*nnz)
-    rowIdx = rowIdxP
-    colIdx = colIdxP
-    data = dataP
+    rowIdx.clear()
+    colIdx.clear()
+    data.clear()
   }
   
   def add(i: Int, j: Int, re: Double, im: Double) {
-    while (nnz >= space) {
-      expandStorage()
-    }
-    rowIdx(nnz) = i
-    colIdx(nnz) = j
-    data(floatsPerElem*nnz+0) = re
-    data(floatsPerElem*nnz+1) = im
-    nnz += 1
+    rowIdx.add(i)
+    colIdx.add(j)
+    data.add(re)
+    data.add(im)
   }
 }
 
 
 class SparseCsrComplex(val numRows: Int, val numCols: Int) {
-  val scaleFactor = 1.5
-  val floatsPerElem = 2 // re + im
-  var nnz = 0
-  var space = 16
   // data sorted in row-major format
-  var rowIdx = new Array[Int](space)
-  var colIdx = new Array[Int](space)
-  var data = new Array[Double](floatsPerElem*space)
+  var rowIdx = new ArrayBuf[Int]()
+  var colIdx = new ArrayBuf[Int]()
+  var data   = new ArrayBuf[Double]()
   val rowPtr = new Array[Int](numRows+1) 
   
+  def nnz() = rowIdx.size
+  
   def clear() {
-    nnz = 0
+    rowIdx.clear()
+    colIdx.clear()
+    data.clear()
   }
   
   def fromCsr(that: SparseCsrComplex) {
     require(numRows == that.numRows && numCols == that.numCols)
-    while (that.nnz > space) {
-      space = (space*scaleFactor).round.toInt
-      rowIdx = new Array[Int](space)
-      colIdx = new Array[Int](space)
-      data = new Array[Double](floatsPerElem*space)
-    }
-    nnz = that.nnz
-    System.arraycopy(that.rowIdx, 0, rowIdx, 0, nnz)
-    System.arraycopy(that.colIdx, 0, colIdx, 0, nnz)
-    System.arraycopy(that.data, 0, data, 0, floatsPerElem*nnz)
+    rowIdx.copyFrom(that.rowIdx)
+    colIdx.copyFrom(that.colIdx)
+    data.copyFrom(that.data)
     System.arraycopy(that.rowPtr, 0, rowPtr, 0, numRows+1)
   }
   
   def fromCoo(that: SparseCooComplex) {
     require(numRows == that.numRows && numCols == that.numCols)
-    while (that.nnz > space) {
-      space = (space*scaleFactor).round.toInt
-      rowIdx = new Array[Int](space)
-      colIdx = new Array[Int](space)
-      data = new Array[Double](floatsPerElem*space)
-    }
-    nnz = that.nnz
-    System.arraycopy(that.rowIdx, 0, rowIdx, 0, nnz)
-    System.arraycopy(that.colIdx, 0, colIdx, 0, nnz)
-    System.arraycopy(that.data, 0, data, 0, floatsPerElem*nnz)
+    rowIdx.copyFrom(that.rowIdx)
+    colIdx.copyFrom(that.colIdx)
+    data.copyFrom(that.data)
     
     // sort indices
     def swap(a: Int, b: Int) {
@@ -200,7 +175,7 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     for (k <- 0 until nnz) {
       val i = that.rowIdx(k)
       val j = that.colIdx(k)
-      set(i, j, that.data(floatsPerElem*k+0), that.data(floatsPerElem*k+1))
+      set(i, j, that.data(2*k+0), that.data(2*k+1))
     }
   }
   
@@ -215,35 +190,35 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
   
   def set(i: Int, j: Int, re: Double, im: Double) {
     val k = index(i, j)
-    data(floatsPerElem*k+0) = re
-    data(floatsPerElem*k+1) = im
+    data(2*k+0) = re
+    data(2*k+1) = im
   }
   
   def get_re(i: Int, j: Int): Double = {
     val k = index(i, j)
-    data(floatsPerElem*k+0)
+    data(2*k+0)
   }
   
   def get_im(i: Int, j: Int): Double = {
     val k = index(i, j)
-    data(floatsPerElem*k+1)
+    data(2*k+1)
   }
   
   def +=(a_re: Double, a_im: Double) {
     require(numRows == numCols, "Add scalar operation requires square matrix")
     for (i <- 0 until numRows) {
       val k = index(i, i)
-      data(floatsPerElem*k+0) += a_re
-      data(floatsPerElem*k+1) += a_im
+      data(2*k+0) += a_re
+      data(2*k+1) += a_im
     }
   }
   
   def *=(a_re: Double, a_im: Double) {
     for (k <- 0 until nnz) {
-      val d_re = data(floatsPerElem*k+0)
-      val d_im = data(floatsPerElem*k+1)
-      data(floatsPerElem*k+0) = d_re*a_re - d_im*a_im
-      data(floatsPerElem*k+1) = d_re*a_im + d_im*a_re
+      val d_re = data(2*k+0)
+      val d_im = data(2*k+1)
+      data(2*k+0) = d_re*a_re - d_im*a_im
+      data(2*k+1) = d_re*a_im + d_im*a_re
     }
   }
   
@@ -253,9 +228,9 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
   import smatrix.Scalar
   import smatrix.Complexd
   def toSmatrix(): PackedSparse[Scalar.ComplexDbl] = {
-    val ret = PackedSparse.fromIndices[Scalar.ComplexDbl](numRows, numCols, rowIdx.take(nnz) zip colIdx.take(nnz))
+    val ret = PackedSparse.fromIndices[Scalar.ComplexDbl](numRows, numCols, rowIdx.buffer.take(nnz) zip colIdx.buffer.take(nnz))
     for (k <- 0 until nnz) {
-      ret(rowIdx(k), colIdx(k)) = Complexd(data(floatsPerElem*k+0), data(floatsPerElem*k+1))
+      ret(rowIdx(k), colIdx(k)) = Complexd(data(2*k+0), data(2*k+1))
     }
     ret
   }
