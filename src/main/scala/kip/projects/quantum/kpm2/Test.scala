@@ -6,9 +6,9 @@ import kip.projects.cuda.JCudaWorld
 
 object Test extends App {
 //  testExpansionCoeffs()
-  testKPM1()
-//  testKPM1Cuda()
-  testKPM2()
+//  testKPM1()
+  testKPM1Cuda()
+//  testKPM2()
   
   def testExpansionCoeffs() {
     val M = 10
@@ -77,9 +77,9 @@ object Test extends App {
     while (true) {
       val ms = System.currentTimeMillis()
       val fd = kpm2.forward(es)
-      val E = kpm2.eval(f)
-      val dE_dH = kpm2.gradient(f)
-      println(s"E=$E, dE_dH(0,0)=${dE_dH1.get_re(0,0)} + I ${dE_dH1.get_im(0,0)}")
+      val E2 = kpm2.eval(f)
+      val dE_dH2 = kpm2.gradient(f)
+      println(s"E=$E2, dE_dH(0,0)=${dE_dH2.get_re(0,0)} + I ${dE_dH2.get_im(0,0)}")
       println(s"Iter $iter Elapsed ${(System.currentTimeMillis() - ms)/1000.0}")
       iter += 1
     }
