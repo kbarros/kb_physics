@@ -186,7 +186,6 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
     es.scale(Hs)
     val st = new State()
     
-    val mu = Array.fill(M)(0.0)
     mu(0) = n           // Tr[T_0[H]] = Tr[1]
     mu(1) = Hs.trace_re // Tr[T_1[H]] = Tr[H]
     

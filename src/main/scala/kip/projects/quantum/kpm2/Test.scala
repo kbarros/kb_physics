@@ -76,7 +76,8 @@ object Test extends App {
     var iter = 0
     while (true) {
       val ms = System.currentTimeMillis()
-      val fd = kpm2.forward(es)
+      kpm2.allVectors()
+      kpm2.forward(es)
       val E2 = kpm2.eval(f)
       val dE_dH2 = kpm2.gradient(f)
       println(s"E=$E2, dE_dH(0,0)=${dE_dH2.get_re(0,0)} + I ${dE_dH2.get_im(0,0)}")
