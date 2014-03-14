@@ -9,19 +9,19 @@ class ArrayBuf[@specialized(Int, Float, Double) T: ClassTag]() {
   var buffer = new Array[T](16)
   val scaleFactor = 1.5
   
-  def grow(len: Int) {
-    while (buffer.size < len) {
+  def resize(newSize: Int) {
+    while (buffer.size < newSize) {
       val newSpace = (buffer.size*scaleFactor).round.toInt
       val newBuffer = new Array[T](newSpace)
       System.arraycopy(buffer, 0, newBuffer, 0, size)
       buffer = newBuffer
     }
+    size = newSize
   }
   
   def add(x: T) {
-    grow(size+1)
-    buffer(size) = x
-    size += 1
+    resize(size+1)
+    buffer(size-1) = x
   }
   
   def clear() {
@@ -40,9 +40,8 @@ class ArrayBuf[@specialized(Int, Float, Double) T: ClassTag]() {
   
   def copyFrom(that: ArrayBuf[T]) {
     clear()
-    grow(that.size)
-    System.arraycopy(that.buffer, 0, buffer, 0, that.size)
-    size = that.size
+    resize(that.size)
+    System.arraycopy(that.buffer, 0, buffer, 0, size)
   }
 }
 
@@ -96,9 +95,7 @@ class SparseCooComplex(val numRows: Int, val numCols: Int) {
   var rowIdx = new ArrayBuf[Int]()
   var colIdx = new ArrayBuf[Int]()
   var data = new ArrayBuf[Double]()
-  
-  def nnz() = rowIdx.size
-  
+    
   def clear() {
     rowIdx.clear()
     colIdx.clear()
@@ -151,7 +148,6 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     require(numRows == that.numRows && numCols == that.numCols)
     rowIdx.copyFrom(that.rowIdx)
     colIdx.copyFrom(that.colIdx)
-    data.copyFrom(that.data)
     
     // sort indices
     def swap(a: Int, b: Int) {
@@ -169,24 +165,40 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     }
     Sort.quicksort(swap, compare, 0, nnz)
     
+    // remove duplicate indices
+    val numDuplicates = that.rowIdx.size
+    require(numDuplicates > 0)
+    var numUnique = 1
+    for (i <- 1 until numDuplicates) {
+      if (compare(i-1, i) != 0) {
+        rowIdx(numUnique) = rowIdx(i)
+        colIdx(numUnique) = colIdx(i)
+        numUnique += 1
+      }
+    }
+    rowIdx.size = numUnique
+    colIdx.size = numUnique
+    
     // set row pointers
     var row = 0
-    for (k <- 0 until nnz) {
+    for (k <- 0 until numUnique) {
       while (row <= rowIdx(k)) {
         rowPtr(row) = k
         row += 1
       }
     }
     while (row <= numRows) {
-      rowPtr(row) = nnz
+      rowPtr(row) = numUnique
       row += 1
     }
     
     // fill data
-    for (k <- 0 until nnz) {
+    data.resize(2*numUnique)
+    Arrays.fill(data.buffer, 0.0)
+    for (k <- 0 until numDuplicates) {
       val i = that.rowIdx(k)
       val j = that.colIdx(k)
-      set(i, j, that.data(2*k+0), that.data(2*k+1))
+      this += (i, j, that.data(2*k+0), that.data(2*k+1))
     }
   }
   
@@ -282,8 +294,8 @@ object Sort {
         while (compare(j, pivot) > 0) j -= 1
         if (i <= j) {
           swap(i, j)
-          if (pivot == i) pivot = j
-          if (pivot == j) pivot = i
+          if      (pivot == i) pivot = j
+          else if (pivot == j) pivot = i
           i += 1
           j -= 1
         }

@@ -259,7 +259,7 @@ __global__ void accumulateGrad(int n, int nnz, int s, int *dis, int *djs, cuFloa
                   b_d(0), 1)
     }
     
-    floatStorage.grow(2*dX_dH.nnz)
+    floatStorage.resize(2*dX_dH.nnz)
     cworld.cpyDeviceToHost(floatStorage.buffer, st.gradVal_d, st.matBytes)
     for (idx <- 0 until dX_dH.nnz) {
       val re = floatStorage(2*idx+0)

@@ -1,14 +1,14 @@
 package kip.projects.quantum.kpm2
 
-import smatrix._
 import scala.util.Random
 import kip.projects.cuda.JCudaWorld
 
 object Test extends App {
 //  testExpansionCoeffs()
-//  testKPM1()
-  testKPM1Cuda()
-//  testKPM2()
+  testKPM1()
+//  testKPM1Cuda()
+  testKPM2()
+//  testDensity()
   
   def testExpansionCoeffs() {
     val M = 10
@@ -87,6 +87,8 @@ object Test extends App {
   }
   
   def testKPM2() {
+    // TODO: remove smatrix once sparse add is implemented
+    import smatrix._
     import Constructors.complexDbl._
     val rand = new Random(2)
     val n = 20
@@ -144,5 +146,32 @@ object Test extends App {
     
     val de_dH_exact = (exactEnergy((H.toSmatrix + dH).toDense)-exactEnergy((H.toSmatrix - dH).toDense)) / (2*eps)
     println(s"Deriv exact=$de_dH_exact kpm=${dEdH0(it,jt)+dEdH0(jt,it)} stoch1=${dEdH1(it,jt)+dEdH1(jt,it)} stoch2=${dEdH2(it,jt)+dEdH2(jt,it)}")
+  }
+  
+  
+    
+  def testDensity() {
+    val n = 4
+    val H = {
+      val ret = new SparseCooComplex(n, n)
+      ret.add(0, 0,  0.5, 0.0)
+      ret.add(1, 1, -0.5, 0.0)
+      ret.add(2, 2,  0.0, 0.0)
+      ret.add(3, 3,  0.0, 0.0)
+      ret.toCsr
+    }
+    val es = new EnergyScale(-1, 1)
+    
+    val M = 100
+    val Mq = 4*M
+    val s = n
+    val kpm = new KPMComplexCpu(H, s, M, Mq)
+    kpm.allVectors()
+    kpm.forward(KPMUtil.energyScale(H))
+    
+    val (x, rho) = KPMUtil.densityFunction(kpm.gamma, kpm.es)
+    scikit.util.Commands.plot(x, rho)
+    val (xp, irho) = KPMUtil.integratedDensityFunction(kpm.gamma, kpm.es)
+    scikit.util.Commands.plot(xp, irho)
   }
 }

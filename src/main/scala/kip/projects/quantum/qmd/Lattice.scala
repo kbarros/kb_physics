@@ -45,7 +45,7 @@ class LinearChain(val numAtoms: Int, r0: Double, periodic: Boolean) extends Latt
     }
   }
   
-  def initialPositions = {
+  def initialPositions() = {
     Array.tabulate(numAtoms) { i => Vec3(i, 0, 0)*r0 }
   }
   
