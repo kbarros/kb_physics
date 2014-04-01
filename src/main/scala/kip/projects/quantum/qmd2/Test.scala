@@ -11,12 +11,14 @@ import kip.projects.quantum.kpm2.EnergyScale
 import kip.projects.quantum.kpm2.SparseCsrComplex
 import kip.projects.quantum.kpm2.SparseCooComplex
 import kip.projects.quantum.kpm2.KPMComplexCpu
+import kip.projects.quantum.qmd.SquareLattice
 
 
 object Test extends App {
-  testDimer()
-  testDimerJoel()
-  testForce()
+  //testDimer()
+  //testDimerJoel()
+  //testForce()
+  testLargeArpack()
   
   def testDimer() {
     val pot = GoodwinSi
@@ -104,5 +106,45 @@ object Test extends App {
     
     val forceDiscrete = -Vec3(deriv(Vec3(1,0,0)), deriv(Vec3(0,1,0)), deriv(Vec3(0,0,1)))
     println(s"fdisc $forceDiscrete")
+  }
+  
+  
+  def testLargeArpack() {
+    val lat = new SquareLattice(lx=30, ly=30, r0=4.2*bohr, false)
+    val x = lat.initialPositions()
+    val pot = GoodwinSi
+    val mu = 2.8525*eV
+    val tbh = new TbHamiltonian(pot, lat, x)
+    tbh.buildHamiltonian()
+    
+    val Hp =  tbh.H.toSmatrix()
+    // baseline: 1.7s
+    kip.util.Util.time("arpack")(Hp.eig(nev=1, which="SR", tol=1e-4))
+    
+    /*
+    val es = kip.util.Util.time("energy scale")(KPMUtil.energyScale(tbh.H))
+    println(f"min=${es.lo} max=${es.hi}")
+    
+    def gershgorinBounds(H: SparseCsrComplex): EnergyScale = {
+      var lo = Double.MaxValue
+      var hi = Double.MinValue
+      val n = H.numRows
+      for (i <- 0 until n) {
+        require(H.get_im(i, i) == 0.0)
+        val d = H.get_re(i, i)
+        var acc = 0.0
+        for (j <- H.definedColumns(i)) {
+          if (i != j) {
+            acc += math.sqrt(H.get_abs2(i, j))
+          }
+        }
+        lo = math.min(lo, d-acc)
+            hi = math.max(hi, d+acc)
+      }
+      new EnergyScale(lo, hi)
+    }
+    //val ges = gershgorinBounds(tbh.H)
+    //println(f"Gersh min=${ges.lo} max=${ges.hi}")
+     */
   }
 }

@@ -76,7 +76,7 @@ class SquareLattice(lx: Int, ly: Int, r0: Double, periodic: Boolean) extends Lat
     }
   }
   
-  def initialPositions = {
+  def initialPositions() = {
     Array.tabulate(numAtoms) { i =>
       val (x, y) = latticeCoords(i)
       Vec3(x, y, 0)*r0

@@ -65,7 +65,7 @@ class TbViz(val snaps: Seq[TbMD.Snap]) {
       gfx.ortho2dPixels()
       gfx.setColor(Color.RED)
       val pixOffset = 4
-      gfx.rasterString(s"index $idx/${snaps.size-1} time ${snap.time} fs", pixOffset, pixOffset)
+      gfx.rasterString(f"i=$idx/${snaps.size-1} t=${snap.time/Units.fs}%g (fs) energy=${snap.energy/Units.eV}%g (eV)", pixOffset, pixOffset)
 
     }
   }

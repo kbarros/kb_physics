@@ -202,6 +202,10 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     }
   }
   
+  def definedColumns(i: Int): IndexedSeq[Int] = {
+    for (k <- rowPtr(i) until rowPtr(i+1)) yield colIdx(k)
+  }
+  
   def index(i: Int, j: Int): Int = {
     var k = rowPtr(i)
     // TODO: binary search
@@ -225,6 +229,13 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
   def get_im(i: Int, j: Int): Double = {
     val k = index(i, j)
     data(2*k+1)
+  }
+  
+  def get_abs2(i: Int, j: Int): Double = {
+    val k = index(i, j)
+    val re = data(2*k+0)
+    val im = data(2*k+1)
+    re*re + im*im
   }
   
   def trace_re(): Double = {

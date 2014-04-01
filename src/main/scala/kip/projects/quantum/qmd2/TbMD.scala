@@ -112,8 +112,8 @@ object TbMD extends App {
   }
   
   def calcMomentsAndDump() {
-    println(s"Teff = ${effectiveTemperature()/kelvin} (K)")
-    sys.exit()
+    // println(s"Teff = ${effectiveTemperature()/kelvin} (K)")
+    // sys.exit()
     
     tbh.buildHamiltonian()
     kpm.allVectors()
