@@ -5,10 +5,11 @@ import kip.projects.cuda.JCudaWorld
 
 object Test extends App {
 //  testExpansionCoeffs()
-  testKPM1()
+//  testKPM1()
 //  testKPM1Cuda()
-  testKPM2()
+//  testKPM2()
 //  testDensity()
+  testMult()
   
   def testExpansionCoeffs() {
     val M = 10
@@ -87,31 +88,31 @@ object Test extends App {
   }
   
   def testKPM2() {
-    // TODO: remove smatrix once sparse add is implemented
-    import smatrix._
-    import Constructors.complexDbl._
     val rand = new Random(2)
     val n = 20
     val it = 3
     val jt = 4
     val H = {
-      val ret = sparse(n, n)
-      ret(it, jt) = 1.2 - 0.3*I
-      ret(jt, it) = 1.2 + 0.3*I
+      val ret = new SparseCooComplex(n, n)
+      ret.add(it, jt, 1.2, -0.3)
+      ret.add(jt, it, 1.2,  0.3)
       for (i <- 0 until n)
-        ret(i, i) = 0.0
+        ret.add(i, i, 0.0, 0.0)
       for (iter <- 0 until 4*n) {
         val i = rand.nextInt(n)
         val j = rand.nextInt(n)
-        val r = rand.nextGaussian() + rand.nextGaussian() * I
-        ret(i, j) += r
-        ret(j, i) += r.conj
+        val r_re = rand.nextGaussian()
+        val r_im = rand.nextGaussian()
+        ret.add(i, j, r_re,  r_im)
+        ret.add(j, i, r_re, -r_im)
       }
-      new SparseCsrComplex(n, n).fromSmatrix(ret.toPacked)
+      ret.toCsr
     }
     
     def f(x: Double) = x*x
     
+    import smatrix._
+    import Constructors.complexDbl._
     def exactEnergy(H: Dense[Scalar.ComplexDbl]) = {
       H.eig._1.toArray.map(_.re).map(f _).sum
     }
@@ -173,5 +174,35 @@ object Test extends App {
     scikit.util.Commands.plot(x, rho)
     val (xp, irho) = KPMUtil.integratedDensityFunction(kpm.gamma, kpm.es)
     scikit.util.Commands.plot(xp, irho)
+  }
+  
+  
+  def testMult() {
+    val rand = new Random(2)
+    val n = 20
+    val numCol = 4
+    val A = {
+      val ret = new SparseCooComplex(n, n)
+      for (iter <- 0 until 4*n) {
+        val i = rand.nextInt(n)
+        val j = rand.nextInt(n)
+        val r_re = rand.nextGaussian()
+        val r_im = rand.nextGaussian()
+        ret.add(i, j, r_re, r_im)
+      }
+      ret.toCsr()
+    }
+    val B = new DenseComplex(n, numCol)
+    for (i <- 0 until n;
+         j <- 0 until numCol) {
+      B.set(i, j, rand.nextGaussian(), rand.nextGaussian())
+    }
+    val C = new DenseComplex(n, numCol)
+    MatrixOps.zcsrmm(alpha_re=1.0, alpha_im=0.0, A, B, beta_re=1.0, beta_im=0.0, C)
+    println("Zero? : "+(C.toSmatrix - (A.toSmatrix * B.toSmatrix)).norm2)
+    import smatrix._
+    import Constructors.complexDbl._
+    MatrixOps.zcsrmm(alpha_re=2.0, alpha_im=3.0, A, B, beta_re=4.0, beta_im=5.0, C)
+    println("Zero? : "+(C.toSmatrix - (A.toSmatrix * B.toSmatrix) * (6.0+8.0*I)).norm2)    
   }
 }

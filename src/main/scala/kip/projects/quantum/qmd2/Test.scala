@@ -12,6 +12,8 @@ import kip.projects.quantum.kpm2.SparseCsrComplex
 import kip.projects.quantum.kpm2.SparseCooComplex
 import kip.projects.quantum.kpm2.KPMComplexCpu
 import kip.projects.quantum.qmd.SquareLattice
+import kip.projects.quantum.kpm2.DenseComplex
+import kip.projects.quantum.kpm2.MatrixOps
 
 
 object Test extends App {
@@ -118,7 +120,7 @@ object Test extends App {
     tbh.buildHamiltonian()
     
     val Hp =  tbh.H.toSmatrix()
-    // baseline: 1.7s
+    // baseline: 1.7s total, 1.3s for 404 matrix multiplications
     kip.util.Util.time("arpack")(Hp.eig(nev=1, which="SR", tol=1e-4))
     
     /*
@@ -146,5 +148,16 @@ object Test extends App {
     //val ges = gershgorinBounds(tbh.H)
     //println(f"Gersh min=${ges.lo} max=${ges.hi}")
      */
+    
+    // 0.93s for 400 optimized multiplications
+    println(s"Numrows = ${tbh.H.numRows}")
+    val B = new DenseComplex(tbh.H.numRows, 1)
+    val C = new DenseComplex(tbh.H.numRows, 1)
+    val nmult = 400
+    kip.util.Util.time(s"$nmult multiplications") {
+    for (i <- 0 until nmult) {
+      MatrixOps.zcsrmm(1.0, 0.0, tbh.H, B, 0.0, 0.0, C)
+    }
+    }
   }
 }

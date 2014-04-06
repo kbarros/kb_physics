@@ -43,14 +43,14 @@ class KPMComplexGpu(val cworld: JCudaWorld, H: SparseCsrComplex, s: Int, M: Int,
   def convertArrayToSinglePrecision(src: Array[Double], dst: ArrayBuf[Float]) {
     dst.clear()
     for (i <- 0 until src.size) {
-      dst.add(src(i).toFloat)
+      dst.push(src(i).toFloat)
     }
   }
   
   def convertBufferToSinglePrecision(src: ArrayBuf[Double], dst: ArrayBuf[Float]) {
     dst.clear()
     for (i <- 0 until src.size) {
-      dst.add(src(i).toFloat)
+      dst.push(src(i).toFloat)
     }
   }
   

@@ -19,7 +19,7 @@ class ArrayBuf[@specialized(Int, Float, Double) T: ClassTag]() {
     size = newSize
   }
   
-  def add(x: T) {
+  def push(x: T) {
     resize(size+1)
     buffer(size-1) = x
   }
@@ -60,10 +60,26 @@ class DenseComplex(val numRows: Int, val numCols: Int, val data: Array[Double]) 
     j*numRows + i
   }
   
+  def get_re(i: Int, j: Int): Double = {
+    val k = dataIndex(i, j)
+    data(floatsPerElem*k + 0)
+  }
+
+  def get_im(i: Int, j: Int): Double = {
+    val k = dataIndex(i, j)
+    data(floatsPerElem*k + 1)
+  }
+
   def set(i: Int, j: Int, re: Double, im: Double) {
     val k = dataIndex(i, j)
     data(floatsPerElem*k + 0) = re
     data(floatsPerElem*k + 1) = im
+  }
+  
+  def add(i: Int, j: Int, re: Double, im: Double) {
+    val k = dataIndex(i, j)
+    data(floatsPerElem*k + 0) += re
+    data(floatsPerElem*k + 1) += im
   }
   
   // TODO: Remove!
@@ -103,10 +119,10 @@ class SparseCooComplex(val numRows: Int, val numCols: Int) {
   }
   
   def add(i: Int, j: Int, re: Double, im: Double) {
-    rowIdx.add(i)
-    colIdx.add(j)
-    data.add(re)
-    data.add(im)
+    rowIdx.push(i)
+    colIdx.push(j)
+    data.push(re)
+    data.push(im)
   }
   
   def toCsr(): SparseCsrComplex = {
@@ -166,10 +182,10 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     Sort.quicksort(swap, compare, 0, nnz)
     
     // remove duplicate indices
-    val numDuplicates = that.rowIdx.size
-    require(numDuplicates > 0)
+    val numElemsWithDuplicates = that.rowIdx.size
+    require(numElemsWithDuplicates > 0)
     var numUnique = 1
-    for (i <- 1 until numDuplicates) {
+    for (i <- 1 until numElemsWithDuplicates) {
       if (compare(i-1, i) != 0) {
         rowIdx(numUnique) = rowIdx(i)
         colIdx(numUnique) = colIdx(i)
@@ -195,7 +211,7 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     // fill data
     data.resize(2*numUnique)
     Arrays.fill(data.buffer, 0.0)
-    for (k <- 0 until numDuplicates) {
+    for (k <- 0 until numElemsWithDuplicates) {
       val i = that.rowIdx(k)
       val j = that.colIdx(k)
       this += (i, j, that.data(2*k+0), that.data(2*k+1))
@@ -270,7 +286,6 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
     }
   }
   
-  
   // TODO: Remove!
   import smatrix.PackedSparse
   import smatrix.Scalar
@@ -293,6 +308,49 @@ class SparseCsrComplex(val numRows: Int, val numCols: Int) {
   }
 }
 
+
+object MatrixOps {
+  // C := alpha*A*B + beta*C
+  def zcsrmm(alpha_re: Double, alpha_im: Double, A: SparseCsrComplex, B: DenseComplex, beta_re: Double, beta_im: Double, C: DenseComplex) {
+    require(
+        C.numRows == A.numRows &&
+        A.numCols == B.numRows &&
+        B.numCols == C.numCols, "Cannot multiply matrices of shape: [%d, %d] * [%d, %d] -> [%d, %d].".format(
+            A.numRows, A.numCols, B.numRows, B.numCols, C.numRows, C.numCols))
+    require(B ne C, "Illegal aliasing in matrix product.")
+    for (i <- 0 until A.numRows) {
+      if (beta_re != 1.0 || beta_im != 0.0) {
+        for (j <- 0 until C.numCols) {
+          val C_ij_re = C.get_re(i, j)
+          val C_ij_im = C.get_im(i, j)
+          val beta_C_ij_re = C_ij_re * beta_re - C_ij_im * beta_im
+          val beta_C_ij_im = C_ij_re * beta_im + C_ij_im * beta_re
+          C.set(i, j, beta_C_ij_re, beta_C_ij_im)
+        }
+      }
+      
+      var ptr = A.rowPtr(i)
+      while (ptr < A.rowPtr(i+1)) {
+        val k = A.colIdx(ptr)
+        val A_ik_re = A.data(2*ptr + 0)
+        val A_ik_im = A.data(2*ptr + 1)
+        val alpha_A_ik_re = A_ik_re * alpha_re - A_ik_im * alpha_im
+        val alpha_A_ik_im = A_ik_re * alpha_im + A_ik_im * alpha_re
+        var j = 0
+        while (j < C.numCols) {
+          val idx = B.dataIndex(k, j)
+          val B_kj_re = B.data(2*idx+0)
+          val B_kj_im = B.data(2*idx+1)
+          val re = alpha_A_ik_re * B_kj_re - alpha_A_ik_im * B_kj_im
+          val im = alpha_A_ik_re * B_kj_im + alpha_A_ik_im * B_kj_re
+          C.add(i, j, re, im)
+          j += 1
+        }
+        ptr += 1
+      }
+    }
+  }
+}
 
 
 object Sort {
