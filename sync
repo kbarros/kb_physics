@@ -1,0 +1,1 @@
+rsync -avz ~/dev/kb_physics/src/ darwin:dev/kb_physics/src/
