@@ -109,8 +109,8 @@ class DiamondLattice(lx: Int, ly: Int, lz: Int, r0: Double, periodic: Boolean) e
   val numAtoms = atomsPerCell*lx*ly*lz
   val a = (4.0 / math.sqrt(3.0)) * r0 // lattice constant
   
-  val boundsLow  = Vec3(-a, -a, -a)
-  val boundsHigh = Vec3(lx*r0, ly*r0, lz*r0)
+  val boundsLow  = Vec3(-r0/2, -r0/2, -r0/2)
+  val boundsHigh = boundsLow + Vec3(lx*a, ly*a, lz*a)
   
   
   def displacement(r1: Vec3, r2: Vec3): Vec3 = {
