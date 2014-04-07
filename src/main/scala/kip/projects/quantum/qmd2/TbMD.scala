@@ -1,12 +1,9 @@
 package kip.projects.quantum.qmd2
 
 import java.io.File
-
 import scala.util.Random
-
-import kip.projects.quantum.qmd.{Potential, GoodwinSi, Lattice, LinearChain, SquareLattice}
+import kip.projects.quantum.qmd.{Potential, GoodwinSi, Lattice, LinearChain, SquareLattice, DiamondLattice}
 import kip.projects.quantum.qmd.Units._
-
 import kip.enrich.enrichFile
 import kip.math.Vec3
 import kip.math.Math.sqr
@@ -15,7 +12,6 @@ import kip.projects.quantum.kpm2.{KPMUtil, KPMComplexCpu, KPMComplexGpu}
 import kip.util.JacksonWrapper.deserialize
 import kip.util.JacksonWrapper.serialize
 import kip.util.Util
-import Util.time
 
 
 object TbMD extends App {
@@ -69,6 +65,10 @@ object TbMD extends App {
       val lx = math.sqrt(numAtoms).round.toInt
       new SquareLattice(lx, lx, r0, periodic)
     }
+    case "diamond" => {
+      val lx = math.cbrt(numAtoms/8).round.toInt
+      new DiamondLattice(lx, lx, lx, r0, periodic)
+    }
   }
   val x = lat.initialPositions
   val v = Array.fill(numAtoms)(Vec3.zero)
@@ -111,12 +111,21 @@ object TbMD extends App {
     (df2*conf.dt*conf.gamma) / (2*mass*kB)
   }
   
+  def randomizeVectors() {
+    if (conf.s < tbh.H.numRows)
+      kpm.correlatedVectors(tbh.grouping(_, conf.s), rand)
+    else if (conf.s == tbh.H.numRows)
+      kpm.allVectors()
+    else
+      kpm.uncorrelatedVectors(rand)
+  }
+  
   def calcMomentsAndDump() {
     // println(s"Teff = ${effectiveTemperature()/kelvin} (K)")
     // sys.exit()
     
     tbh.buildHamiltonian()
-    kpm.allVectors()
+    randomizeVectors()
     kpm.forward(KPMUtil.energyScale(tbh.H))
     val mu = tbh.findChemicalPotential(kpm, fillingFraction)
     val e_pot = tbh.energyAtFixedFilling(kpm, mu, fillingFraction, conf.T)
@@ -170,8 +179,9 @@ object TbMD extends App {
   
   while (true) {
     for (_ <- 0 until conf.dumpEvery) {
+      import Util.time
       time("Build hamiltonian")(tbh.buildHamiltonian())
-      time("Random vectors")(kpm.allVectors())
+      time("Random vectors")(randomizeVectors())
       val es = time("Energy Scale")(KPMUtil.energyScale(tbh.H))
       time("Forward calc")(kpm.forward(es))
       val mu = time("Chem pot.")(tbh.findChemicalPotential(kpm, fillingFraction))

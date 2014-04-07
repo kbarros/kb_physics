@@ -100,5 +100,62 @@ class SquareLattice(lx: Int, ly: Int, r0: Double, periodic: Boolean) extends Lat
     val yp = y % len
     xp + yp*len
   }
+}
 
+class DiamondLattice(lx: Int, ly: Int, lz: Int, r0: Double, periodic: Boolean) extends Lattice {
+  if (periodic) require(lx > 1 && ly > 1 && lz > 1)
+  
+  val atomsPerCell = 8
+  val numAtoms = atomsPerCell*lx*ly*lz
+  val a = (4.0 / math.sqrt(3.0)) * r0 // lattice constant
+  
+  val boundsLow  = Vec3(-a, -a, -a)
+  val boundsHigh = Vec3(lx*r0, ly*r0, lz*r0)
+  
+  
+  def displacement(r1: Vec3, r2: Vec3): Vec3 = {
+    val delta = r2 - r1 
+    if (!periodic) delta
+    else {
+      val dx = Lattice.periodicWrap(delta.x, lx*a)
+      val dy = Lattice.periodicWrap(delta.y, ly*a)
+      val dz = Lattice.periodicWrap(delta.y, lz*a)
+      Vec3(dx, dy, dz)
+    }
+  }
+  
+  def latticeCoords(i: Int) = {
+    val ip = i/atomsPerCell
+    val x = ip % lx
+    val y = (ip / lx) % ly
+    val z = ip / (lx * ly)
+    (x, y, z)
+  }
+  
+  def initialPositions() = {
+    Array.tabulate(numAtoms) { i =>
+      val (x, y, z) = latticeCoords(i)
+      val offset = Vec3(a, a, a) / 4.0
+      (i % atomsPerCell) match {
+        case 0 => Vec3(x, y, z)*a
+        case 1 => Vec3(x+0.5, y+0.5, z)*a
+        case 2 => Vec3(x+0.5, y, z+0.5)*a
+        case 3 => Vec3(x, y+0.5, z+0.5)*a
+        case 4 => Vec3(x, y, z)*a         + offset
+        case 5 => Vec3(x+0.5, y+0.5, z)*a + offset
+        case 6 => Vec3(x+0.5, y, z+0.5)*a + offset
+        case 7 => Vec3(x, y+0.5, z+0.5)*a + offset
+      }
+    }
+  }
+  
+  def grouping(i: Int, x: Array[Vec3], s: Int): Int = {
+    val len = math.cbrt(s/atomsPerCell).round.toInt
+    require(len*len*len*atomsPerCell == s)
+    val (x, y, z) = latticeCoords(i)
+    val xp = x % len
+    val yp = y % len
+    val zp = z % len
+    (xp + yp*len + zp*len*len)*atomsPerCell + (i%atomsPerCell)
+  }
 }

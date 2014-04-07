@@ -62,7 +62,9 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
   
   def grouping(i: Int, s: Int): Int = {
     val norb = pot.numOrbitalsPerSite
-    norb*lat.grouping(i/norb, x, s/norb) + (i%norb)
+    val latGrouping = lat.grouping(i/norb, x, s/norb)
+    require(0 <= latGrouping && latGrouping < s/norb)
+    norb*latGrouping + (i%norb)
   }
   
   def localFermiEnergy(x: Double, T: Double, mu: Double) = {
