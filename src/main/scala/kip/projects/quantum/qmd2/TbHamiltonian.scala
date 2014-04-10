@@ -91,15 +91,16 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
   
   def energy(kpm: KPMComplex, mu: Double, T: Double): Double = {
     // electronic part
-    var E = kpm.eval(localFermiEnergy(_, T, mu))
+    val E_elec = kpm.eval(localFermiEnergy(_, T, mu))
+    var E_pair = 0.0
     for (i <- 0 until lat.numAtoms;
          j <- lat.neighbors(i, x, pot.rcut);
          if (j < i)) {
       val del = lat.displacement(x(i), x(j))
       val r = del.norm
-      E += pot.phi(r)
+      E_pair += pot.phi(r)
     }
-    E
+    E_elec+E_pair
   }
   
   // mu and fillingFraction must correspond
