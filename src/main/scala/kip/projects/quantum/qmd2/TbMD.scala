@@ -74,7 +74,15 @@ object TbMD extends App {
   val v = Array.fill(numAtoms)(Vec3.zero)
   val tbh = new TbHamiltonian(pot, lat, x)
   
-  println(s"numAtoms=${lat.numAtoms}, M=${conf.M}, T=${conf.T/kelvin} (K), gamma=${conf.gamma/fs} (fs), dt=${conf.dt/fs} (fs)")
+  val randType =
+    if (conf.s < tbh.H.numRows)
+      "correlated"
+    else if (conf.s == tbh.H.numRows)
+      "all"
+    else
+      "uncorrelated"
+  
+  println(s"numAtoms=${lat.numAtoms}, M=${conf.M}, s=${conf.s} ($randType), T=${conf.T/kelvin} (K), gamma=${conf.gamma/fs} (fs), dt=${conf.dt/fs} (fs)")
   
   val kpm = try {
     val cworld = new JCudaWorld(deviceIndex=0)
@@ -112,12 +120,11 @@ object TbMD extends App {
   }
   
   def randomizeVectors() {
-    if (conf.s < tbh.H.numRows)
-      kpm.correlatedVectors(tbh.grouping(_, conf.s), rand)
-    else if (conf.s == tbh.H.numRows)
-      kpm.allVectors()
-    else
-      kpm.uncorrelatedVectors(rand)
+    randType match {
+      case "correlated"   => kpm.correlatedVectors(tbh.grouping(_, conf.s), rand)
+      case "all"          => kpm.allVectors()
+      case "uncorrelated" => kpm.uncorrelatedVectors(rand)
+    }
   }
   
   def calcMomentsAndDump() {
@@ -155,7 +162,7 @@ object TbMD extends App {
                     moments=kpm.mu,
                     energyScale=(kpm.es.lo/eV, kpm.es.hi/eV))
     val filename = dumpFilename(dumpCnt)
-    println(f"Dumping $filename, t=${stepCnt*conf.dt/fs}%g (fs), E=${energy/eV}%g (eV)")
+    println(f"Dumping $filename, t=${stepCnt*conf.dt/fs}%g (fs), E/n=${energy/(numAtoms*eV)}%g (eV)")
     kip.util.Util.writeStringToFile(serialize(snap), filename)
     dumpCnt += 1
   }
