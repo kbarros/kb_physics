@@ -52,12 +52,7 @@ object TbViz {
     ret
   }
   
-  def main(args: Array[String]) {
-    if (args.size != 2) {
-      println("Usage: TbViz <dirname> <readevery>")
-    }
-    val dir = args(0)
-    val readEvery = args(1).toInt
+  def run(dir: String, readEvery: Int): MolViz = {
     val snaps = readSnaps(new java.io.File(dir+"/dump"), readEvery)
     val snaps2 = snaps.map(convertToLammpsSnapshot(_))
     val mv = new MolViz(snaps2, RenderProperties.basic)
@@ -68,6 +63,14 @@ object TbViz {
     //val pv = new PairViz(snaps2)
     //mv.callbacks :+= (pv.display(_))
     mv.goto(0)
+    mv
+  }
+  
+  def main(args: Array[String]) {
+    if (args.size != 2) {
+      println("Usage: TbViz <dirname> <readevery>")
+    }
+    run(dir = args(0), readEvery = args(1).toInt)
   }
 }
 

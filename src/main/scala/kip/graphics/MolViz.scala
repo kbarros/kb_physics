@@ -240,15 +240,17 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
     for (f <- callbacks)
       f(i)
   }
+  
+    
+  def animate(dir: String) {
+    for (i <- snaps.indices) {
+      goto(i)
 
-  def animate(molviz: MolViz) {
-    for (i <- 500 until 2000) {
-      molviz.goto(i)
-
-      // val im = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
-      val im = scene.captureImage()
-      javax.imageio.ImageIO.write(im, "PNG", new java.io.File("foo6.png"))
-
+      // val img = kip.graphics.Utilities.captureJComponentImage(comp, comp.getWidth(), comp.getHeight())
+      val img = scene.captureImage()
+      val file = new java.io.File(f"$dir/$i%04d.png")
+      println(s"Writing $file")
+      javax.imageio.ImageIO.write(img, "PNG", file)
     }
   }
 }
