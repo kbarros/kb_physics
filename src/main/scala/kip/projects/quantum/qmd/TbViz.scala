@@ -64,9 +64,9 @@ object TbViz {
     // new TbViz(snaps)
     
     val dv = new DensityViz(snaps)
-    val pv = new PairViz(snaps2)
     mv.callbacks :+= (dv.display(_)) 
-    mv.callbacks :+= (pv.display(_))
+    //val pv = new PairViz(snaps2)
+    //mv.callbacks :+= (pv.display(_))
     mv.goto(0)
   }
 }

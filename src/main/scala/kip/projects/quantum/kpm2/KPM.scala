@@ -121,11 +121,11 @@ object KPMUtil {
     (x, irho)
   }
   
-  def energyScale(H: SparseCsrComplex) = {
+  def energyScale(H: SparseCsrComplex, extend: Double=0.1) = {
     val Hp = H.toSmatrix()
-    val eig_min = Hp.eig(nev=1, which="SR", tol=1e-3)._1.apply(0).re
-    val eig_max = Hp.eig(nev=1, which="LR", tol=1e-3)._1.apply(0).re
-    val slack = 0.01 * (eig_max - eig_min)
+    val eig_min = Hp.eig(nev=1, which="SR", tol=1e-2)._1.apply(0).re
+    val eig_max = Hp.eig(nev=1, which="LR", tol=1e-2)._1.apply(0).re
+    val slack = extend * (eig_max - eig_min)
     new EnergyScale(lo = eig_min - slack, hi = eig_max + slack)
   }
 }

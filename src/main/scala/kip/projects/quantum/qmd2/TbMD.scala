@@ -1,17 +1,16 @@
 package kip.projects.quantum.qmd2
 
 import java.io.File
-import scala.util.Random
-import kip.projects.quantum.qmd.{Potential, GoodwinSi, Lattice, LinearChain, SquareLattice, DiamondLattice}
-import kip.projects.quantum.qmd.Units._
 import kip.enrich.enrichFile
 import kip.math.Vec3
 import kip.math.Math.sqr
 import kip.projects.cuda.JCudaWorld
-import kip.projects.quantum.kpm2.{KPMUtil, KPMComplexCpu, KPMComplexGpu}
-import kip.util.JacksonWrapper.deserialize
-import kip.util.JacksonWrapper.serialize
+import kip.projects.quantum.kpm2.{KPMUtil, KPMComplexCpu, KPMComplexGpu, EnergyScale}
+import kip.projects.quantum.qmd.{Potential, GoodwinSi, Lattice, LinearChain, SquareLattice, DiamondLattice}
+import kip.projects.quantum.qmd.Units._
+import kip.util.JacksonWrapper.{deserialize, serialize}
 import kip.util.Util
+import scala.util.Random
 
 
 object TbMD extends App {
@@ -63,14 +62,17 @@ object TbMD extends App {
     }
     case "square" => {
       val lx = math.sqrt(numAtoms).round.toInt
+      require(lx*lx == numAtoms)
       new SquareLattice(lx, lx, r0, periodic)
     }
     case "diamond" => {
       val lx = math.cbrt(numAtoms/8).round.toInt
+      require(lx*lx*lx*8 == numAtoms)
       new DiamondLattice(lx, lx, lx, r0, periodic)
     }
   }
   val x = lat.initialPositions
+  lat.distort(x, x0=(lat.boundsLow+lat.boundsHigh)/2, dir=Vec3(1,0,0), sigma=10*angstrom, amplitude=5*angstrom)
   val v = Array.fill(numAtoms)(Vec3.zero)
   val tbh = new TbHamiltonian(pot, lat, x)
   
@@ -100,12 +102,26 @@ object TbMD extends App {
   // don't overwrite any existing data
   // require(!(new File(dumpFilename(dumpCnt))).exists, "Refuse to overwrite dump file %s".format(dumpFilename(dumpCnt)))
   
+  
+  def randomizeVectors() {
+    randType match {
+      case "correlated"   => kpm.correlatedVectors(tbh.grouping(_, conf.s), rand)
+      case "all"          => kpm.allVectors()
+      case "uncorrelated" => kpm.uncorrelatedVectors(rand)
+    }
+  }
+  
+  var es: EnergyScale = null
+  def cachedEnergyScale() = {
+    if (es == null)
+      es = KPMUtil.energyScale(tbh.H)
+    es
+  }
+  
   def effectiveTemperature(): Double = {
     def estimateForce() = {
-      // kpm.allVectors()
-      // kpm.correlatedVectors(tbh.grouping(_, conf.s), rand)
-      kpm.uncorrelatedVectors(rand)
-      kpm.forward(KPMUtil.energyScale(tbh.H))
+      randomizeVectors()
+      kpm.forward(cachedEnergyScale())
       val mu = tbh.findChemicalPotential(kpm, fillingFraction)
       tbh.force(kpm, mu, conf.T)
     }
@@ -119,21 +135,13 @@ object TbMD extends App {
     (df2*conf.dt*conf.gamma) / (2*mass*kB)
   }
   
-  def randomizeVectors() {
-    randType match {
-      case "correlated"   => kpm.correlatedVectors(tbh.grouping(_, conf.s), rand)
-      case "all"          => kpm.allVectors()
-      case "uncorrelated" => kpm.uncorrelatedVectors(rand)
-    }
-  }
-  
   def calcMomentsAndDump() {
     // println(s"Teff = ${effectiveTemperature()/kelvin} (K)")
     // sys.exit()
     
     tbh.buildHamiltonian()
     randomizeVectors()
-    kpm.forward(KPMUtil.energyScale(tbh.H))
+    kpm.forward(cachedEnergyScale())
     val mu = tbh.findChemicalPotential(kpm, fillingFraction)
     val e_pot = tbh.energyAtFixedFilling(kpm, mu, fillingFraction, conf.T)
     val e_kin = 0.5 * mass * v.map(_.norm2).sum
@@ -189,7 +197,7 @@ object TbMD extends App {
       import Util.time
       time("Build hamiltonian")(tbh.buildHamiltonian())
       time("Random vectors")(randomizeVectors())
-      val es = time("Energy Scale")(KPMUtil.energyScale(tbh.H))
+      val es = time("Energy Scale")(cachedEnergyScale())
       time("Forward calc")(kpm.forward(es))
       val mu = time("Chem pot.")(tbh.findChemicalPotential(kpm, fillingFraction))
       val f = time("Force")(tbh.force(kpm, mu, conf.T))

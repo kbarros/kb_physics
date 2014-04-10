@@ -28,6 +28,14 @@ trait Lattice {
     (for (j <- 0 until numAtoms;
          if (displacement(x(i), x(j)).norm2 < rcut*rcut)) yield j).toArray
   }
+  
+  def distort(x: Array[Vec3], x0: Vec3, dir: Vec3, sigma: Double, amplitude: Double) {
+    for (i <- x.indices) {
+      val x1 = x(i)
+      val d = dir * ((displacement(x0, x1) dot dir) / dir.norm2)
+      x(i) += dir * (amplitude * math.exp(- d.norm2 / (2*sigma*sigma)) / dir.norm)
+    }
+  }
 }
 
 
