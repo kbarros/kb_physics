@@ -3,6 +3,7 @@ package kip.projects.quantum.qmd
 import kip.math.Vec3
 
 object Lattice {
+  // TODO: Make everything periodic, wrap according to boundsLow and boundsHigh
   def periodicWrap(dx: Double, L: Double) = {
     val dxp = dx % L
     if (dxp > L/2)
@@ -103,13 +104,13 @@ class SquareLattice(lx: Int, ly: Int, r0: Double, periodic: Boolean) extends Lat
 }
 
 class DiamondLattice(lx: Int, ly: Int, lz: Int, r0: Double, periodic: Boolean) extends Lattice {
-  if (periodic) require(lx > 1 && ly > 1 && lz > 1)
+  // if (periodic) require(lx > 1 && ly > 1 && lz > 1)
   
   val atomsPerCell = 8
   val numAtoms = atomsPerCell*lx*ly*lz
   val a = (4.0 / math.sqrt(3.0)) * r0 // lattice constant
   
-  val boundsLow  = Vec3(-r0/2, -r0/2, -r0/2)
+  val boundsLow  = Vec3(0, 0, 0)
   val boundsHigh = boundsLow + Vec3(lx*a, ly*a, lz*a)
   
   
@@ -119,7 +120,7 @@ class DiamondLattice(lx: Int, ly: Int, lz: Int, r0: Double, periodic: Boolean) e
     else {
       val dx = Lattice.periodicWrap(delta.x, lx*a)
       val dy = Lattice.periodicWrap(delta.y, ly*a)
-      val dz = Lattice.periodicWrap(delta.y, lz*a)
+      val dz = Lattice.periodicWrap(delta.z, lz*a)
       Vec3(dx, dy, dz)
     }
   }
