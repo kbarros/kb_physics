@@ -48,7 +48,7 @@ object RenderProperties {
   }
 
   val basic = new RenderProperties {
-    def color(snap: Snapshot, atom: Int) = Color.red
+    def color(snap: Snapshot, atom: Int) = Color.blue
     def radius(snap: Snapshot, atom: Int) = 1.0
     def sphereRes(snap: Snapshot, atom: Int) = 1
   }
@@ -172,8 +172,9 @@ object MolViz {
 }
 
 class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
-  var idx: Int = 0
-  
+  var idx: Int = _
+  var callbacks: Seq[Int => Unit] = Seq()
+
   val scene = new Scene() {
     def drawContent(gfx: GfxGL) {
       val snap = snaps(idx)
@@ -208,8 +209,8 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
     val slider = new JSlider(0, snaps.size-1, 0)
     slider.addChangeListener(new ChangeListener() {
       def stateChanged(e: ChangeEvent) {
-	goto(slider.getValue)
-	scene.display()
+        goto(slider.getValue)
+        scene.display()
       }
     })
     slider
@@ -236,6 +237,8 @@ class MolViz(val snaps: Seq[Snapshot], render: RenderProperties) {
   def goto(i: Int) {
     idx = i
     scene.display()
+    for (f <- callbacks)
+      f(i)
   }
 
   def animate(molviz: MolViz) {
