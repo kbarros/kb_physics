@@ -130,8 +130,8 @@ object SphereSphereForce {
       ("energyCoul", xs.map (x => energy(c.copy(L=x, order=0))))
     )
     
-    // println(formatted)
-    kip.util.Util.writeStringToFile(formatted, "yahoo.txt")
+    println(formatted)
+    // kip.util.Util.writeStringToFile(formatted, "yahoo.txt")
   }
   
   def printFew() {
@@ -162,30 +162,48 @@ object SphereSphereForce {
       println("Delta fraction = %e" format (energy(cFull) - energy(cCoul)) / energy(cCoul))
       println()
     }
-   }
+  }
+  
+  def smallLargePRL() {
+    val c0 = Constants(
+        L     =  4,
+        ra    =  3,
+        rb    =  0.5,
+        eps0  =  1,
+        epsa  =  1,
+        epsb  =  1,
+        qa    =  1,
+        qb    = -1,
+        order = 40
+        )
+    val c1 = c0.copy(epsa=100, epsb=1)
+    val c2 = c0.copy(epsa=100, epsb=100)
+    val c = Seq(c0, c1, c2)
+    val e = c.map(4*math.Pi*SphereSphereForce.energy(_))
+    val f = c.map(4*math.Pi*SphereSphereForce.force(_, 1e-3))
+    
+    println(s"q_a=${c0.qa}, q_b=${c0.qb}")
+    println()
+    println("kappa_a=1, kappa_b=1")
+    println("  energy0="+ e(0))       // -1/4
+    println("  force0 ="+ f(0))       // -1/16
+    
+    println("kappa_a=100, kappa_b=1")
+    println("  energy1="+ e(1))       // -0.367403
+    println("  force1 ="+ f(1))       // -0.255647
+
+    println("kappa_a=100, kappa_b=100")
+    println("  energy2="+ e(2))       // -0.371822
+    println("  force2 ="+ f(2))       // -0.273539
+    
+    println("relative effect of kappa_b")
+    println("  (E2-E1)/E2 = " + (e(2) - e(1)) / e(2))
+    println("  (f2-f1)/f2 = " + (f(2) - f(1)) / f(2))
+  }
   
   def main(args : Array[String]) : Unit = {
     // printFew()
-    makePlot()
+    //makePlot()
+    smallLargePRL()
   }
 }
-
-/*
-object DielectricEnergy {
-  import kip.projects.dlc._
-  
-  val c = Constants(
-      L     =  4,
-      ra    =  3,
-      rb    =  0.5,
-      eps0  =  1,
-      epsa  =  100,
-      epsb  =  1,
-      qa    =  1,
-      qb    =  1,
-      order = 40
-    )                                             //> c  : kip.projects.dlc.Constants = Constants(40,4.0,3.0,0.5,1.0,100.0,1.0,1.0
-                                                  //| ,1.0)
-  4 * math.Pi * SphereSphereForce.energy(c)       //> res0: Double = 0.13259728019257483
-}
-*/
