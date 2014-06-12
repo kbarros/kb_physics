@@ -89,9 +89,7 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
     }
   }
   
-  def energy(kpm: KPMComplex, mu: Double, T: Double): Double = {
-    // electronic part
-    val E_elec = kpm.eval(localFermiEnergy(_, T, mu))
+  def pairEnergy(): Double = {
     var E_pair = 0.0
     for (i <- 0 until lat.numAtoms;
          j <- lat.neighbors(i, x, pot.rcut);
@@ -100,6 +98,12 @@ class TbHamiltonian(pot: Potential, lat: Lattice, x: Array[Vec3]) {
       val r = del.norm
       E_pair += pot.phi(r)
     }
+    E_pair
+  }
+  
+  def energy(kpm: KPMComplex, mu: Double, T: Double): Double = {
+    val E_elec = kpm.eval(localFermiEnergy(_, T, mu))
+    val E_pair = pairEnergy()
     E_elec+E_pair
   }
   
