@@ -14,13 +14,15 @@ import kip.projects.quantum.kpm2.KPMComplexCpu
 import kip.projects.quantum.qmd.SquareLattice
 import kip.projects.quantum.kpm2.DenseComplex
 import kip.projects.quantum.kpm2.MatrixOps
+import kip.projects.quantum.qmd.DiamondLattice
 
 
 object Test extends App {
   //testDimer()
   //testDimerJoel()
+  testDiamondJoel()
   //testForce()
-  testLargeArpack()
+  //testLargeArpack()
   
   def testDimer() {
     val pot = GoodwinSi
@@ -76,6 +78,32 @@ object Test extends App {
     val E_kpm = tbh.energyAtFixedFilling(kpm, mu, fillingFraction, T)
     val n_kpm = tbh.fillingFraction(kpm, mu, T)
     println(s"Kpm : e=${E_kpm/(natoms*rydberg)} (? -0.19418 rydberg) at n=$n_kpm ($fillingFraction)")
+  }
+  
+  
+  def testDiamondJoel() { 
+    val r = 4.4777064079810982*bohr // 4.626000*bohr // 4.6321100772218253*bohr // 4.4777064079810982*bohr
+    val pot = GoodwinSi
+    val fillingFraction = 0.5
+    val T = 0.0
+    val lat = new DiamondLattice(lx=2, ly=2, lz=2, r0=r, periodic=true)
+    val x = lat.initialPositions()
+    val tbh = new TbHamiltonian(pot, lat, x)
+    tbh.buildHamiltonian()
+    
+    val natoms = lat.numAtoms
+    println(s"$natoms atoms in diamond lattice")
+    println(s"Nearest-neighbor distance: ${r/bohr} (bohr)")
+    val E_pair = tbh.pairEnergy()
+    println(s"Pair energy / atom = ${E_pair / (natoms*rydberg)} (?  rydberg)")
+    println(s"NN Pair energy = ${pot.phi(r) / rydberg} (rydberg)")
+    
+    val eig = tbh.H.toSmatrix.toDense.eig._1.toArray.map(_.re).sorted
+    val nspin = 2
+    val E_elec = nspin*eig.take((tbh.n*fillingFraction).round.toInt).sum
+    println(s"Elec. energy / atom = ${E_elec / (natoms*rydberg)} (?  rydberg)")
+    
+    println(s"Total = ${(E_pair + E_elec) / (natoms*rydberg)} rydberg")
   }
   
   def testForce() {
