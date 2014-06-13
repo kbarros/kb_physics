@@ -17,7 +17,8 @@ object KondoHamiltonian {
       }
       case "kagome" => {
         val t = model("t").toDouble
-        new KagomeLattice(w=w, h=h, t=t, J_H=J_H, e_min= -10, e_max= 10)
+        val t2 = model.getOrElse("t2", "0.0").toDouble;
+        new KagomeLattice(w=w, h=h, t=t, t2=t2, J_H=J_H, e_min= -10, e_max= 10)
       }
       case "square" => {
         val t1 = model("t1").toDouble

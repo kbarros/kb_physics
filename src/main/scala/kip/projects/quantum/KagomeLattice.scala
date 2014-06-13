@@ -13,7 +13,7 @@ object KagomeLattice extends App {
   
   // Plots the integrated density of states
   def testIntegratedDensity() {
-    val q = new KagomeLattice(w=16, h=16, t=1, J_H=0.5, e_min= -10, e_max= 10)
+    val q = new KagomeLattice(w=16, h=16, t=1, t2=0, J_H=0.5, e_min= -10, e_max= 10)
     //q.setFieldChiral(q.field)
     q.setFieldNoncoplanar3(q.field)
     //q.setFieldVortexCrystal(q.field)
@@ -35,7 +35,7 @@ object KagomeLattice extends App {
   }
   
   def testEigenvalues() {
-    val q = new KagomeLattice(w=12, h=12, t=1, J_H=1.0, e_min= -10, e_max=10)
+    val q = new KagomeLattice(w=12, h=12, t=1, t2=0, J_H=1.0, e_min= -10, e_max=10)
     val n = q.matrix.numRows
     println("Matrix dim = "+n)
     
@@ -61,7 +61,7 @@ object KagomeLattice extends App {
     val mu = -0.1
     println(s"Testing energy at w=$w, mu=$mu")
     
-    val q = new KagomeLattice(w=w, h=w, t=1, J_H=0.1, e_min= -10, e_max=10)
+    val q = new KagomeLattice(w=w, h=w, t=1, t2=0, J_H=0.1, e_min= -10, e_max=10)
     
     def weight(eig: Array[Double]) = eig.takeWhile(_ <= mu).map(_.re - mu).sum / q.numLatticeSites
     
@@ -91,7 +91,7 @@ object KagomeLattice extends App {
 //  x, y = coordinates on triangular super-lattice
 //  nn   = [0,1,2,3] nearest neighbor index (oriented clockwise, starting at 3 o'clock)
 //
-class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, val e_max: R) extends KondoHamiltonian {
+class KagomeLattice(val w: Int, val h: Int, val t: R, val t2: R, val J_H: R, val e_min: R, val e_max: R) extends KondoHamiltonian {
   require(h % 2 == 0, "Need even number of rows, or hamiltonian is non-hermitian")
 
   val numLatticeSites = 3*w*h
@@ -302,6 +302,27 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
     (nv, (x+xdel+w)%w, (y+ydel+h)%h)
   }
   
+    // returns (v, x, y) indices for the `nn`th next-neighbor site (
+  def nextNeighbor(v: Int, x: Int, y: Int, nn: Int): (Int, Int, Int) = {
+    val (nv, xdel, ydel) = (v, nn) match {
+      case (0, 0) => (2, 0, 1)
+      case (0, 1) => (1, 0,-1)
+      case (0, 2) => (2, 1,-1)
+      case (0, 3) => (1, 1, 0)
+
+      case (1, 0) => (2, 1, 0)
+      case (1, 1) => (0, 0, 1)
+      case (1, 2) => (2,-1, 1)
+      case (1, 3) => (0,-1, 0)
+
+      case (2, 0) => (0,-1, 1)
+      case (2, 1) => (1,-1, 0)
+      case (2, 2) => (0, 0,-1)
+      case (2, 3) => (1, 1,-1)
+    }
+    (nv, (x+xdel+w)%w, (y+ydel+h)%h)
+  }
+  
   // in *unscaled* (physical) energy units 
   val hoppingMatrix: PackedSparse[S] = {
     val ret = sparse(2*numLatticeSites, 2*numLatticeSites)
@@ -310,13 +331,22 @@ class KagomeLattice(val w: Int, val h: Int, val t: R, val J_H: R, val e_min: R, 
     for (y <- 0 until h;
          x <- 0 until w;
          v <- 0 until 3;
-         nn <- 0 until 4;
          sp <- 0 until 2) {
-      val (nv, nx, ny) = neighbor(v, x, y, nn);
       val i = matrixIndex(sp, coord2idx(v, x, y))
-      val j = matrixIndex(sp, coord2idx(nv, nx, ny))
-      ret(i, j) = -t
+      
+      for (nn <- 0 until 4) {
+        val (nv, nx, ny) = neighbor(v, x, y, nn);
+        val j = matrixIndex(sp, coord2idx(nv, nx, ny))
+        ret(i, j) = -t
+      }
+      
+      for (nn <- 0 until 4) {
+        val (nv, nx, ny) = nextNeighbor(v, x, y, nn);
+        val j = matrixIndex(sp, coord2idx(nv, nx, ny))
+        ret(i, j) = t2
+      }
     }
+    
     ret.toPacked
   }
 }
